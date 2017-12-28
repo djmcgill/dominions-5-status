@@ -2,6 +2,7 @@
 // const TEST_ADDR: &'static str = "91.105.250.132";
 // const TEST_PORT: u32 = 30013;
 
+
 extern crate byteorder;
 use byteorder::{LittleEndian, WriteBytesExt};
 
@@ -11,14 +12,57 @@ use hex_slice::AsHex;
 extern crate flate2;
 use flate2::read::ZlibDecoder;
 
+use std::fs::File;
 use std::io;
 use std::net;
 use std::io::{Read, Write};
 
+#[macro_use]
+extern crate serenity;
+use serenity::prelude::*;
+use serenity::model::*;
+use serenity::framework::standard::StandardFramework;
+
 // const PACKET_HEADER: &'static str = "<ccLB";
 
+struct Handler;
+impl EventHandler for Handler {
+    fn on_ready(&self, _: Context, ready: Ready) {
+        println!("{} is connected!", ready.user.name);
+    }
+}
+
+command!(ping(_context, message) {
+    println!{"message: {:?}", message};
+    let _ = message.reply("Pong!");
+});
+
+command!(game_name(_context, message, args) {
+    println!{"message: {:?}", message};
+    let server_address = args.single::<String>().unwrap();
+    let response = get_game_name(&server_address).unwrap();
+    let _ = message.reply(&format!("Game name at {} is {}", server_address, response));
+});
+
 fn main() {
-    do_main().unwrap();
+    let token = {
+        let mut token_file = File::open("token").unwrap();
+        let mut temp_token = String::new();
+        token_file.read_to_string(&mut temp_token).unwrap();
+        temp_token
+    };
+    
+    let mut client = Client::new(&token, Handler);
+    client.with_framework(StandardFramework::new()
+        .configure(|c| c.prefix("!"))
+        .on("ping", ping)
+        .on("game_name", game_name));
+
+    // start listening for events by starting a single shard
+    if let Err(why) = client.start() {
+        println!("Client error: {:?}", why);
+    }
+    println!("returning");
 }
 
 fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
@@ -30,12 +74,12 @@ fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
     Ok(decompressed)
 }
 
-fn do_main() -> io::Result<()> {
-    let buffer = call_server_for_info()?;
+fn get_game_name(server_address: &String) -> io::Result<String> {
+    let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_name = parse_server_info_for_game_name(&decompressed)?;
     println!("game name: {}", game_name);
-    Ok(())
+    Ok(game_name)
 }
 
 // PACKET_BYTES_PER_NATION = 3
@@ -50,9 +94,9 @@ fn parse_server_info_for_game_name(unzipped_info: &[u8]) -> io::Result<String> {
     Ok(game_name.to_string())
 }
 
-fn call_server_for_info() -> io::Result<Vec<u8>> {
+fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
     println!("starting");
-    let mut stream = net::TcpStream::connect("91.105.250.132:30013")?;
+    let mut stream = net::TcpStream::connect(server_address)?;
     // let mut stream = net::TcpStream::connect("dom5.snek.earth:30028")?;
     println!("connected");
     let mut wtr = vec![];

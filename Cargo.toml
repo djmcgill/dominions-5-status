@@ -4,6 +4,7 @@ version = "0.1.0"
 authors = ["David McGillicuddy <contact@djmcgill.co.uk>"]
 
 [dependencies]
-byteorder = "1.0.*"
+serenity = {version = "0.4.6", features = ["default"]}
 hex-slice = "*"
 flate2 = "1.0"
+byteorder = "*"
