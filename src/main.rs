@@ -1,10 +1,5 @@
-// const TEST_URL: &'static str = "snek.earth";
-// const TEST_ADDR: &'static str = "91.105.250.132";
-// const TEST_PORT: u32 = 30013;
-
-
 extern crate byteorder;
-use byteorder::{LittleEndian, WriteBytesExt};
+use byteorder::{LittleEndian, WriteBytesExt, ReadBytesExt};
 
 extern crate hex_slice;
 use hex_slice::AsHex;
@@ -15,15 +10,13 @@ use flate2::read::ZlibDecoder;
 use std::fs::File;
 use std::io;
 use std::net;
-use std::io::{Read, Write};
+use std::io::{Cursor, Read, Write};
 
 #[macro_use]
 extern crate serenity;
 use serenity::prelude::*;
 use serenity::model::*;
 use serenity::framework::standard::StandardFramework;
-
-// const PACKET_HEADER: &'static str = "<ccLB";
 
 struct Handler;
 impl EventHandler for Handler {
@@ -77,21 +70,9 @@ fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
 fn get_game_name(server_address: &String) -> io::Result<String> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
-    let game_name = parse_server_info_for_game_name(&decompressed)?;
-    println!("game name: {}", game_name);
-    Ok(game_name)
-}
-
-// PACKET_BYTES_PER_NATION = 3
-// PACKET_NUM_NATIONS = 250
-// PACKET_GENERAL_INFO = '<BBBBBB{0}sBBBBBBLB{1}BLLB'  # to use format later
-// PACKET_NATION_INFO_START = 15
-fn parse_server_info_for_game_name(unzipped_info: &[u8]) -> io::Result<String> {
-    let game_name_len = unzipped_info.len() - 20 - 6 - 750;
-    println!("name len {}", game_name_len);
-    let game_name_bytes: &[u8] = &unzipped_info[6..6+game_name_len];
-    let game_name = String::from_utf8_lossy(game_name_bytes);
-    Ok(game_name.to_string())
+    let game_data = parse_data(&decompressed)?;
+    println!("data: {:?}", game_data);
+    Ok(game_data.game_name)
 }
 
 fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
@@ -123,4 +104,73 @@ fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
     println!("sent");
 
     Ok(buffer.to_vec())
+}
+
+// gamenamelength = len(data) - len(PACKET_GENERAL_INFO.format("", "")) - PACKET_BYTES_PER_NATION * PACKET_NUM_NATIONS - 6
+// dataArray = struct.unpack(PACKET_GENERAL_INFO.format(gamenamelength, PACKET_BYTES_PER_NATION * PACKET_NUM_NATIONS), data)
+    // PACKET_BYTES_PER_NATION = 3
+// PACKET_NUM_NATIONS = 250
+// PACKET_GENERAL_INFO = '<BBBBBB{0}sBBBBBBLB{1}BLLB'  # to use format later
+// PACKET_NATION_INFO_START = 15
+// fn parse_server_info_for_game_name(unzipped_info: &[u8]) -> io::Result<String> {
+//     let game_name_len = unzipped_info.len() - 27 - 750;
+//     println!("name len {}", game_name_len);
+//     let game_name_bytes: &[u8] = &unzipped_info[6..6+game_name_len];
+//     let game_name = String::from_utf8_lossy(game_name_bytes);
+//     Ok(game_name.to_string())
+// }
+#[repr(C)]
+#[derive(Debug)]
+struct RawGameData {
+    a: [u8; 6], // 6
+    game_name: String,
+    c: [u8; 6], // 6
+    d: u32, // 4
+    e: u8,  // 1
+    f: Vec<u8>, // ; 750],
+    g: u8,  // 1
+    h: u32, // 4
+    i: u32, // 4
+    j: u8,  // 1
+}
+fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
+    let game_name_len = data.len() - 27 - 750;
+    let mut cursor = Cursor::new(data);
+    let mut a = [0u8; 6]; 
+    cursor.read(&mut a).unwrap();
+    
+    let mut game_name_buff = vec![0u8; game_name_len];
+    cursor.read_exact(&mut game_name_buff).unwrap();
+    let game_name = String::from_utf8_lossy(&game_name_buff).to_string();
+
+    let mut c = [0u8; 6];
+    cursor.read(&mut c).unwrap();
+    
+    let d = cursor.read_u32::<LittleEndian>().unwrap();
+
+    let e = cursor.read_u8().unwrap();
+
+    let mut f = vec![0u8; 750];
+    cursor.read_exact(&mut f).unwrap();
+
+    let g = cursor.read_u8().unwrap();
+
+    let h = cursor.read_u32::<LittleEndian>().unwrap();
+
+    let i = cursor.read_u32::<LittleEndian>().unwrap();
+
+    let j = cursor.read_u8().unwrap();
+    assert!(cursor.position() as usize == cursor.get_ref().len());
+    Ok(RawGameData {
+        a: a,
+        game_name: game_name,
+        c: c,
+        d: d,
+        e: e,
+        f: f,
+        g: g,
+        h: h,
+        i: i,
+        j: j,
+    })
 }
