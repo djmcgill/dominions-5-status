@@ -21,22 +21,39 @@ fn main() {
     do_main().unwrap();
 }
 
-fn do_main() -> io::Result<()> {
-    let buffer = call_server_for_info()?;
-    let compressed = buffer[1] == b'J';
-    assert!(compressed);
-    println!("starting decoding");
-    let mut decoder = ZlibDecoder::new(&buffer[10..]);
+fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
+    assert!(raw[1] == b'J');
+    let mut decoder = ZlibDecoder::new(&raw[10..]);
     let mut decompressed = vec![];
     let _ = decoder.read_to_end(&mut decompressed)?;
     println!("{:x}", decompressed.as_slice().as_hex());
-    println!("{}", String::from_utf8_lossy(&decompressed));
+    Ok(decompressed)
+}
+
+fn do_main() -> io::Result<()> {
+    let buffer = call_server_for_info()?;
+    let decompressed = decompress_server_info(&buffer)?;
+    let game_name = parse_server_info_for_game_name(&decompressed)?;
+    println!("game name: {}", game_name);
     Ok(())
+}
+
+// PACKET_BYTES_PER_NATION = 3
+// PACKET_NUM_NATIONS = 250
+// PACKET_GENERAL_INFO = '<BBBBBB{0}sBBBBBBLB{1}BLLB'  # to use format later
+// PACKET_NATION_INFO_START = 15
+fn parse_server_info_for_game_name(unzipped_info: &[u8]) -> io::Result<String> {
+    let game_name_len = unzipped_info.len() - 20 - 6 - 750;
+    println!("name len {}", game_name_len);
+    let game_name_bytes: &[u8] = &unzipped_info[6..6+game_name_len];
+    let game_name = String::from_utf8_lossy(game_name_bytes);
+    Ok(game_name.to_string())
 }
 
 fn call_server_for_info() -> io::Result<Vec<u8>> {
     println!("starting");
     let mut stream = net::TcpStream::connect("91.105.250.132:30013")?;
+    // let mut stream = net::TcpStream::connect("dom5.snek.earth:30028")?;
     println!("connected");
     let mut wtr = vec![];
     wtr.write_u8(b'f')?;
