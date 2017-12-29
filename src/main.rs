@@ -59,6 +59,27 @@ command!(nation_status(_context, message, args) {
     let _ = message.reply(&response);    
 });
 
+command!(
+    spell(_context, message, args) {
+        println!{"spell message: {:?}", message};
+        let name = args.single::<String>().unwrap();
+        let response = format!("https://larzm42.github.io/dom5inspector/?page=spell&spellq={}", name);
+        println!("responding with {}", response);
+        let _ = message.reply(&response); 
+    }
+);
+
+command!(
+    item(_context, message, args) {
+        println!{"item message: {:?}", message};
+        let name = args.single::<String>().unwrap();
+        let response = format!("https://larzm42.github.io/dom5inspector/?page=item&itemq={}", name);
+        println!("responding with {}", response);
+        let _ = message.reply(&response); 
+    }
+);
+//https://larzm42.github.io/dom5inspector/?page=spell&spellq=shatt
+// https://larzm42.github.io/dom5inspector/?page=item&itemq=smas
 fn main() {
     let token = {
         let mut token_file = File::open("token").unwrap();
@@ -72,7 +93,10 @@ fn main() {
         .configure(|c| c.prefix("!"))
         .on("ping", ping)
         .on("game_name", game_name)
-        .on("nation_status", nation_status));
+        .on("nation_status", nation_status)
+        .on("spell", spell)
+        .on("item", item)
+    );
 
     // start listening for events by starting a single shard
     if let Err(why) = client.start() {
