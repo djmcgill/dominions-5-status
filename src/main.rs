@@ -28,15 +28,35 @@ impl EventHandler for Handler {
 }
 
 command!(ping(_context, message) {
-    println!{"message: {:?}", message};
+    println!{"ping message: {:?}", message};
     let _ = message.reply("Pong!");
 });
 
 command!(game_name(_context, message, args) {
-    println!{"message: {:?}", message};
+    println!{"game_name message: {:?}", message};
     let server_address = args.single::<String>().unwrap();
-    let response = get_game_name(&server_address).unwrap();
+    let response = get_game_data(&server_address).unwrap().game_name;
     let _ = message.reply(&format!("Game name at {} is {}", server_address, response));
+});
+
+command!(nation_status(_context, message, args) {
+    println!{"nation_status message: {:?}", message};
+    let server_address = args.single::<String>().unwrap();
+    let data = get_game_data(&server_address).unwrap();
+    let mut response = String::new();
+    for i in 0..250 {
+        let status_num = data.f[i];        
+        if status_num != 0 && status_num != 3 {
+            let submitted = data.f[i+250];
+            let connected = data.f[i+500];
+            let nation_name = nations::get_nation_desc(i-1); // why -1? No fucking idea
+            response.push_str(&format!(
+                "name: {}, status: {}, submitted: {}, connected: {}\n", nation_name, status_num, submitted, connected
+            ))
+        }
+    }
+    println!("responding with {}", response);
+    let _ = message.reply(&response);    
 });
 
 fn main() {
@@ -51,7 +71,8 @@ fn main() {
     client.with_framework(StandardFramework::new()
         .configure(|c| c.prefix("!"))
         .on("ping", ping)
-        .on("game_name", game_name));
+        .on("game_name", game_name)
+        .on("nation_status", nation_status));
 
     // start listening for events by starting a single shard
     if let Err(why) = client.start() {
@@ -69,12 +90,12 @@ fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
     Ok(decompressed)
 }
 
-fn get_game_name(server_address: &String) -> io::Result<String> {
+fn get_game_data(server_address: &String) -> io::Result<RawGameData> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_data = parse_data(&decompressed)?;
     println!("data: {:?}", game_data);
-    Ok(game_data.game_name)
+    Ok(game_data)
 }
 
 fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
