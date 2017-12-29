@@ -18,6 +18,8 @@ use serenity::prelude::*;
 use serenity::model::*;
 use serenity::framework::standard::StandardFramework;
 
+mod nations;
+
 struct Handler;
 impl EventHandler for Handler {
     fn on_ready(&self, _: Context, ready: Ready) {
@@ -134,7 +136,7 @@ struct RawGameData {
     j: u8,  // 1
 }
 fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
-    let game_name_len = data.len() - 27 - 750;
+    let game_name_len = data.len() - 27 - 750; // Possibly null terminated?
     let mut cursor = Cursor::new(data);
     let mut a = [0u8; 6]; 
     cursor.read(&mut a).unwrap();
@@ -161,6 +163,21 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
 
     let j = cursor.read_u8().unwrap();
     assert!(cursor.position() as usize == cursor.get_ref().len());
+
+    for i in 0..250 {
+        let status_num = f[i];        
+        if status_num != 0 && status_num != 3 {
+            let submitted = f[i+250];
+            let connected = f[i+500];
+            println!("i: {}", i);
+            println!("status_num: {}", status_num);
+            println!("nation_desc: {}", nations::get_nation_desc(i-1));
+            println!("submitted: {}", submitted);
+            println!("connected: {}", connected);
+            println!("--------")
+        }
+    }
+
     Ok(RawGameData {
         a: a,
         game_name: game_name,
