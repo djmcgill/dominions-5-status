@@ -8,3 +8,4 @@ serenity = {version = "0.4.6", features = ["default"]}
 hex-slice = "*"
 flate2 = "1.0"
 byteorder = "*"
+typemap = "0.3"

@@ -3,3 +3,7 @@ pub mod spell;
 pub mod ping;
 pub mod game_name;
 pub mod nation_status;
+pub mod add_server;
+pub mod list_servers;
+pub mod remove_server;
+pub mod help;

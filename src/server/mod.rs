@@ -72,29 +72,29 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     let game_name_len = data.len() - 27 - 750; // Possibly null terminated?
     let mut cursor = Cursor::new(data);
     let mut a = [0u8; 6]; 
-    cursor.read(&mut a).unwrap();
+    cursor.read(&mut a)?;
     
     let mut game_name_buff = vec![0u8; game_name_len];
-    cursor.read_exact(&mut game_name_buff).unwrap();
+    cursor.read_exact(&mut game_name_buff)?;
     let game_name = String::from_utf8_lossy(&game_name_buff).to_string();
 
     let mut c = [0u8; 6];
-    cursor.read(&mut c).unwrap();
+    cursor.read(&mut c)?;
     
-    let d = cursor.read_u32::<LittleEndian>().unwrap();
+    let d = cursor.read_u32::<LittleEndian>()?;
 
-    let e = cursor.read_u8().unwrap();
+    let e = cursor.read_u8()?;
 
     let mut f = vec![0u8; 750];
-    cursor.read_exact(&mut f).unwrap();
+    cursor.read_exact(&mut f)?;
 
-    let g = cursor.read_u8().unwrap();
+    let g = cursor.read_u8()?;
 
-    let h = cursor.read_u32::<LittleEndian>().unwrap();
+    let h = cursor.read_u32::<LittleEndian>()?;
 
-    let i = cursor.read_u32::<LittleEndian>().unwrap();
+    let i = cursor.read_u32::<LittleEndian>()?;
 
-    let j = cursor.read_u8().unwrap();
+    let j = cursor.read_u8()?;
     assert!(cursor.position() as usize == cursor.get_ref().len());
 
     Ok(RawGameData {

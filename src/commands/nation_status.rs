@@ -1,10 +1,16 @@
 use ::server::get_game_data;
 use ::nations;
+use ::ServerList;
 
-command!(nation_status(_context, message, args) {
+command!(nation_status(context, message, args) {
     println!{"nation_status message: {:?}", message};
-    let server_address = args.single::<String>().unwrap();
-    let data = get_game_data(&server_address).unwrap();
+    let data = context.data.lock();
+    let server_list = data.get::<ServerList>().ok_or("No ServerList was created on startup. This is a bug.")?;
+    let alias = args.single::<String>().or_else(|_| {
+        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
+    })?;
+    let server_address = server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?;
+    let data = get_game_data(&server_address)?;
     let mut response = String::new();
     for i in 0..250 {
         let status_num = data.f[i];        
