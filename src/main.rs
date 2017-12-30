@@ -3,6 +3,10 @@ extern crate byteorder;
 extern crate hex_slice;
 
 extern crate flate2;
+extern crate url;
+extern crate futures;
+extern crate tokio_core;
+extern crate tiberius;
 
 use std::collections::HashMap;
 use std::fs::File;
@@ -15,16 +19,12 @@ use serenity::model::*;
 use serenity::framework::standard::StandardFramework;
 
 extern crate typemap;
-use typemap::Key;
 
 mod nations;
 mod commands;
 mod server;
 
-struct ServerList;
-impl Key for ServerList {
-    type Value = HashMap<String, String>;
-}
+use commands::servers::ServerList;
 
 struct Handler;
 impl EventHandler for Handler {
@@ -53,11 +53,8 @@ fn main() {
         .on("ping", commands::ping::ping)
         .on("game_name", commands::game_name::game_name)
         .on("nation_status", commands::nation_status::nation_status)
-        .on("spell", commands::spell::spell)
-        .on("item", commands::item::item)
-        .on("add_server", commands::add_server::add_server)
-        .on("list_servers", commands::list_servers::list_servers)
-        .on("remove_server", commands::remove_server::remove_server)
+        .on("search", commands::inspector::search)
+        .on("servers", commands::servers::servers)
         .on("help", commands::help::help)
     );
 

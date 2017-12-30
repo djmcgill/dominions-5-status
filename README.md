@@ -9,16 +9,22 @@ To run:
 * Then run with "cargo run --release". You need to install Rust to do this: https://www.rust-lang.org/en-US/ .
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
-Commands:
-* !item \<foo\>: search dom5inspector for that item and return a link to it.
-* !spell \<foo\>: see above but for spells
-* !game_name \<address\>: connect to the dom 5 server and return the game name
-* !nation_status \<address\>: connect to the dom 5 server and return the nation statuses
-* !ping: check that the bot is connected to the discord server and can speak
-    
+Commands (alias is optional, defaults to channel name):
+* add_server \<address\> \[\<alias\>\]:
+* game_name \[\<alias\>\]: display the ingame name
+* help: display this text
+* item \<text\>: get dom5inspector search url. The text cannot contain spaces
+* list_servers: return a list of the saved server addresses and aliases
+* nation_status \[\<alias\>\]: return a list of the nations and their statuses in the game
+* ping: return \"pong\"
+* remove_server \[\<alias\>\]: remove the server address from the list
+* spell \<text\>: get dom5inspector search url. The text cannot contain spaces
 
 TODO:
-* URL encode characters and handle spaces for the item and spell commands
-* remember server addresses
-* remember players in each game
+* display nation status better
+* remember players in each game - allow to register
+* register for games that don't exist yet
 * polling for status and deliver turn notifications
+* add other inspector searches
+* persist state in MSSQL
+* update README commands and help commands
