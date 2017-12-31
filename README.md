@@ -9,22 +9,21 @@ To run:
 * Then run with "cargo run --release". You need to install Rust to do this: https://www.rust-lang.org/en-US/ .
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
-Commands (alias is optional, defaults to channel name):
-* add_server \<address\> \[\<alias\>\]:
-* game_name \[\<alias\>\]: display the ingame name
+Commands (server alias is optional, defaults to channel name): 
+* servers add <address> [<alias>]: save the dom5 server address
+* servers list: return a list of the saved server addresses and aliases
+* servers remove [<alias>]: remove the server address from the list
+* search {item, spell, unit, site, merc, event} <text>: get dom5inspector search url
+* game_name [<alias>]: display the ingame name
 * help: display this text
-* item \<text\>: get dom5inspector search url. The text cannot contain spaces
-* list_servers: return a list of the saved server addresses and aliases
-* nation_status \[\<alias\>\]: return a list of the nations and their statuses in the game
+* nation_status [<alias>]: return a list of the nations and their statuses in the game
 * ping: return \"pong\"
-* remove_server \[\<alias\>\]: remove the server address from the list
-* spell \<text\>: get dom5inspector search url. The text cannot contain spaces
 
 TODO:
-* display nation status better
+* proper logging and error handling
+* make subfunctions pure and testable
 * remember players in each game - allow to register
 * register for games that don't exist yet
 * polling for status and deliver turn notifications
-* add other inspector searches
+* start game notifications
 * persist state in MSSQL
-* update README commands and help commands

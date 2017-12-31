@@ -2,6 +2,7 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::Message;
 
+use commands::servers::Server;
 use commands::servers::ServerList;
 
 pub fn add_server(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
@@ -13,12 +14,13 @@ pub fn add_server(context: &mut Context, message: &Message, mut args: Args) -> R
     let mut data = context.data.lock();
     let server_list = data.get_mut::<ServerList>().ok_or("No ServerList was created on startup. This is a bug.")?;
 
-    match server_list.insert(alias.clone(), server_address) {
+    let server = Server::new(server_address);
+    match server_list.insert(alias.clone(), server) {
         None => {
             let _ = message.reply(&format!("successfully inserted with name {}", alias));
         },
         Some(old) => {
-            let _ = message.reply(&format!("successfully overwrote {} from {}", alias, old));
+            let _ = message.reply(&format!("successfully overwrote {} from {}", alias, old.address));
         },
     }
     println!("inserted, current contents is {:?}", server_list);

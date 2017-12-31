@@ -7,7 +7,7 @@ command!(game_name(context, message, args) {
     let alias = args.single::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
-    let server_address = server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?;
+    let server_address = &server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?.address;
     let response = get_game_data(server_address)?.game_name;
     let _ = message.reply(&format!("Game name at {} is {}", server_address, response));
 });
