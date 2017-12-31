@@ -4,6 +4,7 @@ use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
+use ::nations;
 
 #[repr(C)]
 #[derive(Debug)]
@@ -20,7 +21,53 @@ pub struct RawGameData {
     pub j: u8,  // 1
 }
 
-pub fn get_game_data(server_address: &String) -> io::Result<RawGameData> {
+pub struct Nation {
+    pub id: usize,
+    pub status: u8, // TODO: replace with enum
+    pub submitted: u8, // TODO: replace with enum
+    pub connected: u8, // TODO: replace with enum
+    pub name: String,
+}
+pub struct GameData {
+    pub game_name: String,
+    pub nations: Vec<Nation>
+}
+
+pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
+    let raw_data = get_raw_game_data(server_address)?;
+    let mut game_data = GameData {
+        game_name: raw_data.game_name,
+        nations: vec![]
+    };
+    for i in 0..250 {
+        let status_num = raw_data.f[i];        
+        if status_num != 0 && status_num != 3 {
+            let submitted = raw_data.f[i+250];
+            let connected = raw_data.f[i+500];
+            let nation_id = i-1; // why -1? No fucking idea
+            let nation_name = nations::get_nation_desc(nation_id); 
+            let nation = Nation {
+                id: nation_id,
+                status: status_num,
+                submitted: submitted,
+                connected: connected,
+                name: nation_name.to_string(),
+            };
+            game_data.nations.push(nation);
+
+            // response.push_str(&format!(
+            //     "name: {}, status: {}, submitted: {}, connected: {}\n",
+            //         nation_name,
+            //         show_status(status_num),
+            //         show_submitted(submitted),
+            //         show_connected(connected),
+            // ))
+        }
+    }
+    Ok(game_data)
+}
+
+pub fn get_raw_game_data(server_address: &String) -> io::Result<RawGameData> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_data = parse_data(&decompressed)?;

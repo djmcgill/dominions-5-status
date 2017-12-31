@@ -5,7 +5,6 @@ use commands::servers::ServerList;
 
 use server::get_game_data;
 use commands::servers::Player;
-use ::nations;
 
 pub fn pm_players(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     println!("pm_players");
@@ -45,7 +44,8 @@ pub fn show_registered(context: &mut Context, message: &Message, mut args: Args)
 }
 
 pub fn register_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    let nation_name = args.single::<String>()?.to_lowercase();   
+    println!("registering player");
+    let arg_nation_name = args.single::<String>()?.to_lowercase();   
     let alias = args.single::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
@@ -56,29 +56,26 @@ pub fn register_player(context: &mut Context, message: &Message, mut args: Args)
     let server = server_list.get_mut(&alias).ok_or(format!("Could not find server {}", alias))?;
     let server_address = server.address.clone();
     let data = get_game_data(&server_address)?;
-    let mut nation_names_in_game = vec![];
 
-    for i in 0..250 {
-        let status_num = data.f[i];        
-        if status_num != 0 && status_num != 3 {
-            nation_names_in_game.push(nations::get_nation_desc(i-1)); // TODO: this is real gross, abstract properly
-        }
-    }
+    let mut nation_names = data.nations.iter().map(|nation| &nation.name);
 
-    let nation = nation_names_in_game.iter().find(|name| // TODO: more efficient algo
-        name.to_lowercase().starts_with(&nation_name) 
-    ).ok_or(
-        format!("Could not find nation starting with {}", nation_name)
-    )?; 
+    let nation_name = nation_names.find(|&name| // TODO: more efficient algo
+        name.to_lowercase().starts_with(&arg_nation_name) 
+    ).ok_or_else(|| {
+        let err = format!("Could not find nation starting with {}", arg_nation_name);
+        println!("{}", err);
+        err
+    })?; 
 
     let ref user = message.author;
     let ref user_name: String = user.name;
 
-    println!("registering nation {} for user {} in game {}", nation, user_name, data.game_name);
+    let text = format!("registering nation {} for user {} in game {}", nation_name, user_name, data.game_name);
     let player = Player {
-        nation_name: nation.to_string(),
+        nation_name: nation_name.to_string(),
         allowed_pms: true,
     }; 
     let _ = server.players.insert(user.id, player);
+    let _ = message.reply(&text);
     Ok(())
 }

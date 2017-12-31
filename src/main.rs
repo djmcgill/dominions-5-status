@@ -1,8 +1,6 @@
 
-#![feature(plugin)]
-#![plugin(phf_macros)]
-
-extern crate phf;
+#[macro_use]
+extern crate lazy_static;
 
 extern crate byteorder;
 

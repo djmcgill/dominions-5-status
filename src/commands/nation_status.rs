@@ -1,5 +1,4 @@
 use ::server::get_game_data;
-use ::nations;
 use ::ServerList;
 
 /*
@@ -59,20 +58,14 @@ command!(nation_status(context, message, args) {
     let server_address = &server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?.address;
     let data = get_game_data(server_address)?;
     let mut response = String::new();
-    for i in 0..250 {
-        let status_num = data.f[i];        
-        if status_num != 0 && status_num != 3 {
-            let submitted = data.f[i+250];
-            let connected = data.f[i+500];
-            let nation_name = nations::get_nation_desc(i-1); // why -1? No fucking idea
-            response.push_str(&format!(
-                "name: {}, status: {}, submitted: {}, connected: {}\n",
-                    nation_name,
-                    show_status(status_num),
-                    show_submitted(submitted),
-                    show_connected(connected),
-            ))
-        }
+    for nation in data.nations {
+        response.push_str(&format!(
+            "name: {}, status: {}, submitted: {}, connected: {}\n",
+                nation.name,
+                show_status(nation.status),
+                show_submitted(nation.submitted),
+                show_connected(nation.connected),
+        ))
     }
     println!("responding with {}", response);
     let _ = message.reply(&response);    
