@@ -45,6 +45,7 @@ pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Resu
         "list" => list_servers::list_servers(context, message),
         "remove" => remove_server::remove_server(context, message, args),
         "register" => register_player::register_player(context, message, args),
+        "unregister" => register_player::unregister_player(context, message, args),
         "show_registered" => register_player::show_registered(context, message, args),
         "pm_players" => register_player::pm_players(context, message, args),
         _ => Ok(()),
