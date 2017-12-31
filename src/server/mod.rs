@@ -30,14 +30,16 @@ pub struct Nation {
 }
 pub struct GameData {
     pub game_name: String,
-    pub nations: Vec<Nation>
+    pub nations: Vec<Nation>,
+    pub turn: u32,
 }
 
 pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
     let raw_data = get_raw_game_data(server_address)?;
     let mut game_data = GameData {
         game_name: raw_data.game_name,
-        nations: vec![]
+        nations: vec![],
+        turn: raw_data.h,
     };
     for i in 0..250 {
         let status_num = raw_data.f[i];        

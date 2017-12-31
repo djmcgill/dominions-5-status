@@ -21,6 +21,9 @@ extern crate serenity;
 use serenity::prelude::*;
 use serenity::model::*;
 use serenity::framework::standard::StandardFramework;
+use typemap::ShareMap;
+use commands::servers::check_server_for_new_turn;
+use std::{thread, time};
 
 extern crate typemap;
 
@@ -62,9 +65,43 @@ fn main() {
         .on("help", commands::help::help)
     );
 
+    let foo = client.data.clone();
+    thread::spawn(move || {
+        check_for_new_turns_every_1_min(foo.as_ref());
+    });
     // start listening for events by starting a single shard
     if let Err(why) = client.start() {
         println!("Client error: {:?}", why);
     }
     println!("returning");
+}
+
+fn check_for_new_turns_every_1_min(mutex: &Mutex<ShareMap>) {
+    loop {
+        thread::sleep(time::Duration::from_secs(60));
+        println!("checking for new turns!");
+        message_players_if_new_turn(&mutex);
+    }
+}
+
+fn message_players_if_new_turn(mutex: & Mutex<ShareMap>) {
+    let mut data = mutex.lock();
+    let server_list = data.get_mut::<ServerList>().unwrap();
+    for (alias, mut server) in server_list {
+        println!("checking {} for new turn", alias);
+        let new_turn = check_server_for_new_turn(&mut server).unwrap(); 
+
+       if new_turn {
+            println!("new turn in game {}", alias);
+            for (user_id, player) in &server.players {
+                if player.allowed_pms {
+                    let text = format!("your nation {} has a new turn in {}", player.nation_name, alias);
+                    println!("{}", text);
+                    let private_channel = user_id.create_dm_channel().unwrap();
+                    private_channel.say(&text).unwrap();
+                }
+
+            }
+       }
+    }
 }
