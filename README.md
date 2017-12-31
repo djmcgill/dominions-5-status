@@ -18,6 +18,10 @@ Commands (server alias is optional, defaults to channel name):
 * help: display this text
 * nation_status \[\<alias\>\]: return a list of the nations and their statuses in the game
 * ping: return \"pong\"
+* servers pm_players \[\<alias\>\]: message all players registered to a game (for testing purposes)
+* servers register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
+* servers unregister\[\<alias\>\]: unregister yourself in a game
+* servers show_registered \[\<alias\>\]: display the users registered for a game
 
 TODO:
 * proper logging and error handling
