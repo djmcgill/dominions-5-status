@@ -10,13 +10,13 @@ To run:
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
 Commands (server alias is optional, defaults to channel name): 
-* servers add <address> [<alias>]: save the dom5 server address
+* servers add \<address> \[\<alias\>\]: save the dom5 server address
 * servers list: return a list of the saved server addresses and aliases
-* servers remove [<alias>]: remove the server address from the list
-* search {item, spell, unit, site, merc, event} <text>: get dom5inspector search url
-* game_name [<alias>]: display the ingame name
+* servers remove \[\<alias\>\]: remove the server address from the list
+* search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
+* game_name \[\<alias\>\]: display the ingame name
 * help: display this text
-* nation_status [<alias>]: return a list of the nations and their statuses in the game
+* nation_status \[\<alias\>\]: return a list of the nations and their statuses in the game
 * ping: return \"pong\"
 
 TODO:
