@@ -1,41 +1,19 @@
 use ::server::get_game_data;
 use ::ServerList;
 
-fn show_submitted(submitted: u8) -> &'static str {
-    match submitted {
-        0 => ":x:",
-        1 => ":alarm_clock:",
-        2 => ":white_check_mark:",
-        _ => "unrecognised submission status",
-    }
-}
-
-fn show_status(status: u8) -> &'static str {
-    match status {
-        0 => "Empty",
-        1 => "Human",
-        2 => "AI",
-        3 => "Independent",
-        253 => "Closed",
-        254 => "Defeated this turn",
-        255 => "Defeated",
-        _ => "Unrecognised status",
-    }
-}
-
-use server::Nation;
+use server::{Nation, NationStatus};
 fn show_nation_details(nation: &Nation) -> (String, String, String, Option<String>) {
-    if nation.status == 1 {
+    if nation.status == NationStatus::Human {
             (nation.name.clone(),
             nation.era.clone(),
-            show_status(nation.status).to_string(),
-            Some(show_submitted(nation.submitted).to_string())
+            nation.status.show().to_string(),
+            Some(nation.submitted.show().to_string())
             )
     } else {
         (
             nation.name.clone(),
             nation.era.clone(),
-            show_status(nation.status).to_string(),
+            nation.status.show().to_string(),
             None
         )
     }

@@ -21,11 +21,53 @@ pub struct RawGameData {
     pub j: u8,  // 1
 }
 
+#[repr(u8)]
+#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum SubmissionStatus {
+    NotSubmitted = 0,
+    PartiallySubmitted = 1,
+    Submitted = 2,
+}
+impl SubmissionStatus {
+    pub fn show(self) -> &'static str {
+        match self {
+            SubmissionStatus::NotSubmitted => ":x:",
+            SubmissionStatus::PartiallySubmitted => ":alarm_clock:",
+            SubmissionStatus::Submitted => ":white_check_mark:",
+        }
+    }
+}
+
+#[repr(u8)]
+#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+pub enum NationStatus {
+    Empty = 0,
+    Human = 1,
+    AI = 2,
+    Independent = 3,
+    Closed = 253,
+    DefeatedThisTurn = 254,
+    Defeated = 255,
+}
+impl NationStatus {
+    pub fn show(self) -> &'static str {
+        match self {
+            NationStatus::Empty => "Empty",
+            NationStatus::Human => "Human",
+            NationStatus::AI => "AI",
+            NationStatus::Independent => "Independent",
+            NationStatus::Closed => "Closed",
+            NationStatus::DefeatedThisTurn => "Defeated this turn",
+            NationStatus::Defeated => "Defeated",
+        }
+    }
+}
+
 pub struct Nation {
     pub id: usize,
-    pub status: u8, // TODO: replace with enum
-    pub submitted: u8, // TODO: replace with enum
-    pub connected: u8, // TODO: replace with enum
+    pub status: NationStatus,
+    pub submitted: SubmissionStatus,
+    pub connected: bool,
     pub name: String,
     pub era: String,
 }
@@ -35,6 +77,7 @@ pub struct GameData {
     pub turn: u32,
 }
 
+use bincode::deserialize;
 pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
     let raw_data = get_raw_game_data(server_address)?;
     let mut game_data = GameData {
@@ -51,9 +94,9 @@ pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
             let &(nation_name, era) = nations::get_nation_desc(nation_id); 
             let nation = Nation {
                 id: nation_id,
-                status: status_num,
-                submitted: submitted,
-                connected: connected,
+                status: deserialize(&[status_num]).unwrap(),
+                submitted: deserialize(&[submitted]).unwrap(),
+                connected: connected == 1,
                 name: nation_name.to_string(),
                 era: era.to_string(),
             };
@@ -74,7 +117,6 @@ pub fn get_raw_game_data(server_address: &String) -> io::Result<RawGameData> {
 fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
     println!("starting");
     let mut stream = net::TcpStream::connect(server_address)?;
-    // let mut stream = net::TcpStream::connect("dom5.snek.earth:30028")?;
     println!("connected");
     let mut wtr = vec![];
     wtr.write_u8(b'f')?;

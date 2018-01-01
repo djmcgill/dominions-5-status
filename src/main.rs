@@ -27,6 +27,10 @@ use std::{thread, time};
 
 extern crate typemap;
 
+#[macro_use]
+extern crate serde_derive;
+extern crate bincode;
+
 mod nations;
 mod commands;
 mod server;
