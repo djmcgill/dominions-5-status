@@ -27,6 +27,7 @@ pub struct Nation {
     pub submitted: u8, // TODO: replace with enum
     pub connected: u8, // TODO: replace with enum
     pub name: String,
+    pub era: String,
 }
 pub struct GameData {
     pub game_name: String,
@@ -47,23 +48,16 @@ pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
             let submitted = raw_data.f[i+250];
             let connected = raw_data.f[i+500];
             let nation_id = i-1; // why -1? No fucking idea
-            let nation_name = nations::get_nation_desc(nation_id); 
+            let &(nation_name, era) = nations::get_nation_desc(nation_id); 
             let nation = Nation {
                 id: nation_id,
                 status: status_num,
                 submitted: submitted,
                 connected: connected,
                 name: nation_name.to_string(),
+                era: era.to_string(),
             };
             game_data.nations.push(nation);
-
-            // response.push_str(&format!(
-            //     "name: {}, status: {}, submitted: {}, connected: {}\n",
-            //         nation_name,
-            //         show_status(status_num),
-            //         show_submitted(submitted),
-            //         show_connected(connected),
-            // ))
         }
     }
     Ok(game_data)

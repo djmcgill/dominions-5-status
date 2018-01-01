@@ -26,8 +26,7 @@ Commands (server alias is optional, defaults to channel name):
 TODO:
 * proper logging and error handling
 * make subfunctions pure and testable
-* remember players in each game - allow to register
 * register for games that don't exist yet
-* polling for status and deliver turn notifications
 * start game notifications
 * persist state in MSSQL
+* discord fancy bot formatting

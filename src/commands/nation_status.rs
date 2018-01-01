@@ -1,37 +1,12 @@
 use ::server::get_game_data;
 use ::ServerList;
 
-/*
-status = {
-    0: "Empty",
-    1: "Human",
-    2: "AI",
-    3: "Independent",
-    253: "Closed",
-    254: "Defeated this turn",
-    255: "Defeated"
-    }
-
-self.submitted = 0  # 0 = not, 1 = partially, 2 = submitted
-
-ns.connected = dataArray[i + PACKET_NUM_NATIONS * 2] == 1
-
-*/
-
 fn show_submitted(submitted: u8) -> &'static str {
     match submitted {
-        0 => "No",
-        1 => "Partial",
-        2 => "Yes",
-        _ => "unrecognised submission status"
-    }
-}
-
-fn show_connected(connected: u8) -> &'static str {
-    match connected {
-        0 => "No",
-        1 => "Yes",
-        _ => "unrecognised submission status"
+        0 => "Not submitted",
+        1 => "Partially submitted",
+        2 => "Submitted",
+        _ => "unrecognised submission status",
     }
 }
 
@@ -48,6 +23,24 @@ fn show_status(status: u8) -> &'static str {
     }
 }
 
+use server::Nation;
+fn show_nation_details(nation: &Nation) -> (String, String, String, Option<String>) {
+    if nation.status == 1 {
+            (nation.name.clone(),
+            nation.era.clone(),
+            show_status(nation.status).to_string(),
+            Some(show_submitted(nation.submitted).to_string())
+            )
+    } else {
+        (
+            nation.name.clone(),
+            nation.era.clone(),
+            show_status(nation.status).to_string(),
+            None
+        )
+    }
+}
+
 command!(nation_status(context, message, args) {
     println!{"nation_status message: {:?}", message};
     let data = context.data.lock();
@@ -55,18 +48,37 @@ command!(nation_status(context, message, args) {
     let alias = args.single::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
-    let server_address = &server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?.address;
-    let data = get_game_data(server_address)?;
-    let mut response = String::new();
-    for nation in data.nations {
-        response.push_str(&format!(
-            "name: {}, status: {}, submitted: {}, connected: {}\n",
-                nation.name,
-                show_status(nation.status),
-                show_submitted(nation.submitted),
-                show_connected(nation.connected),
-        ))
+    let ref server = server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?;
+    let ref server_address = server.address;
+    let game_data = get_game_data(&server_address)?;
+    
+    let mut response = format!("{}: turn {}\n```\n", game_data.game_name, game_data.turn);
+    let mut nation_data: Vec<(String, String, String, Option<String>)> = vec![];
+    for nation in game_data.nations {
+        nation_data.push(show_nation_details(&nation))
     }
+    let longest_name_length = nation_data.iter().map(|&(ref x, _, _, _)| x.len()).max().unwrap();
+
+    for (name, era, status, opt_submitted) in nation_data {
+        let x = format!(
+            "{:name_len$} ({}): {}",
+            name,
+            era,
+            status,
+            name_len = longest_name_length,
+        );
+        response.push_str(&x);
+        for submitted in opt_submitted {
+            response.push_str(&format!(" ({}) ", submitted));
+        }
+        let opt_user_id = server.players.iter().find(|&(_, x)| x.nation_name == name);
+        for (user_id, _) in opt_user_id {
+            response.push_str(&user_id.get().unwrap().name);
+        }
+        response.push_str(&"\n");
+    } 
+    response.push_str(&"```\n");
+
     println!("responding with {}", response);
     let _ = message.reply(&response);    
 });
