@@ -30,3 +30,4 @@ TODO:
 * start game notifications
 * persist state in MSSQL
 * discord fancy bot formatting
+* sort out this increasingly awful code

@@ -3,9 +3,9 @@ use ::ServerList;
 
 fn show_submitted(submitted: u8) -> &'static str {
     match submitted {
-        0 => "Not submitted",
-        1 => "Partially submitted",
-        2 => "Submitted",
+        0 => ":x:",
+        1 => ":alarm_clock:",
+        2 => ":white_check_mark:",
         _ => "unrecognised submission status",
     }
 }
@@ -60,11 +60,22 @@ command!(nation_status(context, message, args) {
     let longest_name_length = nation_data.iter().map(|&(ref x, _, _, _)| x.len()).max().unwrap();
 
     for (name, era, status, opt_submitted) in nation_data {
+        let status_str =
+            if status == "Human" {
+                server
+                    .players
+                    .iter()
+                    .find(|&(_, x)| x.nation_name == name)
+                    .map(|(user_id, _)| user_id.get().unwrap().name)
+                    .unwrap_or("Human".to_string())
+            } else {
+                status
+            };
         let x = format!(
             "{:name_len$} ({}): {}",
             name,
             era,
-            status,
+            status_str,
             name_len = longest_name_length,
         );
         response.push_str(&x);
