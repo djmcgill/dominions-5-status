@@ -1,7 +1,13 @@
 use ::server::get_game_data;
-use ::ServerList;
 
-use server::{Nation, NationStatus};
+use serenity::framework::standard::{Args, CommandError};
+use serenity::prelude::Context;
+use serenity::model::Message;
+
+use model::nation::Nation;
+use model::enums::nation_status::NationStatus;
+use db::DbConnectionKey;
+
 fn show_nation_details(nation: &Nation) -> (String, String, String, Option<String>) {
     if nation.status == NationStatus::Human {
             (nation.name.clone(),
@@ -19,14 +25,14 @@ fn show_nation_details(nation: &Nation) -> (String, String, String, Option<Strin
     }
 }
 
-command!(nation_status(context, message, args) {
+pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     println!{"nation_status message: {:?}", message};
     let data = context.data.lock();
-    let server_list = data.get::<ServerList>().ok_or("No ServerList was created on startup. This is a bug.")?;
+    let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
     let alias = args.single::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
-    let ref server = server_list.get(&alias).ok_or(format!("Could not find server {}", alias))?;
+    let server = db_conn.game_for_alias(alias.clone()).unwrap();
     let ref server_address = server.address;
     let game_data = get_game_data(&server_address)?;
     
@@ -38,17 +44,17 @@ command!(nation_status(context, message, args) {
     let longest_name_length = nation_data.iter().map(|&(ref x, _, _, _)| x.len()).max().unwrap();
 
     for (name, era, status, opt_submitted) in nation_data {
-        let status_str =
-            if status == "Human" {
-                server
-                    .players
-                    .iter()
-                    .find(|&(_, x)| x.nation_name == name)
-                    .map(|(user_id, _)| user_id.get().unwrap().name)
-                    .unwrap_or("Human".to_string())
-            } else {
-                status
-            };
+        let status_str = status;
+            // if status == "Human" {
+            //     server
+            //         .players
+            //         .iter()
+            //         .find(|&(_, x)| x.nation_name == name)
+            //         .map(|(user_id, _)| user_id.get().unwrap().name)
+            //         .unwrap_or("Human".to_string())
+            // } else {
+            //     status
+            // };
         let x = format!(
             "{:name_len$} ({}): {}",
             name,
@@ -60,14 +66,15 @@ command!(nation_status(context, message, args) {
         for submitted in opt_submitted {
             response.push_str(&format!(" ({}) ", submitted));
         }
-        let opt_user_id = server.players.iter().find(|&(_, x)| x.nation_name == name);
-        for (user_id, _) in opt_user_id {
-            response.push_str(&user_id.get().unwrap().name);
-        }
+        // let opt_user_id = server.players.iter().find(|&(_, x)| x.nation_name == name);
+        // for (user_id, _) in opt_user_id {
+        //     response.push_str(&user_id.get().unwrap().name);
+        // }
         response.push_str(&"\n");
     } 
     response.push_str(&"```\n");
 
     println!("responding with {}", response);
     let _ = message.reply(&response);    
-});
+    Ok(())
+}

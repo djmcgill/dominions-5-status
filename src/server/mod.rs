@@ -4,78 +4,12 @@ use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
-use ::nations;
-
-#[repr(C)]
-#[derive(Debug)]
-pub struct RawGameData {
-    pub a: [u8; 6], // 6
-    pub game_name: String,
-    pub c: [u8; 6], // 6
-    pub d: u32, // 4
-    pub e: u8,  // 1
-    pub f: Vec<u8>, // ; 750],
-    pub g: u8,  // 1
-    pub h: u32, // 4
-    pub i: u32, // 4
-    pub j: u8,  // 1
-}
-
-#[repr(u8)]
-#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum SubmissionStatus {
-    NotSubmitted = 0,
-    PartiallySubmitted = 1,
-    Submitted = 2,
-}
-impl SubmissionStatus {
-    pub fn show(self) -> &'static str {
-        match self {
-            SubmissionStatus::NotSubmitted => ":x:",
-            SubmissionStatus::PartiallySubmitted => ":alarm_clock:",
-            SubmissionStatus::Submitted => ":white_check_mark:",
-        }
-    }
-}
-
-#[repr(u8)]
-#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
-pub enum NationStatus {
-    Empty = 0,
-    Human = 1,
-    AI = 2,
-    Independent = 3,
-    Closed = 253,
-    DefeatedThisTurn = 254,
-    Defeated = 255,
-}
-impl NationStatus {
-    pub fn show(self) -> &'static str {
-        match self {
-            NationStatus::Empty => "Empty",
-            NationStatus::Human => "Human",
-            NationStatus::AI => "AI",
-            NationStatus::Independent => "Independent",
-            NationStatus::Closed => "Closed",
-            NationStatus::DefeatedThisTurn => "Defeated this turn",
-            NationStatus::Defeated => "Defeated",
-        }
-    }
-}
-
-pub struct Nation {
-    pub id: usize,
-    pub status: NationStatus,
-    pub submitted: SubmissionStatus,
-    pub connected: bool,
-    pub name: String,
-    pub era: String,
-}
-pub struct GameData {
-    pub game_name: String,
-    pub nations: Vec<Nation>,
-    pub turn: u32,
-}
+use model::raw_game_data::RawGameData;
+use model::game_data::GameData;
+use model::nation::Nation;
+use model::enums::nations;
+use model::enums::submission_status::SubmissionStatus;
+use model::enums::nation_status::NationStatus;
 
 use bincode::deserialize;
 pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
@@ -83,7 +17,7 @@ pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
     let mut game_data = GameData {
         game_name: raw_data.game_name,
         nations: vec![],
-        turn: raw_data.h,
+        turn: raw_data.h as i32,
     };
     for i in 0..250 {
         let status_num = raw_data.f[i];        
@@ -94,8 +28,8 @@ pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
             let &(nation_name, era) = nations::get_nation_desc(nation_id); 
             let nation = Nation {
                 id: nation_id,
-                status: deserialize(&[status_num]).unwrap(),
-                submitted: deserialize(&[submitted]).unwrap(),
+                status: NationStatus::from_int(status_num),
+                submitted: SubmissionStatus::from_int(submitted),
                 connected: connected == 1,
                 name: nation_name.to_string(),
                 era: era.to_string(),

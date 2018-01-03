@@ -8,6 +8,7 @@ pub fn get_nation_desc(n: usize) -> &'static (&'static str, &'static str) {
         }
     )
 }
+// TODO: actually make an enum
 lazy_static ! { // TODO: replace with PHF crate?
     pub static ref NATIONS_BY_ID: HashMap<u32, (&'static str, &'static str)> = { 
         let mut m = HashMap::new();

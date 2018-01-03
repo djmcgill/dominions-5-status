@@ -2,6 +2,9 @@ mod add_server;
 mod list_servers;
 mod remove_server;
 mod register_player;
+mod details;
+
+use db;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
@@ -13,33 +16,7 @@ use std::io;
 use serenity::model::UserId;
 use server::get_game_data;
 
-#[derive(Debug)]
-pub struct Server {
-    pub address: String,
-    pub last_seen_turn: u32,
-    pub players: HashMap<UserId, Player>,
-}
-
-#[derive(Debug)]
-pub struct Player {
-    pub nation_name: String,
-    pub allowed_pms: bool, 
-}
-
-impl Server {
-    pub fn new(address: String, last_seen_turn: u32) -> Self {
-        Server {
-            address: address,
-            last_seen_turn: last_seen_turn,
-            players: HashMap::default(),
-        }
-    }
-}
-
-pub struct ServerList;
-impl Key for ServerList {
-    type Value = HashMap<String, Server>;
-}
+use model::game_server::GameServer;
 
 pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let command = args.single::<String>()?;
@@ -51,11 +28,12 @@ pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Resu
         "unregister" => register_player::unregister_player(context, message, args),
         "show_registered" => register_player::show_registered(context, message, args),
         "pm_players" => register_player::pm_players(context, message, args),
+        "details" => details::details(context, message, args),
         _ => Ok(()),
     }
 }
 
-pub fn check_server_for_new_turn(server: &mut Server) -> io::Result<bool> {
+pub fn check_server_for_new_turn(server: &mut GameServer) -> io::Result<bool> {
     let server_address = server.address.clone();
     let game_data = get_game_data(&server_address)?;
     if server.last_seen_turn == game_data.turn {
