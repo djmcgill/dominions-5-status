@@ -45,7 +45,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
 
     for (name, era, status, opt_submitted) in nation_data {
         let status_str = status;
-            // if status == "Human" {
+            // if status == "Human" { // FIXME
             //     server
             //         .players
             //         .iter()

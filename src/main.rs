@@ -96,28 +96,29 @@ fn check_for_new_turns_every_1_min(mutex: &Mutex<ShareMap>) {
     }
 }
 
-fn message_players_if_new_turn(mutex: & Mutex<ShareMap>) {
+fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) {
     let mut data = mutex.lock();
     let db_conn = data.get_mut::<db::DbConnectionKey>().unwrap();
+    // TODO: transactions
     let servers = db_conn.retrieve_all_servers().unwrap();
-    for (_, mut server) in servers {
-
-    
-    // for (alias, mut server) in server_list {
+    for (_, server) in servers {
         println!("checking {} for new turn", server.alias);
-        let new_turn = check_server_for_new_turn(&mut server).unwrap(); 
+        let game_data = server::get_game_data(&server.address).unwrap();
+        let new_turn = db_conn.update_game_with_possibly_new_turn(
+            server.alias.clone(),
+            game_data.turn
+        ).unwrap(); 
 
        if new_turn {
-            println!("new turn in game {}", server.alias);
-            // for (user_id, player) in &server.players {
-    //             if player.allowed_pms {
-    //                 let text = format!("your nation {} has a new turn in {}", player.nation_name, alias);
-    //                 println!("{}", text);
-    //                 let private_channel = user_id.create_dm_channel().unwrap();
-    //                 private_channel.say(&text).unwrap();
-    //             }
-
-    //         }
+            println!("new turn in game {}", server.alias.clone());
+            for (_, player) in db_conn.players_for_game_alias(server.alias.clone()).unwrap() {
+                // TODO: allow a user to disable PMs
+                // TODO: store and display the nation name
+                let text = format!("your nation has a new turn in {}", server.alias.clone());
+                println!("{}", text);
+                let private_channel = player.discord_user_id.create_dm_channel().unwrap();
+                private_channel.say(&text).unwrap();
+            }
        }
     }
 }

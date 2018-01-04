@@ -123,4 +123,14 @@ impl DbConnection {
         let mut iter = foo.map(|x| x.unwrap());
         Ok(iter.next().unwrap())
     }
+
+    // TODO: stop pointlessly cloning strings
+    pub fn update_game_with_possibly_new_turn(&self, game_alias: String, current_turn: i32) -> Result<bool, Error> {
+        let conn = &*self.0.clone().get().unwrap();
+        let rows = conn.execute(
+            "UPDATE game_servers SET last_seen_turn = ?1 WHERE alias = ?2 AND last_seen_turn <> ?1", 
+            &[&current_turn, &game_alias]
+        ).unwrap();
+        Ok(rows > 0)
+    }
 }
