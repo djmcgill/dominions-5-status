@@ -111,10 +111,13 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) {
 
        if new_turn {
             println!("new turn in game {}", server.alias.clone());
-            for (_, player) in db_conn.players_for_game_alias(server.alias.clone()).unwrap() {
+            for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(server.alias.clone()).unwrap() {
                 // TODO: allow a user to disable PMs
-                // TODO: store and display the nation name
-                let text = format!("your nation has a new turn in {}", server.alias.clone());
+                let &(name, era) = model::enums::nations::get_nation_desc(nation_id);
+                let text = format!("your nation {} {} has a new turn in {}",
+                    era,
+                    name,
+                    server.alias.clone());
                 println!("{}", text);
                 let private_channel = player.discord_user_id.create_dm_channel().unwrap();
                 private_channel.say(&text).unwrap();

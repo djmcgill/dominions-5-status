@@ -37,9 +37,27 @@ impl DbConnection {
             create table server_players (
             server_id int NOT NULL REFERENCES game_servers(id),
             player_id int NOT NULL REFERENCES players(id),
-            CONSTRAINT server_player_unique UNIQUE (server_id, player_id)
+            nation_id int NOT NULL,
+            CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
             );"
         , &[])?;
+        Ok(())
+    }
+
+    pub fn insert_server_player(
+            &self, 
+            server_alias: &String, 
+            player_user_id: &UserId, 
+            nation_id: u32) -> Result<(), Error> {
+        
+        // FIXME: casting u64 as i32 is probably bad mmkmay
+        let conn = &*self.0.clone().get().unwrap();
+        conn.execute("INSERT INTO server_players (server_id, player_id, nation_id)
+        SELECT q_server_id, q_player_id, ?1
+        FROM game_servers g
+        JOIN players p ON p.discord_user_id = ?2
+        WHERE g.alias = ?3
+        ", &[&nation_id, &(player_user_id.0 as i32), server_alias])?;
         Ok(())
     }
 
@@ -87,10 +105,10 @@ impl DbConnection {
         Ok(Vec::from_iter(iter))
     }
 
-    pub fn players_for_game_alias(&self, game_alias: String) -> Result<Vec<(i32, Player)>, Error> {
+    pub fn players_with_nations_for_game_alias(&self, game_alias: String) -> Result<Vec<(i32, Player, usize)>, Error> {
         let conn = &*self.0.clone().get().unwrap();
         let mut stmt = conn.prepare(
-            "SELECT p.id, p.discord_user_id
+            "SELECT p.id, p.discord_user_id, sp.nation_id
             FROM game_servers s
             JOIN server_players sp on sp.server_id = s.id
             JOIN players p on p.id = sp.player_id
@@ -102,7 +120,8 @@ impl DbConnection {
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
             };
-            (id, player)
+            let nation: i32 = row.get(2);
+            (id, player, nation as usize)
         }).unwrap();
         let iter = foo.map(|x| x.unwrap());
 
