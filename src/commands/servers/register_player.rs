@@ -44,20 +44,18 @@ pub fn show_registered(context: &mut Context, message: &Message, mut args: Args)
 }
 
 pub fn unregister_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    // println!("unregistering player");
-    // let alias = args.single::<String>().or_else(|_| {
-    //     message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    // })?;
+    println!("unregistering player");
+    let alias = args.single::<String>().or_else(|_| {
+        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
+    })?;
 
-    // let mut data = context.data.lock();
-    // let server_list = data.get_mut::<ServerList>().ok_or("No ServerList was created on startup. This is a bug.")?;
-
-    // let server = server_list.get_mut(&alias).ok_or(format!("Could not find server {}", alias))?;
-    // let ref user = message.author;
-    // let _ = server.players.remove(&user.id);
-    // let text = format!("Removing user {} from game {}", user.name, alias);
-    // println!("{}", text);
-    // let _ = message.reply(&text);
+    let data = context.data.lock();
+    let db_conn = data.get::<DbConnectionKey>().unwrap();
+    let ref user = message.author;
+    let _ = db_conn.remove_player_from_game(&alias, user.id).unwrap();
+    let text = format!("Removing user {} from game {}", user.name, alias);
+    println!("{}", text);
+    let _ = message.reply(&text);
     Ok(())
 }
 

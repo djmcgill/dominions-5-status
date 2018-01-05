@@ -152,4 +152,18 @@ impl DbConnection {
         ).unwrap();
         Ok(rows > 0)
     }
+
+    pub fn remove_player_from_game(&self, game_alias: &String, user: UserId) -> Result<(), Error> {
+        let conn = &*self.0.clone().get().unwrap();
+        conn.execute(
+            "DELETE FROM server_players
+            WHERE server_id IN
+            (SELECT id from game_servers WHERE alias = ?1)
+            AND player_id IN 
+            (SELECT id from players WHERE discord_user_id = ?2)
+            ",
+            &[game_alias, &(user.0 as i64)]
+        ).unwrap();
+        Ok(())
+    }
 }
