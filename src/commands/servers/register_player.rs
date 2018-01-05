@@ -71,38 +71,27 @@ pub fn register_player(context: &mut Context, message: &Message, mut args: Args)
     let mut data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().unwrap();
     let server = db_conn.game_for_alias(alias.clone()).unwrap();
-    // let server_address = server.address.clone();
     let data = get_game_data(&server.address)?;
 
-    let mut nation_names = data.nations.iter().map(|nation| &nation.name);
-    let nation_name = nation_names.find(|&name| // TODO: more efficient algo
-        name.to_lowercase().starts_with(&arg_nation_name) 
+    let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
+        nation.name.to_lowercase().starts_with(&arg_nation_name) 
     ).ok_or_else(|| {
         let err = format!("Could not find nation starting with {}", arg_nation_name);
         println!("{}", err);
         err
     })?; 
 
-    // FIXME: currently assumes that the player does not exist
     let player = Player {
         discord_user_id: message.author.id,
     }; 
 
     // TODO: transaction
+    // TODO: upsert not insert
     db_conn.insert_player(&player).unwrap();
-    // FIXME: nation number
-    db_conn.insert_server_player(&server.address.clone(), &message.author.id, 0).unwrap();
+    db_conn.insert_server_player(&server.address.clone(), &message.author.id, nation.id as u32).unwrap();
 
-    // let text = format!("registering nation {} for user {} in game {}", nation_name, user_name, data.game_name);
+    let text = format!("registering nation {} for user {} in game {}", nation.name, message.author.name, data.game_name);
     
-    // TODO:
-        // look for player with discord_user_id
-        // if does not exist, create
-        // insert player_server record
-    
-    
-
-    // let _ = server.players.insert(user.id, player);
-    // let _ = message.reply(&text);
+    let _ = message.reply(&text);
     Ok(())
 }

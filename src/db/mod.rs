@@ -15,9 +15,10 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 pub struct DbConnection(pub Pool<SqliteConnectionManager>);
 impl DbConnection {
+    // FIXME: errors if db already exists
     pub fn initialise(&self) -> Result<(), Error> {
         let conn = &*self.0.clone().get().unwrap();
-        conn.execute("
+        conn.execute_batch("
             create table game_servers (
             id INTEGER NOT NULL PRIMARY KEY,
             address VARCHAR(255) NOT NULL,
@@ -40,7 +41,7 @@ impl DbConnection {
             nation_id int NOT NULL,
             CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
             );"
-        , &[])?;
+        )?;
         Ok(())
     }
 
@@ -50,14 +51,13 @@ impl DbConnection {
             player_user_id: &UserId, 
             nation_id: u32) -> Result<(), Error> {
         
-        // FIXME: casting u64 as i32 is probably bad mmkmay
         let conn = &*self.0.clone().get().unwrap();
         conn.execute("INSERT INTO server_players (server_id, player_id, nation_id)
-        SELECT q_server_id, q_player_id, ?1
+        SELECT g.id, p.id, ?1
         FROM game_servers g
         JOIN players p ON p.discord_user_id = ?2
         WHERE g.alias = ?3
-        ", &[&nation_id, &(player_user_id.0 as i32), server_alias])?;
+        ", &[&nation_id, &(player_user_id.0 as i64), server_alias])?;
         Ok(())
     }
 
