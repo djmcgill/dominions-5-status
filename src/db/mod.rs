@@ -1,5 +1,5 @@
 use serenity::model::UserId;
-use rusqlite::{Connection, Error};
+use rusqlite::Error;
 use std::iter::FromIterator;
 use typemap::Key;
 
@@ -19,7 +19,7 @@ impl DbConnection {
     pub fn initialise(&self) -> Result<(), Error> {
         let conn = &*self.0.clone().get().unwrap();
         conn.execute_batch("
-            create table game_servers (
+            create table if not exists game_servers (
             id INTEGER NOT NULL PRIMARY KEY,
             address VARCHAR(255) NOT NULL,
             alias VARCHAR(255) NOT NULL,
@@ -27,15 +27,15 @@ impl DbConnection {
             CONSTRAINT server_address_unique UNIQUE (address)
             );
 
-            create INDEX server_alias_index ON game_servers(alias);
+            create INDEX if not exists server_alias_index ON game_servers(alias);
 
-            create table players (
+            create table if not exists players (
             id INTEGER NOT NULL PRIMARY KEY,
             discord_user_id int NOT NULL,
             CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
             );
 
-            create table server_players (
+            create table if not exists server_players (
             server_id int NOT NULL REFERENCES game_servers(id),
             player_id int NOT NULL REFERENCES players(id),
             nation_id int NOT NULL,
@@ -79,15 +79,6 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn register_player_for_game(&self, game_id: i32, player_id: i32) -> Result<(), Error> {
-        let conn = &*self.0.clone().get().unwrap();
-        conn.execute(
-            "INSERT INTO server_players (server_id, player_id)
-            VALUES (?1, ?2)"
-        , &[&game_id, &player_id])?;
-        Ok(())
-    }
-
     pub fn retrieve_all_servers(&self) -> Result<Vec<(i32, GameServer)>, Error> {
         let conn = &*self.0.clone().get().unwrap();
         let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers").unwrap();
@@ -105,7 +96,7 @@ impl DbConnection {
         Ok(Vec::from_iter(iter))
     }
 
-    pub fn players_with_nations_for_game_alias(&self, game_alias: String) -> Result<Vec<(i32, Player, usize)>, Error> {
+    pub fn players_with_nations_for_game_alias(&self, game_alias: &String) -> Result<Vec<(i32, Player, usize)>, Error> {
         let conn = &*self.0.clone().get().unwrap();
         let mut stmt = conn.prepare(
             "SELECT p.id, p.discord_user_id, sp.nation_id
@@ -114,7 +105,7 @@ impl DbConnection {
             JOIN players p on p.id = sp.player_id
             WHERE s.alias = ?1
             ").unwrap();
-        let foo = stmt.query_map(&[&game_alias], |ref row| {
+        let foo = stmt.query_map(&[game_alias], |ref row| {
             let id = row.get(0);
             let discord_user_id: i32 = row.get(1);
             let player = Player {
@@ -163,6 +154,16 @@ impl DbConnection {
             (SELECT id from players WHERE discord_user_id = ?2)
             ",
             &[game_alias, &(user.0 as i64)]
+        ).unwrap();
+        Ok(())
+    }
+
+    pub fn remove_server(&self, game_alias: &String) -> Result<(), Error> {
+        let conn = &*self.0.clone().get().unwrap();
+        conn.execute(
+            "DELETE FROM game_servers
+            WHERE alias = ?1",
+            &[game_alias]
         ).unwrap();
         Ok(())
     }

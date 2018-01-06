@@ -11,7 +11,6 @@ use model::enums::nations;
 use model::enums::submission_status::SubmissionStatus;
 use model::enums::nation_status::NationStatus;
 
-use bincode::deserialize;
 pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
     let raw_data = get_raw_game_data(server_address)?;
     let mut game_data = GameData {

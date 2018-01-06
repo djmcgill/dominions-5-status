@@ -1,6 +1,5 @@
-#[derive(PartialEq, Clone, Copy, Debug, Serialize, Deserialize)]
+#[derive(PartialEq, Clone, Copy, Debug)]
 #[repr(u8)]
-#[serde(untagged)]
 pub enum SubmissionStatus {
     NotSubmitted = 0,
     PartiallySubmitted = 1,

@@ -13,7 +13,6 @@ extern crate rusqlite;
 extern crate flate2;
 extern crate url;
 
-use std::collections::HashMap;
 use std::fs::File;
 use std::io::Read;
 
@@ -23,15 +22,10 @@ use serenity::prelude::*;
 use serenity::model::*;
 use serenity::framework::standard::StandardFramework;
 use typemap::ShareMap;
-use commands::servers::check_server_for_new_turn;
 use std::{thread, time};
-
-use rusqlite::Connection;
 
 extern crate typemap;
 
-#[macro_use]
-extern crate serde_derive;
 extern crate bincode;
 
 mod model;
@@ -71,7 +65,6 @@ fn main() {
     discord_client.with_framework(StandardFramework::new()
         .configure(|c| c.prefix("!"))
         .on("ping", commands::ping::ping)
-        .on("game_name", commands::game_name::game_name)
         .on("search", commands::inspector::search)
         .on("servers", commands::servers::servers)
         .on("help", commands::help::help)
@@ -110,8 +103,8 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) {
         ).unwrap(); 
 
        if new_turn {
-            println!("new turn in game {}", server.alias.clone());
-            for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(server.alias.clone()).unwrap() {
+            println!("new turn in game {}", server.alias);
+            for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias).unwrap() {
                 // TODO: allow a user to disable PMs
                 let &(name, era) = model::enums::nations::get_nation_desc(nation_id);
                 let text = format!("your nation {} {} has a new turn in {}",
