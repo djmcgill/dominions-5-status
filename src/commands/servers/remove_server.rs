@@ -9,8 +9,8 @@ pub fn remove_server(context: &mut Context, message: &Message, mut args: Args) -
     })?;
 
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().unwrap();
-    db_conn.remove_server(&alias).unwrap();
+    let db_conn = data.get::<DbConnectionKey>().ok_or("No DB connection")?;
+    db_conn.remove_server(&alias).map_err(CommandError::from)?;
     let _ = message.reply(&format!("successfully removed server {}", alias));
     Ok(())
 }

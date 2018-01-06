@@ -1,8 +1,7 @@
 use serenity::model::UserId;
-use rusqlite::Error;
 use std::iter::FromIterator;
 use typemap::Key;
-
+use std::error::Error;
 use model::player::Player;
 use model::game_server::GameServer;
 
@@ -15,9 +14,8 @@ use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 pub struct DbConnection(pub Pool<SqliteConnectionManager>);
 impl DbConnection {
-    // FIXME: errors if db already exists
-    pub fn initialise(&self) -> Result<(), Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn initialise(&self) -> Result<(), Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         conn.execute_batch("
             create table if not exists game_servers (
             id INTEGER NOT NULL PRIMARY KEY,
@@ -47,22 +45,22 @@ impl DbConnection {
 
     pub fn insert_server_player(
             &self, 
-            server_alias: &String, 
+            server_alias: &str, 
             player_user_id: &UserId, 
-            nation_id: u32) -> Result<(), Error> {
+            nation_id: u32) -> Result<(), Box<Error>> {
         
-        let conn = &*self.0.clone().get().unwrap();
+        let conn = &*self.0.clone().get()?;
         conn.execute("INSERT INTO server_players (server_id, player_id, nation_id)
         SELECT g.id, p.id, ?1
         FROM game_servers g
         JOIN players p ON p.discord_user_id = ?2
         WHERE g.alias = ?3
-        ", &[&nation_id, &(player_user_id.0 as i64), server_alias])?;
+        ", &[&nation_id, &(player_user_id.0 as i64), &server_alias])?;
         Ok(())
     }
 
-    pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         conn.execute(
             "INSERT INTO game_servers (address, alias, last_seen_turn)
             VALUES (?1, ?2, ?3)"
@@ -70,18 +68,19 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn insert_player(&self, player: &Player) -> Result<(), Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn insert_player(&self, player: &Player) -> Result<(), Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         conn.execute(
             "INSERT INTO players (discord_user_id)
-            VALUES (?1)"
-        , &[&(player.discord_user_id.0 as i32)])?;
+            SELECT ?1
+            WHERE NOT EXISTS (select 1 from players where discord_user_id = ?1)"
+        , &[&(player.discord_user_id.0 as i64)])?;
         Ok(())
     }
 
-    pub fn retrieve_all_servers(&self) -> Result<Vec<(i32, GameServer)>, Error> {
-        let conn = &*self.0.clone().get().unwrap();
-        let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers").unwrap();
+    pub fn retrieve_all_servers(&self) -> Result<Vec<(i32, GameServer)>, Box<Error>> {
+        let conn = &*self.0.clone().get()?;
+        let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers")?;
         let foo = stmt.query_map(&[], |ref row| {
             let id = row.get(0);
             let server = GameServer {
@@ -90,38 +89,38 @@ impl DbConnection {
                 last_seen_turn: row.get(3),
             };
             (id, server)
-        }).unwrap();
+        })?;
         let iter = foo.map(|x| x.unwrap());
 
         Ok(Vec::from_iter(iter))
     }
 
-    pub fn players_with_nations_for_game_alias(&self, game_alias: &String) -> Result<Vec<(i32, Player, usize)>, Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(i32, Player, usize)>, Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(
             "SELECT p.id, p.discord_user_id, sp.nation_id
             FROM game_servers s
             JOIN server_players sp on sp.server_id = s.id
             JOIN players p on p.id = sp.player_id
             WHERE s.alias = ?1
-            ").unwrap();
-        let foo = stmt.query_map(&[game_alias], |ref row| {
+            ")?;
+        let foo = stmt.query_map(&[&game_alias], |ref row| {
             let id = row.get(0);
-            let discord_user_id: i32 = row.get(1);
+            let discord_user_id: i64 = row.get(1);
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
             };
             let nation: i32 = row.get(2);
             (id, player, nation as usize)
-        }).unwrap();
+        })?;
         let iter = foo.map(|x| x.unwrap());
 
         Ok(Vec::from_iter(iter))
     }
 
-    pub fn game_for_alias(&self, game_alias: String) -> Result<GameServer, Error> {
-        let conn = &*self.0.clone().get().unwrap();
-        let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers WHERE alias = ?1").unwrap();
+    pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Box<Error>> {
+        let conn = &*self.0.clone().get()?;
+        let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers WHERE alias = ?1")?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
             let server = GameServer {
                 address: row.get(1),
@@ -129,23 +128,22 @@ impl DbConnection {
                 last_seen_turn: row.get(3),
             };
             server
-        }).unwrap();
+        })?;
         let mut iter = foo.map(|x| x.unwrap());
-        Ok(iter.next().unwrap())
+        Ok(iter.next().ok_or("could not find the game")?)
     }
 
-    // TODO: stop pointlessly cloning strings
-    pub fn update_game_with_possibly_new_turn(&self, game_alias: String, current_turn: i32) -> Result<bool, Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         let rows = conn.execute(
             "UPDATE game_servers SET last_seen_turn = ?1 WHERE alias = ?2 AND last_seen_turn <> ?1", 
             &[&current_turn, &game_alias]
-        ).unwrap();
+        )?;
         Ok(rows > 0)
     }
 
-    pub fn remove_player_from_game(&self, game_alias: &String, user: UserId) -> Result<(), Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<(), Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         conn.execute(
             "DELETE FROM server_players
             WHERE server_id IN
@@ -153,18 +151,18 @@ impl DbConnection {
             AND player_id IN 
             (SELECT id from players WHERE discord_user_id = ?2)
             ",
-            &[game_alias, &(user.0 as i64)]
-        ).unwrap();
+            &[&game_alias, &(user.0 as i64)]
+        )?;
         Ok(())
     }
 
-    pub fn remove_server(&self, game_alias: &String) -> Result<(), Error> {
-        let conn = &*self.0.clone().get().unwrap();
+    pub fn remove_server(&self, game_alias: &str) -> Result<(), Box<Error>> {
+        let conn = &*self.0.clone().get()?;
         conn.execute(
             "DELETE FROM game_servers
             WHERE alias = ?1",
-            &[game_alias]
-        ).unwrap();
+            &[&game_alias]
+        )?;
         Ok(())
     }
 }

@@ -32,7 +32,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
     let alias = args.single::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
-    let server = db_conn.game_for_alias(alias.clone()).unwrap();
+    let server = db_conn.game_for_alias(&alias)?;
     let ref server_address = server.address;
     let game_data = get_game_data(&server_address)?;
     

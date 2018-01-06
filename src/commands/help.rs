@@ -9,7 +9,6 @@ command!(help(_context, message) {
         - help: display this text\n\
         - nation_status [<alias>]: return a list of the nations and their statuses in the game\n\
         - ping: return \"pong\"\n\
-        - servers pm_players [<alias>]: message all players registered to a game (for testing purposes)\n\
         - servers register nation_prefix [<alias>]: register yourself as a nation in a game\n\
         - servers unregister [<alias>]: unregister yourself in a game\n\
         - servers show_registered [<alias>]: display the users registered for a game"

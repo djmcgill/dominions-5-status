@@ -15,12 +15,12 @@ pub fn show_registered(context: &mut Context, message: &Message, mut args: Args)
     
     let mut text = String::new(); 
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().unwrap();
-    for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&alias).unwrap() {
+    let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| "no db connection")?;
+    for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&alias).map_err(CommandError::from)? {
         let &(nation_name, era) = nations::get_nation_desc(nation_id);
         text.push_str(&format!(
             "{}: {} ({})\n",
-            player.discord_user_id.get().unwrap().name,
+            player.discord_user_id.get()?.name,
             nation_name,
             era));
     }
@@ -37,9 +37,9 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
     })?;
 
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().unwrap();
+    let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
     let ref user = message.author;
-    let _ = db_conn.remove_player_from_game(&alias, user.id).unwrap();
+    let _ = db_conn.remove_player_from_game(&alias, user.id).map_err(CommandError::from)?;
     let text = format!("Removing user {} from game {}", user.name, alias);
     println!("{}", text);
     let _ = message.reply(&text);
@@ -54,8 +54,8 @@ pub fn register_player(context: &mut Context, message: &Message, mut args: Args)
     })?;
 
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().unwrap();
-    let server = db_conn.game_for_alias(alias.clone()).unwrap();
+    let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
+    let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
     let data = get_game_data(&server.address)?;
 
     let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
@@ -71,9 +71,9 @@ pub fn register_player(context: &mut Context, message: &Message, mut args: Args)
     }; 
 
     // TODO: transaction
-    // TODO: upsert not insert
-    db_conn.insert_player(&player).unwrap();
-    db_conn.insert_server_player(&server.address.clone(), &message.author.id, nation.id as u32).unwrap();
+    db_conn.insert_player(&player).map_err(CommandError::from)?;
+    println!("{} {} {}", server.alias, message.author.id, nation.id as u32);
+    db_conn.insert_server_player(&server.alias, &message.author.id, nation.id as u32).map_err(CommandError::from)?;
 
     let text = format!("registering nation {} for user {} in game {}", nation.name, message.author.name, data.game_name);
     
