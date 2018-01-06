@@ -9,7 +9,7 @@ use db::DbConnectionKey;
 
 pub fn show_registered(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     println!("show_registered");
-    let alias = args.single::<String>().or_else(|_| {
+    let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
     
@@ -32,7 +32,7 @@ pub fn show_registered(context: &mut Context, message: &Message, mut args: Args)
 
 pub fn unregister_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     println!("unregistering player");
-    let alias = args.single::<String>().or_else(|_| {
+    let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
 
@@ -48,10 +48,13 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
 
 pub fn register_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     println!("registering player");
-    let arg_nation_name = args.single::<String>()?.to_lowercase();   
-    let alias = args.single::<String>().or_else(|_| {
+    let arg_nation_name = args.single_quoted::<String>()?.to_lowercase();   
+    let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or("")
     })?;
+    if !args.is_empty() {
+        return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
+    }
 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;

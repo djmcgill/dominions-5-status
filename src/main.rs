@@ -77,6 +77,17 @@ fn do_main() -> Result<(), Box<Error>> {
         .command("search", |c| c.bucket("simple").exec(commands::inspector::search))
         .command("servers", |c| c.bucket("simple").exec(commands::servers::servers))
         .command("help", |c| c.bucket("simple").exec(commands::help::help))
+        .before(|_, msg, _| {
+            println!("received {:?}", msg);
+            true
+        })
+        .after(|_ctx, msg, _cmd_name, result| {
+            if let Err(err) = result {
+                let text = format!("ERROR: {}", err.0);
+                println!("{}", text);
+                let _ = msg.reply(&text);
+            }
+        })
     );
 
     let foo = discord_client.data.clone();

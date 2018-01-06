@@ -29,9 +29,12 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
     println!{"nation_status message: {:?}", message};
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
-    let alias = args.single::<String>().or_else(|_| {
+    let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
+    if !args.is_empty() {
+        return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
+    }
     let server = db_conn.game_for_alias(&alias)?;
     let ref server_address = server.address;
     let game_data = get_game_data(&server_address)?;

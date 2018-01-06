@@ -10,7 +10,7 @@ To run:
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
 Commands (server alias is optional, defaults to channel name): 
-* servers add \<address> \[\<alias\>\]: save the dom5 server address
+* servers add \<address:port\> \[\<alias\>\]: save the dom5 server address
 * servers list: return a list of the saved server addresses and aliases
 * servers remove \[\<alias\>\]: remove the server address from the list
 * search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
@@ -23,8 +23,11 @@ Commands (server alias is optional, defaults to channel name):
 * servers show_registered \[\<alias\>\]: display the users registered for a game
 
 TODO:
-* proper logging and error handling
 * make subfunctions pure and testable
-* register for games that don't exist yet
-* start game notifications
 * discord fancy bot formatting
+* time remaining
+
+SUGGESTIONS:
+* register for games that don't exist yet
+* last person/stale
+* show you games waiting for you

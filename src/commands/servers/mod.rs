@@ -9,7 +9,7 @@ use serenity::prelude::Context;
 use serenity::model::Message;
 
 pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    let command = args.single::<String>()?;
+    let command = args.single_quoted::<String>()?;
     match command.as_ref() {
         "add" => add_server::add_server(context, message, args),
         "list" => list_servers::list_servers(context, message),

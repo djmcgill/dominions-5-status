@@ -159,6 +159,12 @@ impl DbConnection {
     pub fn remove_server(&self, game_alias: &str) -> Result<(), Box<Error>> {
         let conn = &*self.0.clone().get()?;
         conn.execute(
+            "DELETE FROM server_players
+            WHERE server_id IN
+            (SELECT id from game_servers WHERE alias = ?1)",
+            &[&game_alias]
+        )?;
+        conn.execute(
             "DELETE FROM game_servers
             WHERE alias = ?1",
             &[&game_alias]

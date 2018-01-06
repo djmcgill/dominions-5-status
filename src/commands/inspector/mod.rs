@@ -4,7 +4,7 @@ const VALID: &[&'static str] = &["item", "spell", "unit", "site", "merc", "event
 
 command!(
     search(_context, message, args) {
-        let category = args.single::<String>()?;
+        let category = args.single_quoted::<String>()?;
         let search_term = utf8_percent_encode(&args.full(), QUERY_ENCODE_SET).to_string();
         if category == VALID[0] || category == VALID[1] ||
             category == VALID[2] || category == VALID[3] ||
