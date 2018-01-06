@@ -78,12 +78,15 @@ fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
 }
 
 fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
-    assert!(raw[1] == b'J');
-    let mut decoder = ZlibDecoder::new(&raw[10..]);
-    let mut decompressed = vec![];
-    let _ = decoder.read_to_end(&mut decompressed)?;
-    println!("{:x}", decompressed.as_slice().as_hex());
-    Ok(decompressed)
+    if raw[1] == b'J' {
+        let mut decoder = ZlibDecoder::new(&raw[10..]);
+        let mut decompressed = vec![];
+        let _ = decoder.read_to_end(&mut decompressed)?;
+        println!("{:x}", decompressed.as_slice().as_hex());
+        Ok(decompressed)
+    } else {
+        Ok(raw[10..].to_vec())
+    }
 }
 
 fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
