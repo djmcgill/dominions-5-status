@@ -4,31 +4,7 @@ use serenity::model::Message;
 
 use server::get_game_data;
 use model::player::Player;
-use model::enums::nations;
 use db::DbConnectionKey;
-
-pub fn show_registered(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    println!("show_registered");
-    let alias = args.single_quoted::<String>().or_else(|_| {
-        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?;
-    
-    let mut text = String::new(); 
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| "no db connection")?;
-    for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&alias).map_err(CommandError::from)? {
-        let &(nation_name, era) = nations::get_nation_desc(nation_id);
-        text.push_str(&format!(
-            "{}: {} ({})\n",
-            player.discord_user_id.get()?.name,
-            nation_name,
-            era));
-    }
-
-    println!("replying with {}", text);
-    let _ = message.reply(&text);
-    Ok(())
-}
 
 pub fn unregister_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     println!("unregistering player");
@@ -46,15 +22,19 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
     Ok(())
 }
 
-pub fn register_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+pub fn register_player(context: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
     println!("registering player");
-    let arg_nation_name = args.single_quoted::<String>()?.to_lowercase();   
-    let alias = args.single_quoted::<String>().or_else(|_| {
-        message.channel_id.name().ok_or("")
-    })?;
-    if !args.is_empty() {
+    let args = args.multiple_quoted::<String>()?;
+    if args.len() > 2 {
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
     }
+
+    // TODO: allow nation era to be first
+    let arg_nation_name = args[0].to_lowercase();   
+    let alias = args.get(1).cloned().or_else(|| {
+        message.channel_id.name()
+    }).ok_or(&"Could not retrieve channel name")?;
+
 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;

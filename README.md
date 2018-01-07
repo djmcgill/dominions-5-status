@@ -13,19 +13,17 @@ Commands (server alias is optional, defaults to channel name):
 * servers add \<address:port\> \[\<alias\>\]: save the dom5 server address
 * servers list: return a list of the saved server addresses and aliases
 * servers remove \[\<alias\>\]: remove the server address from the list
-* search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
-* game_name \[\<alias\>\]: display the ingame name
-* help: display this text
-* nation_status \[\<alias\>\]: return a list of the nations and their statuses in the game
-* ping: return \"pong\"
+* servers details \[\<alias\>\]: return a list of the nations and their statuses in the game
 * servers register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
 * servers unregister\[\<alias\>\]: unregister yourself in a game
-* servers show_registered \[\<alias\>\]: display the users registered for a game
+* search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
+* help: display this text
+* ping: return \"pong\"
+
 
 TODO:
 * make subfunctions pure and testable
-* discord fancy bot formatting
-* time remaining
+* time remaining for turn
 
 SUGGESTIONS:
 * register for games that don't exist yet

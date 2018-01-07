@@ -1,39 +1,33 @@
 
-#[macro_use]
-extern crate lazy_static;
-
+extern crate bincode;
 extern crate byteorder;
-
-extern crate hex_slice;
-
-extern crate r2d2;
-extern crate r2d2_sqlite;
-extern crate rusqlite;
-
+extern crate failure;
 extern crate flate2;
+extern crate hex_slice;
+#[macro_use] extern crate lazy_static;
+extern crate r2d2_sqlite;
+extern crate r2d2;
+extern crate rusqlite;
+#[macro_use] extern crate serenity;
+extern crate typemap;
 extern crate url;
 
+mod commands;
+mod db;
+mod model;
+mod server;
+
+use serenity::framework::standard::StandardFramework;
+use serenity::model::*;
+use serenity::prelude::*;
+use typemap::ShareMap;
+
+use std::{thread, time};
+use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 
-#[macro_use]
-extern crate serenity;
-use serenity::prelude::*;
-use serenity::model::*;
-use serenity::framework::standard::StandardFramework;
-use typemap::ShareMap;
-use std::{thread, time};
-
-extern crate typemap;
-
-extern crate bincode;
-
-mod model;
-mod commands;
-mod server;
-mod db;
-
-use std::error::Error;
+use db::{DbConnection, DbConnectionKey};
 
 struct Handler;
 impl EventHandler for Handler {
@@ -56,18 +50,12 @@ fn do_main() -> Result<(), Box<Error>> {
         temp_token
     };
 
-    use r2d2_sqlite::SqliteConnectionManager;
-    let manager = SqliteConnectionManager::file("dom5bot.db");
-    let pool = r2d2::Pool::new(manager)?;
-
-    let db_conn = db::DbConnection(pool);
-    db_conn.initialise()?;
-
+    let db_conn = DbConnection::new(&"dom5bot.db".to_string())?;
     let mut discord_client = Client::new(&token, Handler);
 
     {
         let mut data = discord_client.data.lock();
-        data.insert::<db::DbConnectionKey>(db_conn);
+        data.insert::<DbConnectionKey>(db_conn);
     }
 
     discord_client.with_framework(StandardFramework::new()
@@ -90,15 +78,14 @@ fn do_main() -> Result<(), Box<Error>> {
         })
     );
 
-    let foo = discord_client.data.clone();
+    let data_clone = discord_client.data.clone();
     thread::spawn(move || {
-        check_for_new_turns_every_1_min(foo.as_ref());
+        check_for_new_turns_every_1_min(data_clone.as_ref());
     });
     // start listening for events by starting a single shard
     if let Err(why) = discord_client.start() {
         println!("Client error: {:?}", why);
     }
-    println!("returning");
     Ok(())
 }
 

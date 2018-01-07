@@ -15,3 +15,4 @@ rusqlite = {version = "0.13.*", features = ["bundled"]}
 lazy_static = "*"
 r2d2 = "0.8.2"
 r2d2_sqlite = "0.5.0"
+failure = "0.1.1"

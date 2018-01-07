@@ -1,20 +1,31 @@
+use failure::{err_msg,Error};
+use r2d2_sqlite::SqliteConnectionManager;
+use r2d2::Pool;
 use serenity::model::UserId;
-use std::iter::FromIterator;
 use typemap::Key;
-use std::error::Error;
-use model::player::Player;
+
+use std::iter::FromIterator;
+
 use model::game_server::GameServer;
+use model::player::Player;
 
 pub struct DbConnectionKey;
 impl Key for DbConnectionKey {
     type Value = DbConnection;
 }
 
-use r2d2::Pool;
-use r2d2_sqlite::SqliteConnectionManager;
-pub struct DbConnection(pub Pool<SqliteConnectionManager>);
+pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
-    pub fn initialise(&self) -> Result<(), Box<Error>> {
+    pub fn new(path: &String) -> Result<Self, Error> {
+        let manager = SqliteConnectionManager::file(path);
+        let pool = Pool::new(manager)?;
+        let db_conn = DbConnection(pool);
+        db_conn.initialise()?;
+        Ok(db_conn)
+    }
+
+
+    fn initialise(&self) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute_batch("
             create table if not exists game_servers (
@@ -47,7 +58,7 @@ impl DbConnection {
             &self, 
             server_alias: &str, 
             player_user_id: &UserId, 
-            nation_id: u32) -> Result<(), Box<Error>> {
+            nation_id: u32) -> Result<(), Error> {
         
         let conn = &*self.0.clone().get()?;
         conn.execute("INSERT INTO server_players (server_id, player_id, nation_id)
@@ -59,7 +70,7 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Box<Error>> {
+    pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "INSERT INTO game_servers (address, alias, last_seen_turn)
@@ -68,7 +79,7 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn insert_player(&self, player: &Player) -> Result<(), Box<Error>> {
+    pub fn insert_player(&self, player: &Player) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "INSERT INTO players (discord_user_id)
@@ -78,7 +89,7 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn retrieve_all_servers(&self) -> Result<Vec<(i32, GameServer)>, Box<Error>> {
+    pub fn retrieve_all_servers(&self) -> Result<Vec<(i32, GameServer)>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers")?;
         let foo = stmt.query_map(&[], |ref row| {
@@ -95,7 +106,7 @@ impl DbConnection {
         Ok(Vec::from_iter(iter))
     }
 
-    pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(i32, Player, usize)>, Box<Error>> {
+    pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(i32, Player, usize)>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(
             "SELECT p.id, p.discord_user_id, sp.nation_id
@@ -118,7 +129,7 @@ impl DbConnection {
         Ok(Vec::from_iter(iter))
     }
 
-    pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Box<Error>> {
+    pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers WHERE alias = ?1")?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
@@ -130,10 +141,10 @@ impl DbConnection {
             server
         })?;
         let mut iter = foo.map(|x| x.unwrap());
-        Ok(iter.next().ok_or("could not find the game")?)
+        Ok(iter.next().ok_or(err_msg("could not find the game"))?)
     }
 
-    pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Box<Error>> {
+    pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Error> {
         let conn = &*self.0.clone().get()?;
         let rows = conn.execute(
             "UPDATE game_servers SET last_seen_turn = ?1 WHERE alias = ?2 AND last_seen_turn <> ?1", 
@@ -142,7 +153,7 @@ impl DbConnection {
         Ok(rows > 0)
     }
 
-    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<(), Box<Error>> {
+    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "DELETE FROM server_players
@@ -156,7 +167,7 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn remove_server(&self, game_alias: &str) -> Result<(), Box<Error>> {
+    pub fn remove_server(&self, game_alias: &str) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "DELETE FROM server_players

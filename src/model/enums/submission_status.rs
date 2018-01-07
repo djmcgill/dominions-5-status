@@ -8,9 +8,9 @@ pub enum SubmissionStatus {
 impl SubmissionStatus {
     pub fn show(self) -> &'static str {
         match self {
-            SubmissionStatus::NotSubmitted => ":x:",
-            SubmissionStatus::PartiallySubmitted => ":alarm_clock:",
-            SubmissionStatus::Submitted => ":white_check_mark:",
+            SubmissionStatus::NotSubmitted => "X",
+            SubmissionStatus::PartiallySubmitted => "/",
+            SubmissionStatus::Submitted => "✓",
         }
     }
 
