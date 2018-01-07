@@ -57,7 +57,7 @@ fn do_main() -> Result<(), Box<Error>> {
     };
 
     use r2d2_sqlite::SqliteConnectionManager;
-    let manager = SqliteConnectionManager::file("C:\\Users\\David\\Documents\\code\\dom5status\\dom5bot.db");
+    let manager = SqliteConnectionManager::file("dom5bot.db");
     let pool = r2d2::Pool::new(manager)?;
 
     let db_conn = db::DbConnection(pool);
