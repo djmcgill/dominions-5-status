@@ -29,7 +29,6 @@ pub fn register_player(context: &mut Context, message: &Message, args: Args) -> 
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
     }
 
-    // TODO: allow nation era to be first
     let arg_nation_name = args[0].to_lowercase();   
     let alias = args.get(1).cloned().or_else(|| {
         message.channel_id.name()

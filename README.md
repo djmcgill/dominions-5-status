@@ -29,3 +29,4 @@ SUGGESTIONS:
 * register for games that don't exist yet
 * last person/stale
 * show you games waiting for you
+* edit pinned post instead of new
