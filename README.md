@@ -30,6 +30,8 @@ TODO:
 * include discord id number for players
 * links to docker guide
 * turn submitted colour coded
+* unrecognised command error
+* stop logging every single byte
 
 SUGGESTIONS:
 * register for games that don't exist yet
