@@ -44,13 +44,13 @@ fn main() {
 
 fn do_main() -> Result<(), Box<Error>> {
     let token = {
-        let mut token_file = File::open("token")?;
+        let mut token_file = File::open("resources/token")?;
         let mut temp_token = String::new();
         token_file.read_to_string(&mut temp_token)?;
         temp_token
     };
 
-    let db_conn = DbConnection::new(&"dom5bot.db".to_string())?;
+    let db_conn = DbConnection::new(&"resources/dom5bot.db".to_string())?;
     let mut discord_client = Client::new(&token, Handler);
 
     {

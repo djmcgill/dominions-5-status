@@ -24,6 +24,12 @@ Commands (server alias is optional, defaults to channel name):
 TODO:
 * make subfunctions pure and testable
 * time remaining for turn
+* submitted staus only show for human
+* error if nation registering is ambiguous
+* help text in embed
+* include discord id number for players
+* links to docker guide
+* turn submitted colour coded
 
 SUGGESTIONS:
 * register for games that don't exist yet
