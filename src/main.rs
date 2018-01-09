@@ -71,6 +71,7 @@ fn do_main() -> Result<(), Box<Error>> {
         })
         .after(|_ctx, msg, _cmd_name, result| {
             if let Err(err) = result {
+                print!("command error: ");
                 let text = format!("ERROR: {}", err.0);
                 println!("{}", text);
                 let _ = msg.reply(&text);

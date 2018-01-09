@@ -43,7 +43,6 @@ pub fn get_raw_game_data(server_address: &String) -> io::Result<RawGameData> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_data = parse_data(&decompressed)?;
-    println!("data: {:?}", game_data);
     Ok(game_data)
 }
 
@@ -63,7 +62,6 @@ fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
     let mut buffer = [0; 512];
     println!("trying to receive");
     let _ = stream.read(&mut buffer)?;
-    println!("Received {:x}", buffer.as_hex());
 
     let mut wtr2 = vec![];
     wtr2.write_u8(b'f')?;
@@ -82,7 +80,6 @@ fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
         let mut decoder = ZlibDecoder::new(&raw[10..]);
         let mut decompressed = vec![];
         let _ = decoder.read_to_end(&mut decompressed)?;
-        println!("{:x}", decompressed.as_slice().as_hex());
         Ok(decompressed)
     } else {
         Ok(raw[10..].to_vec())

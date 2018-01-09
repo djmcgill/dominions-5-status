@@ -20,18 +20,15 @@ Commands (server alias is optional, defaults to channel name):
 * help: display this text
 * ping: return \"pong\"
 
-
 TODO:
 * make subfunctions pure and testable
 * time remaining for turn
-* submitted staus only show for human
 * error if nation registering is ambiguous
 * help text in embed
 * include discord id number for players
 * links to docker guide
 * turn submitted colour coded
-* unrecognised command error
-* stop logging every single byte
+* use display name and not their account name
 
 SUGGESTIONS:
 * register for games that don't exist yet

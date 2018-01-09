@@ -36,7 +36,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
                 |&&(_, _, nation_id)| nation_id == nation.id
                 ) {
                     // TODO: escape this?
-                    format!("**{}**", player.discord_user_id.get()?.name)    
+                    format!("**{}**", player.discord_user_id.get()?)    
                 } else {
                     nation.status.show().to_string()
                 }
@@ -47,7 +47,11 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
 
         player_names.push_str(&format!("{}\n", nation_string));
         
-        submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
+        if let NationStatus::Human = nation.status {
+            submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
+        } else {
+            submitted_status.push_str(&"\n");
+        }
     }
     let res = message.channel_id.send_message(|m| m
         .embed(|e| e

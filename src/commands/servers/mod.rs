@@ -17,6 +17,9 @@ pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Resu
         "register" => register_player::register_player(context, message, args),
         "unregister" => register_player::unregister_player(context, message, args),
         "details" => details::details(context, message, args),
-        _ => Ok(()),
+        _ => {
+            message.reply(&format!("Unrecognised command '{}'. Send !help to see valid commands.", command))?;
+            Ok(())
+        }
     }
 }
