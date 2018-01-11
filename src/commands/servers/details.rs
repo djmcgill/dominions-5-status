@@ -8,7 +8,6 @@ use model::enums::nation_status::NationStatus;
 use db::DbConnectionKey;
 
 pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    println!{"nation_status message: {:?}", message};
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
     let alias = args.single_quoted::<String>().or_else(|_| {
@@ -29,6 +28,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
 
     for nation in &game_data.nations {
+        debug!("Creating format for nation {} {}", nation.era, nation.name);
         nation_names.push_str(&format!("{} {}\n", nation.era, nation.name));
 
         let nation_string = if let NationStatus::Human = nation.status {
@@ -53,9 +53,17 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
             submitted_status.push_str(&"\n");
         }
     }
-    let res = message.channel_id.send_message(|m| m
+    info!("Server details string created, now sending.");
+    let total_mins_remaining = game_data.turn_timer / (1000*60);
+    let hours_remaining = total_mins_remaining/60;
+    let mins_remaining = total_mins_remaining - hours_remaining*60;
+    message.channel_id.send_message(|m| m
         .embed(|e| e
-            .title(format!("{}: turn {}, ??:?? remaining", game_data.game_name, game_data.turn))
+            .title(format!("{}: turn {}, {}h {}m remaining",
+                game_data.game_name,
+                game_data.turn,
+                hours_remaining,
+                mins_remaining))
             .field( |f| f
                 .name("Nation")
                 .value(nation_names)
@@ -70,40 +78,6 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
                 .value(submitted_status)
             )
         )        
-    );
-
-    println!("CALL RESULT: {:?}", res);
-    //     let status_str = status;
-    //         // if status == "Human" { // FIXME
-    //         //     server
-    //         //         .players
-    //         //         .iter()
-    //         //         .find(|&(_, x)| x.nation_name == name)
-    //         //         .map(|(user_id, _)| user_id.get().unwrap().name)
-    //         //         .unwrap_or("Human".to_string())
-    //         // } else {
-    //         //     status
-    //         // };
-    //     let x = format!(
-    //         "{:name_len$} ({}): {}",
-    //         name,
-    //         era,
-    //         status_str,
-    //         name_len = longest_name_length,
-    //     );
-    //     response.push_str(&x);
-    //     for submitted in opt_submitted {
-    //         response.push_str(&format!(" ({}) ", submitted));
-    //     }
-    //     // let opt_user_id = server.players.iter().find(|&(_, x)| x.nation_name == name);
-    //     // for (user_id, _) in opt_user_id {
-    //     //     response.push_str(&user_id.get().unwrap().name);
-    //     // }
-    //     response.push_str(&"\n");
-    // } 
-    // response.push_str(&"```\n");
-
-    // println!("responding with {}", response);
-    // let _ = message.reply(&response);    
+    )?;
     Ok(())
 }

@@ -4,7 +4,7 @@ type NationEnum = (&'static str, &'static str);
 pub fn get_nation_desc(n: usize) -> &'static NationEnum {
     NATIONS_BY_ID.get(&(n as u32)).unwrap_or_else(
         || {
-            println!("unknown nation {}", n);
+            info!("unknown nation {}", n);
             &("unknown nation", "")
         }
     )

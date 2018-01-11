@@ -4,15 +4,16 @@ version = "0.1.0"
 authors = ["David McGillicuddy <contact@djmcgill.co.uk>"]
 
 [dependencies]
-serenity = {version = "0.4.6", features = ["default"]}
-hex-slice = "*"
-flate2 = "1.0"
 byteorder = "*"
-typemap = "0.3"
-url = "1.6.*"
-bincode = "0.9.2"
-rusqlite = {version = "0.13.*", features = ["bundled"]}
+failure = "0.1.1"
+flate2 = "1.0"
+hex-slice = "*"
 lazy_static = "*"
+log = "0.4.*"
 r2d2 = "0.8.2"
 r2d2_sqlite = "0.5.0"
-failure = "0.1.1"
+rusqlite = {version = "0.13.*", features = ["bundled"]}
+serenity = "0.4.6"
+simplelog = "^0.4.4"
+typemap = "0.3"
+url = "1.6.*"

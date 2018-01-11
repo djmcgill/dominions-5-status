@@ -7,7 +7,6 @@ use model::player::Player;
 use db::DbConnectionKey;
 
 pub fn unregister_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    println!("unregistering player");
     let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
     })?;
@@ -17,13 +16,12 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
     let ref user = message.author;
     let _ = db_conn.remove_player_from_game(&alias, user.id).map_err(CommandError::from)?;
     let text = format!("Removing user {} from game {}", user.name, alias);
-    println!("{}", text);
+    info!("{}", text);
     let _ = message.reply(&text);
     Ok(())
 }
 
 pub fn register_player(context: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
-    println!("registering player");
     let args = args.multiple_quoted::<String>()?;
     if args.len() > 2 {
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
@@ -44,7 +42,7 @@ pub fn register_player(context: &mut Context, message: &Message, args: Args) -> 
         nation.name.to_lowercase().starts_with(&arg_nation_name) 
     ).ok_or_else(|| {
         let err = format!("Could not find nation starting with {}", arg_nation_name);
-        println!("{}", err);
+        info!("{}", err);
         err
     })?; 
 
@@ -54,7 +52,7 @@ pub fn register_player(context: &mut Context, message: &Message, args: Args) -> 
 
     // TODO: transaction
     db_conn.insert_player(&player).map_err(CommandError::from)?;
-    println!("{} {} {}", server.alias, message.author.id, nation.id as u32);
+    info!("{} {} {}", server.alias, message.author.id, nation.id as u32);
     db_conn.insert_server_player(&server.alias, &message.author.id, nation.id as u32).map_err(CommandError::from)?;
 
     let text = format!("registering nation {} for user {} in game {}", nation.name, message.author.name, data.game_name);

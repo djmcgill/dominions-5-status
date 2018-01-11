@@ -31,6 +31,6 @@ pub fn add_server(context: &mut Context, message: &Message, mut args: Args) -> R
     db_connection.insert_game_server(&server)?;
     let text = format!("successfully inserted game {} with alias {}", game_data.game_name, alias);
     let _ = message.reply(&text);
-    println!("{}", text);
+    info!("{}", text);
     Ok(())
 }

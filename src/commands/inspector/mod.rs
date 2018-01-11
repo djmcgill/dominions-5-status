@@ -12,7 +12,7 @@ command!(
             let response = format!(
                 "https://larzm42.github.io/dom5inspector/?page={}&{}q={}",
             category, category, search_term);
-            println!("responding with {}", response);
+            info!("responding with {}", response);
             let _ = message.reply(&response); 
         };
     }

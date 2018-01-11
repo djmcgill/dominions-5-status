@@ -18,17 +18,13 @@ Commands (server alias is optional, defaults to channel name):
 * servers unregister\[\<alias\>\]: unregister yourself in a game
 * search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
 * help: display this text
-* ping: return \"pong\"
 
 TODO:
 * make subfunctions pure and testable
-* time remaining for turn
 * error if nation registering is ambiguous
 * help text in embed
-* include discord id number for players
 * links to docker guide
 * turn submitted colour coded
-* use display name and not their account name
 
 SUGGESTIONS:
 * register for games that don't exist yet
