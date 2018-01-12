@@ -3,6 +3,7 @@ mod list_servers;
 mod remove_server;
 mod register_player;
 mod details;
+mod my_games;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
@@ -17,6 +18,7 @@ pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Resu
         "register" => register_player::register_player(context, message, args),
         "unregister" => register_player::unregister_player(context, message, args),
         "details" => details::details(context, message, args),
+        "my_games" => my_games::my_games(context, message),
         _ => {
             message.reply(&format!("Unrecognised command '{}'. Send !help to see valid commands.", command))?;
             Ok(())

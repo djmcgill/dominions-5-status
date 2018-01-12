@@ -7,6 +7,7 @@ use typemap::Key;
 use std::iter::FromIterator;
 
 use model::game_server::GameServer;
+use model::nation::Nation;
 use model::player::Player;
 
 pub struct DbConnectionKey;
@@ -181,5 +182,9 @@ impl DbConnection {
             &[&game_alias]
         )?;
         Ok(())
+    }
+
+    pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, Nation)>, Error> {
+        Ok(vec![])
     }
 }

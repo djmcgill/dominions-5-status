@@ -1,6 +1,7 @@
 use model::enums::nation_status::NationStatus;
 use model::enums::submission_status::SubmissionStatus;
 
+#[derive(Debug, Clone, PartialEq)]
 pub struct Nation {
     pub id: usize,
     pub status: NationStatus,

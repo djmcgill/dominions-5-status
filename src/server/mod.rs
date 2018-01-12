@@ -1,7 +1,7 @@
 use byteorder::{LittleEndian, WriteBytesExt, ReadBytesExt};
 use hex_slice::AsHex;
 use flate2::read::ZlibDecoder;
-use std::io::{BufRead, Cursor, Read, Write};
+use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
 use model::raw_game_data::RawGameData;
@@ -11,7 +11,7 @@ use model::enums::nations;
 use model::enums::submission_status::SubmissionStatus;
 use model::enums::nation_status::NationStatus;
 
-pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
+pub fn get_game_data(server_address: &str) -> io::Result<GameData> {
     let raw_data = get_raw_game_data(server_address)?;
     let mut game_data = GameData {
         game_name: raw_data.game_name,
@@ -40,14 +40,14 @@ pub fn get_game_data(server_address: &String) -> io::Result<GameData> {
     Ok(game_data)
 }
 
-pub fn get_raw_game_data(server_address: &String) -> io::Result<RawGameData> {
+pub fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_data = parse_data(&decompressed)?;
     Ok(game_data)
 }
 
-fn call_server_for_info(server_address: &String) -> io::Result<Vec<u8>> {
+fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
     info!("starting");
     let mut stream = net::TcpStream::connect(server_address)?;
     info!("connected");

@@ -25,9 +25,13 @@ TODO:
 * help text in embed
 * links to docker guide
 * turn submitted colour coded
+* have docker volume/cache the crate registry
+* issues when the first nations in the details aren't human?
 
 SUGGESTIONS:
 * register for games that don't exist yet
+* have a PM only command to get a readout of every game you're currently registered to
 * last person/stale
 * show you games waiting for you
 * edit pinned post instead of new
+* somehow make it not look like ass on mobile?
