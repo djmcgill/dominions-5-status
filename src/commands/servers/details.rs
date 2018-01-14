@@ -50,20 +50,26 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
         if let NationStatus::Human = nation.status {
             submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
         } else {
-            submitted_status.push_str(&"\n");
+            submitted_status.push_str(&".\n");
         }
     }
     info!("Server details string created, now sending.");
     let total_mins_remaining = game_data.turn_timer / (1000*60);
     let hours_remaining = total_mins_remaining/60;
     let mins_remaining = total_mins_remaining - hours_remaining*60;
-    message.channel_id.send_message(|m| m
-        .embed(|e| e
-            .title(format!("{}: turn {}, {}h {}m remaining",
+
+    let embed_title = format!("{}: turn {}, {}h {}m remaining",
                 game_data.game_name,
                 game_data.turn,
                 hours_remaining,
-                mins_remaining))
+                mins_remaining);
+
+    info!("replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
+     embed_title, nation_names, player_names, submitted_status);
+
+    message.channel_id.send_message(|m| m
+        .embed(|e| e
+            .title(embed_title)
             .field( |f| f
                 .name("Nation")
                 .value(nation_names)

@@ -95,37 +95,37 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     let mut cursor = Cursor::new(data);
     let mut a = [0u8; 6]; 
     cursor.read(&mut a)?;
-    info!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
-    info!("parsing name");
+    debug!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("parsing name");
     // TODO: properly read until null terminator instead of this hack
     let mut game_name_buff = vec![0u8; game_name_len];
     let _ = cursor.read_exact(&mut game_name_buff)?;
     let game_name = String::from_utf8_lossy(&game_name_buff[0..game_name_len-1]).to_string();
-    info!("game name: {}", game_name);
-    info!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("game name: {}", game_name);
+    debug!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
 
 
-    info!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
     let mut c = [0u8; 6];
     cursor.read(&mut c)?;
-    info!("reading timer");    
+    debug!("reading timer");    
     let d = cursor.read_i32::<LittleEndian>()?;
-    info!("timer value: {}", d);
+    debug!("timer value: {}", d);
 
     // let e = cursor.read_u8()?;
 
-    info!("f cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("f cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
     let mut f = vec![0u8; 750];
     cursor.read_exact(&mut f)?;
-    info!("g cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("g cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
     let g = cursor.read_u8()?;
-    info!("h cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("h cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
     let h = cursor.read_u32::<LittleEndian>()?;
-    info!("i cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("i cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
     let i = cursor.read_u32::<LittleEndian>()?;
-    info!("j cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("j cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
     let j = cursor.read_u8()?;
-    info!("finish cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!("finish cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
 
     Ok(RawGameData {
         a: a,
