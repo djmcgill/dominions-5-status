@@ -16,6 +16,7 @@ Commands (server alias is optional, defaults to channel name):
 * servers details \[\<alias\>\]: return a list of the nations and their statuses in the game
 * servers register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
 * servers unregister\[\<alias\>\]: unregister yourself in a game
+* servers my_games: show all of the games you're in and their turn status
 * search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
 * help: display this text
 
@@ -30,8 +31,6 @@ TODO:
 
 SUGGESTIONS:
 * register for games that don't exist yet
-* have a PM only command to get a readout of every game you're currently registered to
 * last person/stale
-* show you games waiting for you
 * edit pinned post instead of new
 * somehow make it not look like ass on mobile?
