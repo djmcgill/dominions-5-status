@@ -7,7 +7,6 @@ use typemap::Key;
 use std::iter::FromIterator;
 
 use model::game_server::GameServer;
-use model::nation::Nation;
 use model::player::Player;
 
 pub struct DbConnectionKey;
@@ -34,10 +33,9 @@ impl DbConnection {
             address VARCHAR(255) NOT NULL,
             alias VARCHAR(255) NOT NULL,
             last_seen_turn int NOT NULL,
+            CONSTRAINT server_alias_unique UNIQUE (alias),
             CONSTRAINT server_address_unique UNIQUE (address)
             );
-
-            create INDEX if not exists server_alias_index ON game_servers(alias);
 
             create table if not exists players (
             id INTEGER NOT NULL PRIMARY KEY,
@@ -184,7 +182,31 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, Nation)>, Error> {
-        Ok(vec![])
+    pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
+        let conn = &*self.0.clone().get()?;
+        let mut stmt = conn.prepare("
+            SELECT g.address, g.alias, g.last_seen_turn, sp.nation_id
+            FROM players p
+            JOIN server_players sp on sp.player_id = p.id
+            JOIN game_servers g on g.id = sp.server_id
+            WHERE p.discord_user_id = ?1
+        ")?;
+
+        let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
+            let server = GameServer {
+                address: row.get(0),
+                alias: row.get(1),
+                last_seen_turn: row.get(2),
+            };
+            let nation_id = row.get(3);
+            (server, nation_id)
+        })?;
+
+        let mut ret: Vec<(GameServer, i32)> = vec![];
+        for pair in foo {
+            ret.push(pair?);
+        }
+
+        Ok(ret)
     }
 }
