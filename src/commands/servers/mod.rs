@@ -1,27 +1,6 @@
-mod add_server;
-mod list_servers;
-mod remove_server;
-mod register_player;
-mod details;
-mod my_games;
-
-use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
-use serenity::model::Message;
-
-pub fn servers(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    let command = args.single_quoted::<String>()?;
-    match command.as_ref() {
-        "add" => add_server::add_server(context, message, args),
-        "list" => list_servers::list_servers(context, message),
-        "remove" => remove_server::remove_server(context, message, args),
-        "register" => register_player::register_player(context, message, args),
-        "unregister" => register_player::unregister_player(context, message, args),
-        "details" => details::details(context, message, args),
-        "my_games" => my_games::my_games(context, message),
-        _ => {
-            message.reply(&format!("Unrecognised command '{}'. Send !help to see valid commands.", command))?;
-            Ok(())
-        }
-    }
-}
+pub mod add_server;
+pub mod list_servers;
+pub mod remove_server;
+pub mod register_player;
+pub mod details;
+pub mod turns;

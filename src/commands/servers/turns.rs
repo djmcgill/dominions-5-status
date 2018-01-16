@@ -5,12 +5,12 @@ use serenity::model::Message;
 use server;
 use db::DbConnectionKey;
 
-pub fn my_games(context: &mut Context, message: &Message) -> Result<(), CommandError> {
+pub fn turns(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| CommandError("No db connection".to_string()))?;
     let servers_and_nations_for_player = db_conn.servers_for_player(message.author.id)?;
 
-    let mut text = String::new();
+    let mut text = "Your turns:\n".to_string();
     for (server, nation_id) in servers_and_nations_for_player {
         let game_data = server::get_game_data(&server.address)?;
         let ref nation = game_data.nations.iter().find(|&n| n.id == nation_id as usize).unwrap();
@@ -27,6 +27,7 @@ pub fn my_games(context: &mut Context, message: &Message) -> Result<(), CommandE
         ));
     }
     info!("replying with {}", text);
-    message.reply(&text)?;
+    let private_channel = message.author.id.create_dm_channel()?;
+    private_channel.say(&text)?;
     Ok(())
 }

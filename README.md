@@ -10,15 +10,15 @@ To run:
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
 Commands (server alias is optional, defaults to channel name): 
-* servers add \<address:port\> \[\<alias\>\]: save the dom5 server address
-* servers list: return a list of the saved server addresses and aliases
-* servers remove \[\<alias\>\]: remove the server address from the list
-* servers details \[\<alias\>\]: return a list of the nations and their statuses in the game
-* servers register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
-* servers unregister\[\<alias\>\]: unregister yourself in a game
-* servers my_games: show all of the games you're in and their turn status
-* search {item, spell, unit, site, merc, event} \<text\>: get dom5inspector search url
-* help: display this text
+* !add \<address:port\> \[\<alias\>\]: save the dom5 server address
+* !list: return a list of the saved server addresses and aliases
+* !delete \[\<alias\>\]: remove the server address from the list
+* !details \[\<alias\>\]: return a list of the nations and their statuses in the game
+* !register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
+* !unregister \[\<alias\>\]: unregister yourself in a game
+* !turns: show all of the games you're in and their turn status
+* !\{item, spell, unit, site, merc, event\} \<text\>: get dom5inspector search url
+* !help: display this text
 
 TODO:
 * make subfunctions pure and testable
@@ -27,9 +27,6 @@ TODO:
 * links to docker guide
 * turn submitted colour coded
 * have docker volume/cache the crate registry
-* issues when the first nations in the details aren't human?
-
-SUGGESTIONS:
 * register for games that don't exist yet
 * last person/stale
 * edit pinned post instead of new

@@ -69,9 +69,61 @@ fn do_main() -> Result<(), Box<Error>> {
     discord_client.with_framework(StandardFramework::new()
         .configure(|c| c.prefix("!"))
         .simple_bucket("simple", 1)
-        .command("search", |c| c.bucket("simple").exec(commands::inspector::search))
-        .command("servers", |c| c.bucket("simple").exec(commands::servers::servers))
-        .command("help", |c| c.bucket("simple").exec(commands::help::help))
+        .command("item", |c| c
+            .bucket("simple")
+            .exec(|_, m, a| commands::inspector::search(&"item", m, a))
+        )
+        .command("spell", |c| c
+            .bucket("simple")
+            .exec(|_, m, a| commands::inspector::search(&"spell", m, a))
+        )
+        .command("unit", |c| c
+            .bucket("simple")
+            .exec(|_, m, a| commands::inspector::search(&"unit", m, a))
+        )
+        .command("site", |c| c
+            .bucket("simple")
+            .exec(|_, m, a| commands::inspector::search(&"site", m, a))
+        )
+        .command("merc", |c| c
+            .bucket("simple")
+            .exec(|_, m, a| commands::inspector::search(&"merc", m, a))
+        )
+        .command("event", |c| c
+            .bucket("simple")
+            .exec(|_, m, a| commands::inspector::search(&"event", m, a))
+        )
+        .command("add", |c| c
+            .bucket("simple")
+            .exec(|cx, m, a| commands::servers::add_server::add_server(cx, m, a))
+        )
+        .command("list", |c| c
+            .bucket("simple")
+            .exec(|cx, m, _| commands::servers::list_servers::list_servers(cx, m))
+        )
+        .command("delete", |c| c
+            .bucket("simple")
+            .exec(|cx, m, a| commands::servers::remove_server::remove_server(cx, m, a))
+        )
+        .command("details", |c| c
+            .bucket("simple")
+            .exec(|cx, m, a| commands::servers::details::details(cx, m, a))
+        )
+        .command("register", |c| c
+            .bucket("simple")
+            .exec(|cx, m, a| commands::servers::register_player::register_player(cx, m, a))
+        )
+        .command("unregister", |c| c
+            .bucket("simple")
+            .exec(|cx, m, a| commands::servers::register_player::unregister_player(cx, m, a))
+        )
+        .command("turns", |c| c
+            .bucket("simple")
+            .exec(|cx, m, _| commands::servers::turns::turns(cx, m))
+        )
+        .command("help", |c| c
+            .bucket("simple")
+            .exec(commands::help::help))
         .before(|_, msg, _| {
             info!("received message {:?}", msg);
             true
