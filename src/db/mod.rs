@@ -4,8 +4,6 @@ use r2d2::Pool;
 use serenity::model::UserId;
 use typemap::Key;
 
-use std::iter::FromIterator;
-
 use model::game_server::GameServer;
 use model::player::Player;
 
@@ -100,9 +98,8 @@ impl DbConnection {
             };
             (id, server)
         })?;
-        let iter = foo.map(|x| x.unwrap());
-
-        Ok(Vec::from_iter(iter))
+        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        Ok(vec)
     }
 
     pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(i32, Player, usize)>, Error> {
@@ -123,9 +120,8 @@ impl DbConnection {
             let nation: i32 = row.get(2);
             (id, player, nation as usize)
         })?;
-        let iter = foo.map(|x| x.unwrap());
-
-        Ok(Vec::from_iter(iter))
+        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        Ok(vec)
     }
 
     pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
@@ -139,8 +135,12 @@ impl DbConnection {
             };
             server
         })?;
-        let mut iter = foo.map(|x| x.unwrap());
-        Ok(iter.next().ok_or(err_msg("could not find the game"))?)
+        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        if vec.len() == 1 {
+            Ok(vec.into_iter().next().ok_or(err_msg("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
+        } else {
+            Err(err_msg("could not find the game"))
+        }
     }
 
     pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Error> {

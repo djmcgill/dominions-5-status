@@ -13,7 +13,8 @@ pub fn turns(context: &mut Context, message: &Message) -> Result<(), CommandErro
     let mut text = "Your turns:\n".to_string();
     for (server, nation_id) in servers_and_nations_for_player {
         let game_data = server::get_game_data(&server.address)?;
-        let ref nation = game_data.nations.iter().find(|&n| n.id == nation_id as usize).unwrap();
+        let ref nation = game_data.nations.iter().find(|&n| n.id == nation_id as usize)
+            .ok_or(format!("could not find nation {} in server {}", nation_id, server.alias))?;
         let total_mins_remaining = game_data.turn_timer / (1000*60);
         let hours_remaining = total_mins_remaining/60;
         let mins_remaining = total_mins_remaining - hours_remaining*60;
