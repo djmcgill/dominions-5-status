@@ -21,13 +21,15 @@ Commands (server alias is optional, defaults to channel name):
 * !help: display this text
 
 TODO:
+* register for games that don't exist yet
 * make subfunctions pure and testable
 * error if nation registering is ambiguous
 * help text in embed
-* links to docker guide
+* turns in embed
 * turn submitted colour coded
-* have docker volume/cache the crate registry
-* register for games that don't exist yet
-* last person/stale
+* error handling for unable to connect to server
+
+MAYBE:
 * edit pinned post instead of new
-* somehow make it not look like ass on mobile?
+* have docker volume/cache the crate registry (speed up builds)
+
