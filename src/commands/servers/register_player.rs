@@ -3,8 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::{Message, UserId};
 
 use server::get_game_data;
-use model::nation::Nation;
-use model::player::Player;
+use model::{Nation, Player};
 use db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(user_id: UserId, alias: &str, db_conn: &DbConnection) -> Result<(), CommandError> {

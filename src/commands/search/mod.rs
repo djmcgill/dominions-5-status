@@ -9,8 +9,14 @@ pub fn search(category: &str, message: &Message, args: Args) -> Result<(), Comma
     let search_term = utf8_percent_encode(&args.full(), QUERY_ENCODE_SET).to_string();
     if category == VALID[0] || category == VALID[1] ||
         category == VALID[2] || category == VALID[3] ||
-        category == VALID[4] || category == VALID[5] { // TODO: so gross
+        category == VALID[4] { // TODO: so gross
         let response = format!(
+            "https://larzm42.github.io/dom5inspector/?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1",
+        category, category, search_term);
+        info!("responding with {}", response);
+        let _ = message.reply(&response); 
+    } else if category == VALID[5] { // TODO: so grosser
+                let response = format!(
             "https://larzm42.github.io/dom5inspector/?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1&loadEvents=1",
         category, category, search_term);
         info!("responding with {}", response);

@@ -4,7 +4,7 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::Message;
 
-use model::enums::nation_status::NationStatus;
+use model::enums::NationStatus;
 use db::DbConnectionKey;
 
 pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {

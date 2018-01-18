@@ -4,8 +4,7 @@ use r2d2::Pool;
 use serenity::model::UserId;
 use typemap::Key;
 
-use model::game_server::GameServer;
-use model::player::Player;
+use model::{GameServer, Player};
 
 pub struct DbConnectionKey;
 impl Key for DbConnectionKey {

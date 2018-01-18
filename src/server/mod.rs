@@ -4,12 +4,8 @@ use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
-use model::raw_game_data::RawGameData;
-use model::game_data::GameData;
-use model::nation::Nation;
-use model::enums::nations;
-use model::enums::submission_status::SubmissionStatus;
-use model::enums::nation_status::NationStatus;
+use model::{GameData, Nation, RawGameData};
+use model::enums::{Nations, SubmissionStatus, NationStatus};
 
 pub fn get_game_data(server_address: &str) -> io::Result<GameData> {
     let raw_data = get_raw_game_data(server_address)?;
@@ -25,7 +21,7 @@ pub fn get_game_data(server_address: &str) -> io::Result<GameData> {
             let submitted = raw_data.f[i+250];
             let connected = raw_data.f[i+500];
             let nation_id = i-1; // why -1? No fucking idea
-            let &(nation_name, era) = nations::get_nation_desc(nation_id); 
+            let &(nation_name, era) = Nations::get_nation_desc(nation_id); 
             let nation = Nation {
                 id: nation_id,
                 status: NationStatus::from_int(status_num),

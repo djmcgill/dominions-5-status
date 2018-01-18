@@ -1,5 +1,4 @@
-use model::enums::nation_status::NationStatus;
-use model::enums::submission_status::SubmissionStatus;
+use model::enums::{NationStatus, SubmissionStatus};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nation {

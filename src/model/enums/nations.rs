@@ -1,14 +1,19 @@
 use std::collections::HashMap;
 
-type NationEnum = (&'static str, &'static str);
-pub fn get_nation_desc(n: usize) -> &'static NationEnum {
-    NATIONS_BY_ID.get(&(n as u32)).unwrap_or_else(
-        || {
-            info!("unknown nation {}", n);
-            &("unknown nation", "")
-        }
-    )
+pub struct Nations;
+impl Nations {
+    pub fn get_nation_desc(n: usize) -> &'static NationEnum {
+        NATIONS_BY_ID.get(&(n as u32)).unwrap_or_else(
+            || {
+                info!("unknown nation {}", n);
+                &("unknown nation", "")
+            }
+        )
+    }
 }
+
+type NationEnum = (&'static str, &'static str);
+
 // TODO: actually make an enum
 lazy_static ! { // TODO: replace with PHF crate?
     pub static ref NATIONS_BY_ID: HashMap<u32, NationEnum> = { 

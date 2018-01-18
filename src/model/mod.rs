@@ -1,6 +1,17 @@
-pub mod nation;
-pub mod raw_game_data;
-pub mod game_data;
 pub mod enums;
-pub mod player;
-pub mod game_server;
+
+mod nation;
+pub use self::nation::*;
+
+mod raw_game_data;
+pub use self::raw_game_data::*;
+
+mod game_data;
+pub use self::game_data::*;
+
+
+mod player;
+pub use self::player::*;
+
+mod game_server;
+pub use self::game_server::*;

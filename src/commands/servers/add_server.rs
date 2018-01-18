@@ -3,7 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::Message;
 
 use server::get_game_data;
-use model::game_server::GameServer;
+use model::GameServer;
 use db::{DbConnection, DbConnectionKey};
 
 fn add_server_helper(server_address: &str, game_alias: &str, db_connection: &mut DbConnection) -> Result<(), CommandError> {

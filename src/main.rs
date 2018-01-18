@@ -140,8 +140,7 @@ fn check_for_new_turns_every_1_min(mutex: &Mutex<ShareMap>) {
 }
 
 fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>> {
-    use model::enums::submission_status::SubmissionStatus;
-    use model::enums::nation_status::NationStatus;
+    use model::enums::{NationStatus, SubmissionStatus};
     let data = mutex.lock();
     let db_conn = data.get::<db::DbConnectionKey>().ok_or("no db connection")?;
     // TODO: transactions
@@ -160,7 +159,8 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>
                 // TODO: quadratic is bad. At least sort it..
                 if let Some(nation) = game_data.nations.iter().find(|&nation| nation.id == nation_id) {
                     if nation.status == NationStatus::Human && nation.submitted == SubmissionStatus::NotSubmitted {
-                        let &(name, era) = model::enums::nations::get_nation_desc(nation_id);
+                        use model::enums::Nations;
+                        let &(name, era) = Nations::get_nation_desc(nation_id);
                         let text = format!("your nation {} {} has a new turn in {}",
                             era,
                             name,
