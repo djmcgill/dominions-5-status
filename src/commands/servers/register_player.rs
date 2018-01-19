@@ -3,7 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::{Message, UserId};
 
 use server::get_game_data;
-use model::{Nation, Player};
+use model::{Nation, Player, GameServerState};
 use db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(user_id: UserId, alias: &str, db_conn: &DbConnection) -> Result<(), CommandError> {
@@ -27,26 +27,32 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
 
 fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, db_conn: &DbConnection) -> Result<Nation, CommandError> {
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
-    let data = get_game_data(&server.address)?;
 
-    let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
-        nation.name.to_lowercase().starts_with(&arg_nation_name) 
-    ).ok_or_else(|| {
-        let err = format!("Could not find nation starting with {}", arg_nation_name);
-        info!("{}", err);
-        err
-    })?; 
+    match server.state {
+        GameServerState::Lobby => Err(CommandError::from("lobbies not yet supported")),
+        GameServerState::StartedState(started_state) => {
+            let data = get_game_data(&started_state.address)?;
 
-    let player = Player {
-        discord_user_id: user_id,
-    }; 
+            let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
+                nation.name.to_lowercase().starts_with(&arg_nation_name) 
+            ).ok_or_else(|| {
+                let err = format!("Could not find nation starting with {}", arg_nation_name);
+                info!("{}", err);
+                err
+            })?; 
 
-    // TODO: transaction
-    db_conn.insert_player(&player).map_err(CommandError::from)?;
-    info!("{} {} {}", server.alias, user_id, nation.id as u32);
-    db_conn.insert_server_player(&server.alias, &user_id, nation.id as u32).map_err(CommandError::from)?;
+            let player = Player {
+                discord_user_id: user_id,
+            }; 
 
-    Ok(nation.clone())   
+            // TODO: transaction
+            db_conn.insert_player(&player).map_err(CommandError::from)?;
+            info!("{} {} {}", server.alias, user_id, nation.id as u32);
+            db_conn.insert_server_player(&server.alias, &user_id, nation.id as u32).map_err(CommandError::from)?;
+
+            Ok(nation.clone()) 
+        }
+    }  
 }
 
 pub fn register_player(context: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {

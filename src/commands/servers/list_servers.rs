@@ -3,6 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::Message;
 
 use db::DbConnectionKey;
+use model::GameServerState;
 
 pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
@@ -11,7 +12,14 @@ pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), Comm
     let mut text = String::new();
     text.push_str(&"Servers:\n");
     for (_, server) in server_list {
-        text.push_str(&format!("{} ({})\n", server.alias, server.address));
+        match server.state {
+            GameServerState::Lobby => 
+                text.push_str(&format!("{} (-)\n", server.alias)),
+            
+            GameServerState::StartedState(started_state) => 
+                text.push_str(&format!("{} ({})\n", server.alias, started_state.address)),
+        }
+
     }
     message.reply(&text)?;
     Ok(())

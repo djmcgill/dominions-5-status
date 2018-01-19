@@ -4,7 +4,7 @@ use r2d2::Pool;
 use serenity::model::UserId;
 use typemap::Key;
 
-use model::{GameServer, Player};
+use model::{GameServer, GameServerState, StartedState, Player};
 
 pub struct DbConnectionKey;
 impl Key for DbConnectionKey {
@@ -68,11 +68,17 @@ impl DbConnection {
 
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
-        conn.execute(
-            "INSERT INTO game_servers (address, alias, last_seen_turn)
-            VALUES (?1, ?2, ?3)"
-        , &[&game_server.address, &game_server.alias, &game_server.last_seen_turn])?;
-        Ok(())
+        match game_server.state {
+            GameServerState::Lobby =>
+                Err(err_msg("lobbies not supported yet")),
+            GameServerState::StartedState(ref started_state) => {
+                conn.execute(
+                    "INSERT INTO game_servers (address, alias, last_seen_turn)
+                    VALUES (?1, ?2, ?3)"
+                    , &[&started_state.address, &game_server.alias, &started_state.last_seen_turn])?;
+                Ok(())
+            }
+        }
     }
 
     pub fn insert_player(&self, player: &Player) -> Result<(), Error> {
@@ -91,9 +97,13 @@ impl DbConnection {
         let foo = stmt.query_map(&[], |ref row| {
             let id = row.get(0);
             let server = GameServer {
-                address: row.get(1),
                 alias: row.get(2),
-                last_seen_turn: row.get(3),
+                state: GameServerState::StartedState(
+                    StartedState {
+                        address: row.get(1),
+                        last_seen_turn: row.get(3),
+                    }
+                )
             };
             (id, server)
         })?;
@@ -128,9 +138,13 @@ impl DbConnection {
         let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers WHERE alias = ?1")?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
             let server = GameServer {
-                address: row.get(1),
                 alias: row.get(2),
-                last_seen_turn: row.get(3),
+                state: GameServerState::StartedState(
+                    StartedState {
+                        address: row.get(1),
+                        last_seen_turn: row.get(3),
+                    }
+                )
             };
             server
         })?;
@@ -193,9 +207,14 @@ impl DbConnection {
 
         let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
             let server = GameServer {
-                address: row.get(0),
                 alias: row.get(1),
-                last_seen_turn: row.get(2),
+                state: GameServerState::StartedState(
+                    StartedState {
+                        address: row.get(0),
+                        last_seen_turn: row.get(2),
+                    }
+                )
+                
             };
             let nation_id = row.get(3);
             (server, nation_id)

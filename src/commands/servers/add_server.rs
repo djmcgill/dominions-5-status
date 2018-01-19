@@ -3,16 +3,20 @@ use serenity::prelude::Context;
 use serenity::model::Message;
 
 use server::get_game_data;
-use model::GameServer;
+use model::{GameServer, GameServerState, StartedState};
 use db::{DbConnection, DbConnectionKey};
 
 fn add_server_helper(server_address: &str, game_alias: &str, db_connection: &mut DbConnection) -> Result<(), CommandError> {
     let game_data = get_game_data(server_address)?;
 
     let server = GameServer {
-        address: server_address.to_string(),
         alias: game_alias.to_string(),
-        last_seen_turn: game_data.turn
+        state: GameServerState::StartedState(
+            StartedState {
+                address: server_address.to_string(),
+                last_seen_turn: game_data.turn,
+            }
+        ),
     };
 
     db_connection.insert_game_server(&server)?;

@@ -31,6 +31,7 @@ use std::fs::File;
 use std::io::Read;
 
 use db::{DbConnection, DbConnectionKey};
+use model::GameServerState;
 
 struct Handler;
 impl EventHandler for Handler {
@@ -146,32 +147,34 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>
     // TODO: transactions
     let servers = db_conn.retrieve_all_servers()?;
     for (_, server) in servers {
-        info!("checking {} for new turn", server.alias);
-        let game_data = server::get_game_data(&server.address)?;
-        let new_turn = db_conn.update_game_with_possibly_new_turn(
-            &server.alias,
-            game_data.turn
-        )?; 
+        if let GameServerState::StartedState(started_state) = server.state {
+            info!("checking {} for new turn", server.alias);
+            let game_data = server::get_game_data(&started_state.address)?;
+            let new_turn = db_conn.update_game_with_possibly_new_turn(
+                &server.alias,
+                game_data.turn
+            )?; 
 
-       if new_turn {
-            info!("new turn in game {}", server.alias);
-            for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias)? {
-                // TODO: quadratic is bad. At least sort it..
-                if let Some(nation) = game_data.nations.iter().find(|&nation| nation.id == nation_id) {
-                    if nation.status == NationStatus::Human && nation.submitted == SubmissionStatus::NotSubmitted {
-                        use model::enums::Nations;
-                        let &(name, era) = Nations::get_nation_desc(nation_id);
-                        let text = format!("your nation {} {} has a new turn in {}",
-                            era,
-                            name,
-                            server.alias.clone());
-                        info!("Sending DM: {}", text);
-                        let private_channel = player.discord_user_id.create_dm_channel()?;
-                        private_channel.say(&text)?;
+            if new_turn {
+                info!("new turn in game {}", server.alias);
+                for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias)? {
+                    // TODO: quadratic is bad. At least sort it..
+                    if let Some(nation) = game_data.nations.iter().find(|&nation| nation.id == nation_id) {
+                        if nation.status == NationStatus::Human && nation.submitted == SubmissionStatus::NotSubmitted {
+                            use model::enums::Nations;
+                            let &(name, era) = Nations::get_nation_desc(nation_id);
+                            let text = format!("your nation {} {} has a new turn in {}",
+                                era,
+                                name,
+                                server.alias);
+                            info!("Sending DM: {}", text);
+                            let private_channel = player.discord_user_id.create_dm_channel()?;
+                            private_channel.say(&text)?;
+                        }
                     }
                 }
             }
-       }
+        }
     }
     Ok(())
 }

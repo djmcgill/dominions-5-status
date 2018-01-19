@@ -3,10 +3,14 @@ use url::percent_encoding::{utf8_percent_encode, QUERY_ENCODE_SET};
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::Message;
 
+// enum InspectorCategoryV {Item, Spell, Unit, ...}
+
 // TODO: implement some kind of static enum macro or library
+// see https://users.rust-lang.org/t/enum-field-types-datasort-refinements/11323
 trait InspectorCategory: Copy {
     fn show() -> &'static str;
     fn event_append() -> &'static str;
+    // fn reify() -> InspectorCategoryV;
 }
 
 #[derive(Clone, Copy)]
@@ -46,7 +50,7 @@ impl InspectorCategory for Event {
     fn event_append() -> &'static str { "&loadEvents=1" }
 }
 
-fn search<I: InspectorCategory>(_category: I, message: &Message, args: Args) -> Result<(), CommandError> {
+fn search<I: InspectorCategory>(message: &Message, args: Args) -> Result<(), CommandError> {
     let search_term = utf8_percent_encode(&args.full(), QUERY_ENCODE_SET).to_string();
     let response = format!(
         "https://larzm42.github.io/dom5inspector/?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1{}",
@@ -63,27 +67,27 @@ pub trait WithSearchCommands: Sized {
         self.get_standard_framework()
             .command(Item::show(), |c| c
                 .bucket("simple")
-                .exec(|_, m, a| search(Item, m, a))
+                .exec(|_, m, a| search::<Item>(m, a))
             )
             .command(Spell::show(), |c| c
                 .bucket("simple")
-                .exec(|_, m, a| search(Spell, m, a))
+                .exec(|_, m, a| search::<Spell>(m, a))
             )
             .command(Unit::show(), |c| c
                 .bucket("simple")
-                .exec(|_, m, a| search(Unit, m, a))
+                .exec(|_, m, a| search::<Unit>(m, a))
             )
             .command(Site::show(), |c| c
                 .bucket("simple")
-                .exec(|_, m, a| search(Site, m, a))
+                .exec(|_, m, a| search::<Site>(m, a))
             )
             .command(Merc::show(), |c| c
                 .bucket("simple")
-                .exec(|_, m, a| search(Merc, m, a))
+                .exec(|_, m, a| search::<Merc>(m, a))
             )
             .command(Event::show(), |c| c
                 .bucket("simple")
-                .exec(|_, m, a| search(Event, m, a))
+                .exec(|_, m, a| search::<Event>(m, a))
             )
     }
 }

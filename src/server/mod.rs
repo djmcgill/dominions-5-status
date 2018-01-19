@@ -27,8 +27,8 @@ pub fn get_game_data(server_address: &str) -> io::Result<GameData> {
                 status: NationStatus::from_int(status_num),
                 submitted: SubmissionStatus::from_int(submitted),
                 connected: connected == 1,
-                name: nation_name.to_string(),
-                era: era.to_string(),
+                name: nation_name.to_owned(),
+                era: format!("{}", era),
             };
             game_data.nations.push(nation);
         }
