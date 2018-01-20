@@ -36,7 +36,13 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
                 nation.name.to_lowercase().starts_with(&arg_nation_name) 
             ).ok_or_else(|| {
-                let err = format!("Could not find nation starting with {}", arg_nation_name);
+                let err = if data.turn == -1 {
+                    format!("Could not find nation starting with {}. Make sure you've uploaded a pretender first"
+                        , arg_nation_name)
+                } else {
+                    format!("Could not find nation starting with {}", arg_nation_name)
+                };
+                
                 info!("{}", err);
                 err
             })?; 

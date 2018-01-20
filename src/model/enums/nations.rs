@@ -95,8 +95,8 @@ lazy_static ! { // TODO: replace with PHF crate?
         m.insert(92u32, ("Caelum", Era::Late));
         m.insert(93u32, ("C'tis", Era::Late));
         m.insert(94u32, ("Pangaea", Era::Late));
-        m.insert(95u32, ("Midgård", Era::Late));
-        m.insert(96u32, ("Utgård", Era::Late));
+        m.insert(95u32, ("Midgard", Era::Late));
+        m.insert(96u32, ("Utgard", Era::Late));
         m.insert(97u32, ("Bogarus", Era::Late));
         m.insert(98u32, ("Patala", Era::Late));
         m.insert(99u32, ("Gath", Era::Late));

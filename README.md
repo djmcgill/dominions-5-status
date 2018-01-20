@@ -33,3 +33,26 @@ MAYBE:
 * edit pinned post instead of new
 * have docker volume/cache the crate registry (speed up builds)
 
+------------
+PRAGMA foreign_keys=off;
+
+BEGIN TRANSACTION;
+
+ALTER TABLE game_servers RENAME TO _game_servers_old;
+
+create table if not exists game_servers (
+id INTEGER NOT NULL PRIMARY KEY,
+address VARCHAR(255),
+alias VARCHAR(255) NOT NULL,
+last_seen_turn int,
+CONSTRAINT server_alias_unique UNIQUE (alias),
+CONSTRAINT server_address_unique UNIQUE (address)
+);
+
+INSERT INTO game_servers (id, address, alias, last_seen_turn)
+  SELECT id, address, alias, last_seen_turn
+  FROM _game_servers_old;
+
+COMMIT;
+
+PRAGMA foreign_keys=on;

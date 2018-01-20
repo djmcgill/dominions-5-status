@@ -11,7 +11,7 @@ pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), Comm
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;
     let mut text = String::new();
     text.push_str(&"Servers:\n");
-    for (_, server) in server_list {
+    for server in server_list {
         match server.state {
             GameServerState::Lobby => 
                 text.push_str(&format!("{} (-)\n", server.alias)),

@@ -100,6 +100,10 @@ fn do_main() -> Result<(), Box<Error>> {
             .bucket("simple")
             .exec(|cx, m, _| commands::servers::turns(cx, m))
         )
+        .command("lobby", |c| c
+            .bucket("simple")
+            .exec(|cx, m, a| commands::servers::lobby(cx, m, a))
+        )
         .command("help", |c| c
             .bucket("simple")
             .exec(commands::help))
@@ -146,7 +150,7 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>
     let db_conn = data.get::<db::DbConnectionKey>().ok_or("no db connection")?;
     // TODO: transactions
     let servers = db_conn.retrieve_all_servers()?;
-    for (_, server) in servers {
+    for server in servers {
         if let GameServerState::StartedState(started_state) = server.state {
             info!("checking {} for new turn", server.alias);
             let game_data = server::get_game_data(&started_state.address)?;
@@ -157,7 +161,7 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>
 
             if new_turn {
                 info!("new turn in game {}", server.alias);
-                for (_, player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias)? {
+                for (player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias)? {
                     // TODO: quadratic is bad. At least sort it..
                     if let Some(nation) = game_data.nations.iter().find(|&nation| nation.id == nation_id) {
                         if nation.status == NationStatus::Human && nation.submitted == SubmissionStatus::NotSubmitted {

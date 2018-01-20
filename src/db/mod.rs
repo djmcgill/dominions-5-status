@@ -27,9 +27,9 @@ impl DbConnection {
         conn.execute_batch("
             create table if not exists game_servers (
             id INTEGER NOT NULL PRIMARY KEY,
-            address VARCHAR(255) NOT NULL,
+            address VARCHAR(255),
             alias VARCHAR(255) NOT NULL,
-            last_seen_turn int NOT NULL,
+            last_seen_turn int,
             CONSTRAINT server_alias_unique UNIQUE (alias),
             CONSTRAINT server_address_unique UNIQUE (address)
             );
@@ -69,13 +69,20 @@ impl DbConnection {
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         match game_server.state {
-            GameServerState::Lobby =>
-                Err(err_msg("lobbies not supported yet")),
+            GameServerState::Lobby => {
+                conn.execute(
+                    "INSERT INTO game_servers (alias)
+                    VALUES (?1)"
+                    , &[&game_server.alias]
+                )?;
+                Ok(())                
+            }
             GameServerState::StartedState(ref started_state) => {
                 conn.execute(
                     "INSERT INTO game_servers (address, alias, last_seen_turn)
                     VALUES (?1, ?2, ?3)"
-                    , &[&started_state.address, &game_server.alias, &started_state.last_seen_turn])?;
+                    , &[&started_state.address, &game_server.alias, &started_state.last_seen_turn]
+                )?;
                 Ok(())
             }
         }
@@ -91,43 +98,36 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn retrieve_all_servers(&self) -> Result<Vec<(i32, GameServer)>, Error> {
+    pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers")?;
+        let mut stmt = conn.prepare("SELECT address, alias, last_seen_turn FROM game_servers")?;
         let foo = stmt.query_map(&[], |ref row| {
-            let id = row.get(0);
-            let server = GameServer {
-                alias: row.get(2),
-                state: GameServerState::StartedState(
-                    StartedState {
-                        address: row.get(1),
-                        last_seen_turn: row.get(3),
-                    }
-                )
-            };
-            (id, server)
+            let maybe_address: Option<String> = row.get(0);
+            let maybe_last_seen_turn: Option<i32> = row.get(2);
+            let alias: String = row.get(1);
+            let server = make_game_server(alias, maybe_address, maybe_last_seen_turn).unwrap();
+            server
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
     }
 
-    pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(i32, Player, usize)>, Error> {
+    pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(Player, usize)>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(
-            "SELECT p.id, p.discord_user_id, sp.nation_id
+            "SELECT p.discord_user_id, sp.nation_id
             FROM game_servers s
             JOIN server_players sp on sp.server_id = s.id
             JOIN players p on p.id = sp.player_id
             WHERE s.alias = ?1
             ")?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let id = row.get(0);
-            let discord_user_id: i64 = row.get(1);
+            let discord_user_id: i64 = row.get(0);
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
             };
-            let nation: i32 = row.get(2);
-            (id, player, nation as usize)
+            let nation: i32 = row.get(1);
+            (player, nation as usize)
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
@@ -137,15 +137,10 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers WHERE alias = ?1")?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let server = GameServer {
-                alias: row.get(2),
-                state: GameServerState::StartedState(
-                    StartedState {
-                        address: row.get(1),
-                        last_seen_turn: row.get(3),
-                    }
-                )
-            };
+            let alias: String = row.get(2);
+            let maybe_address: Option<String> = row.get(1);
+            let maybe_last_seen_turn: Option<i32> = row.get(3);
+            let server = make_game_server(alias, maybe_address, maybe_last_seen_turn).unwrap();
             server
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
@@ -206,16 +201,12 @@ impl DbConnection {
         ")?;
 
         let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
-            let server = GameServer {
-                alias: row.get(1),
-                state: GameServerState::StartedState(
-                    StartedState {
-                        address: row.get(0),
-                        last_seen_turn: row.get(2),
-                    }
-                )
-                
-            };
+            let alias: String = row.get(1);
+            let maybe_address: Option<String> = row.get(0);
+            let maybe_last_seen_turn: Option<i32> = row.get(2);
+
+            let server = make_game_server(alias, maybe_address, maybe_last_seen_turn).unwrap();
+
             let nation_id = row.get(3);
             (server, nation_id)
         })?;
@@ -227,4 +218,27 @@ impl DbConnection {
 
         Ok(ret)
     }
+}
+
+fn make_game_server(
+    alias: String,
+    maybe_address: Option<String>,
+    maybe_last_seen_turn: Option<i32>
+) -> Result<GameServer, Error> {
+
+    let state = match (maybe_address, maybe_last_seen_turn) {
+        (Some(address), Some(last_seen_turn)) => 
+            GameServerState::StartedState (StartedState {
+                address: address,
+                last_seen_turn: last_seen_turn,
+            }),
+        (None, None) => GameServerState::Lobby,
+        _ => return Err(err_msg(format!("only one of (address, turn) was populated for server {}", alias)))
+    };
+
+    let server = GameServer {
+        alias: alias,
+        state: state,
+    };
+    Ok(server)
 }

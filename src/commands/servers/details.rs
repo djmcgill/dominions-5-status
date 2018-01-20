@@ -20,7 +20,9 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
     let server = db_conn.game_for_alias(&alias)?;
 
     match server.state {
-        GameServerState::Lobby => Err(CommandError::from("lobbies not yet supported")),
+        GameServerState::Lobby => {
+            message.reply(&format!("{} (Lobby)", server.alias))?;
+        }
         GameServerState::StartedState(started_state) => {
             let ref server_address = started_state.address;
             let mut game_data = get_game_data(&server_address)?;
@@ -37,10 +39,9 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
                 nation_names.push_str(&format!("{} {}\n", nation.era, nation.name));
 
                 let nation_string = if let NationStatus::Human = nation.status {
-                    if let Some(&(_, ref player, _)) = id_player_nations.iter().find(
-                        |&&(_, _, nation_id)| nation_id == nation.id
+                    if let Some(&(ref player, _)) = id_player_nations.iter().find(
+                        |&&(_, nation_id)| nation_id == nation.id
                         ) {
-                            // TODO: escape this?
                             format!("**{}**", player.discord_user_id.get()?)    
                         } else {
                             nation.status.show().to_string()
@@ -90,7 +91,8 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
                     )
                 )        
             )?;
-            Ok(())
         }
-    }
+    };
+    Ok(())
+    
 }
