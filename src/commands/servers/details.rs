@@ -20,7 +20,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
     let server = db_conn.game_for_alias(&alias)?;
 
     match server.state {
-        GameServerState::Lobby => {
+        GameServerState::Lobby(_) => {
             message.reply(&format!("{} (Lobby)", server.alias))?;
         }
         GameServerState::StartedState(started_state) => {

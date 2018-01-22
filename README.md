@@ -28,6 +28,7 @@ TODO:
 * turns in embed
 * turn submitted colour coded
 * error handling for unable to connect to server
+* easier nation selection - acronyms, nicknames, etc
 
 MAYBE:
 * edit pinned post instead of new

@@ -29,10 +29,13 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
     match server.state {
-        GameServerState::Lobby => Err(CommandError::from("lobbies not yet supported")),
+        GameServerState::Lobby(_lobby_state) => {
+            Err(CommandError::from("lobbies not implemented yet"))
+        }
         GameServerState::StartedState(started_state) => {
             let data = get_game_data(&started_state.address)?;
 
+            // TODO: allow for players with registered nation but not ingame (not yet uploaded)
             let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
                 nation.name.to_lowercase().starts_with(&arg_nation_name) 
             ).ok_or_else(|| {

@@ -1,10 +1,21 @@
 pub use std::fmt;
 
-#[derive(Clone, Copy, PartialEq, Debug)]
+#[derive(Clone, Copy, PartialEq, Debug, Primitive)]
 pub enum Era {
-    Early,
-    Middle,
-    Late,
+    Early = 0,
+    Middle = 1,
+    Late = 2,
+}
+
+impl Era {
+    pub fn from_string(string: &str) -> Option<Era> {
+        match string.to_uppercase().as_ref() {
+            "EA" => Some(Era::Early),
+            "MA" => Some(Era::Middle),
+            "LA" => Some(Era::Late),
+            _ => None,
+        }
+    }
 }
 
 impl fmt::Display for Era {

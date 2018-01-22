@@ -3,8 +3,10 @@ use r2d2_sqlite::SqliteConnectionManager;
 use r2d2::Pool;
 use serenity::model::UserId;
 use typemap::Key;
+use num_traits::{FromPrimitive, ToPrimitive};
 
-use model::{GameServer, GameServerState, StartedState, Player};
+use model::*;
+use model::enums::*;
 
 pub struct DbConnectionKey;
 impl Key for DbConnectionKey {
@@ -26,25 +28,46 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         conn.execute_batch("
             create table if not exists game_servers (
-            id INTEGER NOT NULL PRIMARY KEY,
-            address VARCHAR(255),
-            alias VARCHAR(255) NOT NULL,
-            last_seen_turn int,
-            CONSTRAINT server_alias_unique UNIQUE (alias),
-            CONSTRAINT server_address_unique UNIQUE (address)
+                id INTEGER NOT NULL PRIMARY KEY,
+                alias VARCHAR(255) NOT NULL,
+
+                started_server_id int REFERENCES started_servers(id),
+                lobby_id int REFERENCES lobbies(id),
+
+                CONSTRAINT CHECK (
+                    (CASE started_server_id WHEN NULL THEN 0 ELSE 1)
+                        +
+                    (CASE lobby_id WHEN NULL THEN 0 ELSE 1)
+                        = 1
+                ),
+                CONSTRAINT server_alias_unique UNIQUE (alias)
+            );
+
+            create table if not exists started_servers (
+                id INTEGER NOT NULL PRIMARY KEY,
+                address VARCHAR(255) NOT NULL,
+                last_seen_turn int NOT NULL,
+                CONSTRAINT server_address_unique UNIQUE (address)
+            );
+
+            create table if not exists lobbies (
+                id INTEGER NOT NULL PRIMARY KEY,
+                owner_id int NOT NULL REFERENCES players(id),
+                player_count int NOT NULL,
+                era int NOT NULL,
             );
 
             create table if not exists players (
-            id INTEGER NOT NULL PRIMARY KEY,
-            discord_user_id int NOT NULL,
-            CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
+                id INTEGER NOT NULL PRIMARY KEY,
+                discord_user_id int NOT NULL,
+                CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
             );
 
             create table if not exists server_players (
-            server_id int NOT NULL REFERENCES game_servers(id),
-            player_id int NOT NULL REFERENCES players(id),
-            nation_id int NOT NULL,
-            CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
+                server_id int NOT NULL REFERENCES game_servers(id),
+                player_id int NOT NULL REFERENCES players(id),
+                nation_id int NOT NULL,
+                CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
             );"
         )?;
         Ok(())
@@ -69,19 +92,52 @@ impl DbConnection {
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         match game_server.state {
-            GameServerState::Lobby => {
+            GameServerState::Lobby(ref lobby_state) => {
+                // TODO: transaction
                 conn.execute(
-                    "INSERT INTO game_servers (alias)
-                    VALUES (?1)"
-                    , &[&game_server.alias]
+                    "INSERT INTO players (discord_user_id)
+                    SELECT ?1
+                    WHERE NOT EXISTS (select 1 from players where discord_user_id = ?1)"
+                    , &[&(lobby_state.owner.0 as i64)]
+                )?;
+
+                conn.execute(
+                    "INSERT INTO lobbies (owner_id, era, player_count)
+                    SELECT id, ?1, ?3
+                    FROM players
+                    WHERE discord_user_id = ?2",
+                    &[  &lobby_state.era.to_i32(),
+                        &(lobby_state.owner.0 as i64),
+                        &lobby_state.player_count,
+                    ]
+                )?;
+                conn.execute(
+                    "INSERT INTO game_servers (alias, lobby_id)
+                    SELECT ?1, l.id
+                    FROM lobbies l
+                    LEFT JOIN game_servers s ON s.lobby_id = l.id
+                    WHERE l.era = ?2 AND l.owner = ?3 AND l.player_count = ?4
+                    AND s.id IS NULL",
+                    &[&game_server.alias,
+                      &lobby_state.era.to_i32(),
+                      &(lobby_state.owner.0 as i64),
+                      &lobby_state.player_count,
+                    ]
                 )?;
                 Ok(())                
             }
             GameServerState::StartedState(ref started_state) => {
                 conn.execute(
-                    "INSERT INTO game_servers (address, alias, last_seen_turn)
-                    VALUES (?1, ?2, ?3)"
-                    , &[&started_state.address, &game_server.alias, &started_state.last_seen_turn]
+                    "INSERT INTO started_servers (address, last_seen_turn)
+                    VALUES(?1, ?2)"
+                    , &[&started_state.address, &started_state.last_seen_turn]
+                )?;
+                conn.execute(
+                    "INSERT INTO game_servers (alias, started_server_id)
+                    SELECT ?1, id
+                    FROM started_servers
+                    WHERE address = ?2"
+                    , &[&game_server.alias, &started_state.address]
                 )?;
                 Ok(())
             }
@@ -100,12 +156,26 @@ impl DbConnection {
 
     pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare("SELECT address, alias, last_seen_turn FROM game_servers")?;
+        let mut stmt = conn.prepare("
+            SELECT g.alias, s.address, s.last_seen_turn, l.owner, l.era, l.player_count
+            FROM game_servers g
+            LEFT JOIN started_servers s ON s.id = g.started_server_id
+            LEFT JOIN lobbies l ON l.id = g.lobby_id ")?;
         let foo = stmt.query_map(&[], |ref row| {
-            let maybe_address: Option<String> = row.get(0);
+            let maybe_address: Option<String> = row.get(1);
             let maybe_last_seen_turn: Option<i32> = row.get(2);
-            let alias: String = row.get(1);
-            let server = make_game_server(alias, maybe_address, maybe_last_seen_turn).unwrap();
+            let alias: String = row.get(0);
+            let maybe_owner: Option<i64> = row.get(3); 
+            let maybe_era: Option<i32> = row.get(4);
+            let maybe_player_count: Option<i32> = row.get(5);
+            let server = make_game_server(
+                alias,
+                maybe_address,
+                maybe_last_seen_turn,
+                maybe_owner,
+                maybe_era,
+                maybe_player_count,
+            ).unwrap();
             server
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
@@ -135,12 +205,26 @@ impl DbConnection {
 
     pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare("SELECT id, address, alias, last_seen_turn FROM game_servers WHERE alias = ?1")?;
+        let mut stmt = conn.prepare("
+            SELECT s.address, s.last_seen_turn, l.owner, l.era, l.player_count
+            FROM game_servers g
+            LEFT JOIN started_servers s ON s.id = g.started_server_id
+            LEFT JOIN lobbies l ON l.id = g.lobby_id
+            WHERE g.alias = ?1")?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let alias: String = row.get(2);
-            let maybe_address: Option<String> = row.get(1);
-            let maybe_last_seen_turn: Option<i32> = row.get(3);
-            let server = make_game_server(alias, maybe_address, maybe_last_seen_turn).unwrap();
+            let maybe_address: Option<String> = row.get(0);
+            let maybe_last_seen_turn: Option<i32> = row.get(1);
+            let maybe_owner: Option<i64> = row.get(2); 
+            let maybe_era: Option<i32> = row.get(3);
+            let maybe_player_count: Option<i32> = row.get(4);
+            let server = make_game_server(
+                game_alias.to_owned(),
+                maybe_address,
+                maybe_last_seen_turn,
+                maybe_owner,
+                maybe_era,
+                maybe_player_count,
+            ).unwrap();
             server
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
@@ -193,10 +277,12 @@ impl DbConnection {
     pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
-            SELECT g.address, g.alias, g.last_seen_turn, sp.nation_id
+            SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner, l.era
             FROM players p
             JOIN server_players sp on sp.player_id = p.id
             JOIN game_servers g on g.id = sp.server_id
+            LEFT JOIN lobbies l on l.id = g.lobby_id
+            LEFT JOIN started_servers s on s.id = g.started_server_id
             WHERE p.discord_user_id = ?1
         ")?;
 
@@ -204,8 +290,17 @@ impl DbConnection {
             let alias: String = row.get(1);
             let maybe_address: Option<String> = row.get(0);
             let maybe_last_seen_turn: Option<i32> = row.get(2);
-
-            let server = make_game_server(alias, maybe_address, maybe_last_seen_turn).unwrap();
+            let maybe_owner: Option<i64> = row.get(4); 
+            let maybe_era: Option<i32> = row.get(5);
+            let maybe_player_count: Option<i32> = row.get(6);
+            let server = make_game_server(
+                alias, 
+                maybe_address, 
+                maybe_last_seen_turn,
+                maybe_owner,
+                maybe_era,
+                maybe_player_count,
+            ).unwrap();
 
             let nation_id = row.get(3);
             (server, nation_id)
@@ -223,17 +318,25 @@ impl DbConnection {
 fn make_game_server(
     alias: String,
     maybe_address: Option<String>,
-    maybe_last_seen_turn: Option<i32>
+    maybe_last_seen_turn: Option<i32>,
+    maybe_owner: Option<i64>,
+    maybe_era: Option<i32>,
+    maybe_player_count: Option<i32>,
 ) -> Result<GameServer, Error> {
 
-    let state = match (maybe_address, maybe_last_seen_turn) {
-        (Some(address), Some(last_seen_turn)) => 
+    let state = match (maybe_address, maybe_last_seen_turn, maybe_owner, maybe_era, maybe_player_count) {
+        (Some(address), Some(last_seen_turn), None, None, None) => 
             GameServerState::StartedState (StartedState {
                 address: address,
                 last_seen_turn: last_seen_turn,
             }),
-        (None, None) => GameServerState::Lobby,
-        _ => return Err(err_msg(format!("only one of (address, turn) was populated for server {}", alias)))
+        (None, None, Some(owner), Some(era), Some(player_count)) =>
+            GameServerState::Lobby (LobbyState {
+                owner: UserId(owner as u64),
+                era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
+                player_count: player_count,
+            }),
+        _ => return Err(err_msg(format!("invalid db state for {}", alias)))
     };
 
     let server = GameServer {

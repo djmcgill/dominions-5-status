@@ -12,7 +12,8 @@ extern crate rusqlite;
 extern crate simplelog;
 extern crate typemap;
 extern crate url;
-
+#[macro_use] extern crate enum_primitive_derive;
+extern crate num_traits;
 
 mod commands;
 mod db;
@@ -31,7 +32,8 @@ use std::fs::File;
 use std::io::Read;
 
 use db::{DbConnection, DbConnectionKey};
-use model::GameServerState;
+use model::{GameServer, GameServerState};
+use model::enums::{NationStatus, SubmissionStatus};
 
 struct Handler;
 impl EventHandler for Handler {
@@ -145,40 +147,47 @@ fn check_for_new_turns_every_1_min(mutex: &Mutex<ShareMap>) {
 }
 
 fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>> {
-    use model::enums::{NationStatus, SubmissionStatus};
     let data = mutex.lock();
     let db_conn = data.get::<db::DbConnectionKey>().ok_or("no db connection")?;
     // TODO: transactions
     let servers = db_conn.retrieve_all_servers()?;
     for server in servers {
-        if let GameServerState::StartedState(started_state) = server.state {
-            info!("checking {} for new turn", server.alias);
-            let game_data = server::get_game_data(&started_state.address)?;
-            let new_turn = db_conn.update_game_with_possibly_new_turn(
-                &server.alias,
-                game_data.turn
-            )?; 
+        let server_name = server.alias.clone();
+        if let Err(err) = check_server_for_new_turn(server, &db_conn) {
+            println!("error checking {} for turn: {:?}", server_name, err);
+        };
+    }
+    Ok(())
+}
 
-            if new_turn {
-                info!("new turn in game {}", server.alias);
-                for (player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias)? {
-                    // TODO: quadratic is bad. At least sort it..
-                    if let Some(nation) = game_data.nations.iter().find(|&nation| nation.id == nation_id) {
-                        if nation.status == NationStatus::Human && nation.submitted == SubmissionStatus::NotSubmitted {
-                            use model::enums::Nations;
-                            let &(name, era) = Nations::get_nation_desc(nation_id);
-                            let text = format!("your nation {} {} has a new turn in {}",
-                                era,
-                                name,
-                                server.alias);
-                            info!("Sending DM: {}", text);
-                            let private_channel = player.discord_user_id.create_dm_channel()?;
-                            private_channel.say(&text)?;
-                        }
+fn check_server_for_new_turn(server: GameServer, db_conn: &DbConnection) -> Result<(), Box<Error>> {
+    if let GameServerState::StartedState(started_state) = server.state {
+        info!("checking {} for new turn", server.alias);
+        let game_data = server::get_game_data(&started_state.address)?;
+        let new_turn = db_conn.update_game_with_possibly_new_turn(
+            &server.alias,
+            game_data.turn
+        )?; 
+
+        if new_turn {
+            info!("new turn in game {}", server.alias);
+            for (player, nation_id) in db_conn.players_with_nations_for_game_alias(&server.alias)? {
+                // TODO: quadratic is bad. At least sort it..
+                if let Some(nation) = game_data.nations.iter().find(|&nation| nation.id == nation_id) {
+                    if nation.status == NationStatus::Human && nation.submitted == SubmissionStatus::NotSubmitted {
+                        use model::enums::Nations;
+                        let &(name, era) = Nations::get_nation_desc(nation_id);
+                        let text = format!("your nation {} {} has a new turn in {}",
+                            era,
+                            name,
+                            server.alias);
+                        info!("Sending DM: {}", text);
+                        let private_channel = player.discord_user_id.create_dm_channel()?;
+                        private_channel.say(&text)?;
                     }
                 }
             }
         }
-    }
+    };
     Ok(())
 }

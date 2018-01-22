@@ -13,7 +13,7 @@ pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), Comm
     text.push_str(&"Servers:\n");
     for server in server_list {
         match server.state {
-            GameServerState::Lobby => 
+            GameServerState::Lobby(_) => 
                 text.push_str(&format!("{} (-)\n", server.alias)),
             
             GameServerState::StartedState(started_state) => 
