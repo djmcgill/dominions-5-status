@@ -14,10 +14,10 @@ pub fn turns(context: &mut Context, message: &Message) -> Result<(), CommandErro
     let mut text = "Your turns:\n".to_string();
     for (server, nation_id) in servers_and_nations_for_player {
         text.push_str(&turn_for_server(&server, nation_id).unwrap_or(format!("{} error", server.alias)));
-        info!("replying with {}", text);
-        let private_channel = message.author.id.create_dm_channel()?;
-        private_channel.say(&text)?;
     }
+    info!("replying with {}", text);
+    let private_channel = message.author.id.create_dm_channel()?;
+    private_channel.say(&text)?;
     Ok(())
 }
 
