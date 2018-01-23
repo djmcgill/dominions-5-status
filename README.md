@@ -35,14 +35,17 @@ MAYBE:
 * edit pinned post instead of new
 * have docker volume/cache the crate registry (speed up builds)
 
-BUG:
-[1:45 PM] gonadic io: !turns
-[1:45 PM] BOTdom-5-bot: Your turns:
-dom5newbiegame turn 61 (19h 14m): Jotunheim (submitted: ✓)
-[1:45 PM] BOTdom-5-bot: Your turns:
-dom5newbiegame turn 61 (19h 14m): Jotunheim (submitted: ✓)
-surrounded turn 33 (24h 12m): Man (submitted: X)
-[1:45 PM] BOTdom-5-bot: Your turns:
-dom5newbiegame turn 61 (19h 14m): Jotunheim (submitted: ✓)
-surrounded turn 33 (24h 12m): Man (submitted: X)
-silt-yomimod-game turn 13 (11h 41m): Fomoria (submitted: ✓)
+PRAGMA foreign_keys = OFF;
+ALTER TABLE players RENAME TO tmp_players;
+
+create table if not exists players (
+id INTEGER NOT NULL PRIMARY KEY,
+discord_user_id int NOT NULL,
+turn_notifications BOOLEAN NOT NULL,
+CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
+);
+
+insert into players(id, discord_user_id, turn_notifications)
+select id, discord_user_id, 1
+from tmp_players;
+PRAGMA foreign_keys = ON;
