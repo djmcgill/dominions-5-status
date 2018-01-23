@@ -52,6 +52,7 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
 
             let player = Player {
                 discord_user_id: user_id,
+                turn_notifications: true,
             }; 
 
             // TODO: transaction

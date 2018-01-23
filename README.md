@@ -28,9 +28,10 @@ TODO:
 * turns in embed
 * turn submitted colour coded
 * error handling for unable to connect to server
-* easier nation selection - acronyms, nicknames, etc
+* players still show up in turns when AI or defeated
 
 MAYBE:
+* easier nation selection - acronyms, nicknames, etc
 * edit pinned post instead of new
 * have docker volume/cache the crate registry (speed up builds)
 

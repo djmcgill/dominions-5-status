@@ -18,3 +18,6 @@ pub use self::turns::*;
 
 mod lobby;
 pub use self::lobby::*;
+
+mod notifications;
+pub use self::notifications::*;

@@ -30,6 +30,7 @@ impl DbConnection {
             create table if not exists players (
                 id INTEGER NOT NULL PRIMARY KEY,
                 discord_user_id int NOT NULL,
+                turn_notifications BOOLEAN NOT NULL,
                 CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
             );
 
@@ -89,8 +90,8 @@ impl DbConnection {
             GameServerState::Lobby(ref lobby_state) => {
                 // TODO: transaction
                 conn.execute(
-                    "INSERT INTO players (discord_user_id)
-                    SELECT ?1
+                    "INSERT INTO players (discord_user_id, turn_notifications)
+                    SELECT ?1, 1
                     WHERE NOT EXISTS (select 1 from players where discord_user_id = ?1)"
                     , &[&(lobby_state.owner.0 as i64)]
                 )?;
@@ -141,10 +142,10 @@ impl DbConnection {
     pub fn insert_player(&self, player: &Player) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute(
-            "INSERT INTO players (discord_user_id)
-            SELECT ?1
+            "INSERT INTO players (discord_user_id, turn_notifications)
+            SELECT ?1, ?2
             WHERE NOT EXISTS (select 1 from players where discord_user_id = ?1)"
-        , &[&(player.discord_user_id.0 as i64)])?;
+        , &[&(player.discord_user_id.0 as i64), &player.turn_notifications])?;
         Ok(())
     }
 
@@ -179,7 +180,7 @@ impl DbConnection {
     pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(Player, usize)>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(
-            "SELECT p.discord_user_id, sp.nation_id
+            "SELECT p.discord_user_id, sp.nation_id, p.turn_notifications
             FROM game_servers s
             JOIN server_players sp on sp.server_id = s.id
             JOIN players p on p.id = sp.player_id
@@ -189,6 +190,7 @@ impl DbConnection {
             let discord_user_id: i64 = row.get(0);
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
+                turn_notifications: row.get(2),
             };
             let nation: i32 = row.get(1);
             (player, nation as usize)
@@ -306,6 +308,16 @@ impl DbConnection {
         }
 
         Ok(ret)
+    }
+
+    pub fn set_turn_notifications(&self, player: UserId, desired_turn_notifications: bool) -> Result<(), Error> {
+        let conn = &*self.0.clone().get()?;
+        conn.execute("
+            UPDATE players
+            SET turn_notifications = ?2
+            WHERE discord_user_id = ?1
+        ", &[&(player.0 as i64), &desired_turn_notifications])?;
+        Ok(())
     }
 }
 
