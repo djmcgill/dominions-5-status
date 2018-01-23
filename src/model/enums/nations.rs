@@ -45,6 +45,7 @@ lazy_static ! { // TODO: replace with PHF crate?
         m.insert(29u32, ("Ur", Era::Early));
         m.insert(30u32, ("Berytos", Era::Early));
         m.insert(31u32, ("Xibalba", Era::Early));
+        m.insert(32u32, ("Mekone", Era::Early));
         m.insert(36u32, ("Atlantis", Era::Early));
         m.insert(37u32, ("R'lyeh", Era::Early));
         m.insert(38u32, ("Pelagia", Era::Early));
