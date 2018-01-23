@@ -23,24 +23,14 @@ impl DbConnection {
         Ok(db_conn)
     }
 
-
+    // TODO: be more robust about lobbies and servers having the same name
     fn initialise(&self) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute_batch("
-            create table if not exists game_servers (
+            create table if not exists players (
                 id INTEGER NOT NULL PRIMARY KEY,
-                alias VARCHAR(255) NOT NULL,
-
-                started_server_id int REFERENCES started_servers(id),
-                lobby_id int REFERENCES lobbies(id),
-
-                CONSTRAINT CHECK (
-                    (CASE started_server_id WHEN NULL THEN 0 ELSE 1)
-                        +
-                    (CASE lobby_id WHEN NULL THEN 0 ELSE 1)
-                        = 1
-                ),
-                CONSTRAINT server_alias_unique UNIQUE (alias)
+                discord_user_id int NOT NULL,
+                CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
             );
 
             create table if not exists started_servers (
@@ -54,20 +44,24 @@ impl DbConnection {
                 id INTEGER NOT NULL PRIMARY KEY,
                 owner_id int NOT NULL REFERENCES players(id),
                 player_count int NOT NULL,
-                era int NOT NULL,
+                era int NOT NULL
             );
 
-            create table if not exists players (
+            create table if not exists game_servers (
                 id INTEGER NOT NULL PRIMARY KEY,
-                discord_user_id int NOT NULL,
-                CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
+                alias VARCHAR(255) NOT NULL,
+
+                started_server_id int REFERENCES started_servers(id),
+                lobby_id int REFERENCES lobbies(id),
+                
+                CONSTRAINT server_alias_unique UNIQUE (alias)
             );
 
             create table if not exists server_players (
                 server_id int NOT NULL REFERENCES game_servers(id),
-                player_id int NOT NULL REFERENCES players(id),
-                nation_id int NOT NULL,
-                CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
+               player_id int NOT NULL REFERENCES players(id),
+               nation_id int NOT NULL,
+               CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
             );"
         )?;
         Ok(())
@@ -116,7 +110,7 @@ impl DbConnection {
                     SELECT ?1, l.id
                     FROM lobbies l
                     LEFT JOIN game_servers s ON s.lobby_id = l.id
-                    WHERE l.era = ?2 AND l.owner = ?3 AND l.player_count = ?4
+                    WHERE l.era = ?2 AND l.owner_id = ?3 AND l.player_count = ?4
                     AND s.id IS NULL",
                     &[&game_server.alias,
                       &lobby_state.era.to_i32(),
@@ -157,7 +151,7 @@ impl DbConnection {
     pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
-            SELECT g.alias, s.address, s.last_seen_turn, l.owner, l.era, l.player_count
+            SELECT g.alias, s.address, s.last_seen_turn, l.owner_id, l.era, l.player_count
             FROM game_servers g
             LEFT JOIN started_servers s ON s.id = g.started_server_id
             LEFT JOIN lobbies l ON l.id = g.lobby_id ")?;
@@ -206,7 +200,7 @@ impl DbConnection {
     pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
-            SELECT s.address, s.last_seen_turn, l.owner, l.era, l.player_count
+            SELECT s.address, s.last_seen_turn, l.owner_id, l.era, l.player_count
             FROM game_servers g
             LEFT JOIN started_servers s ON s.id = g.started_server_id
             LEFT JOIN lobbies l ON l.id = g.lobby_id
@@ -277,7 +271,7 @@ impl DbConnection {
     pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
-            SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner, l.era
+            SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner_id, l.era, l.player_count
             FROM players p
             JOIN server_players sp on sp.player_id = p.id
             JOIN game_servers g on g.id = sp.server_id
