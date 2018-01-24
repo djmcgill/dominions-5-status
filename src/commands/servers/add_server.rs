@@ -28,7 +28,7 @@ pub fn add_server(context: &mut Context, message: &Message, mut args: Args) -> R
     
     let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?;
+    })?.to_lowercase();
 
     if !args.is_empty() {
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));

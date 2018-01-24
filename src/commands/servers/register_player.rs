@@ -14,7 +14,7 @@ fn unregister_player_helper(user_id: UserId, alias: &str, db_conn: &DbConnection
 pub fn unregister_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?;
+    })?.to_lowercase();
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
     unregister_player_helper(message.author.id, &alias, &db_conn)?;
@@ -74,7 +74,7 @@ pub fn register_player(context: &mut Context, message: &Message, args: Args) -> 
     let arg_nation_name = args[0].to_lowercase();   
     let alias = args.get(1).cloned().or_else(|| {
         message.channel_id.name()
-    }).ok_or(&"Could not retrieve channel name")?;
+    }).ok_or(&"Could not retrieve channel name")?.to_lowercase();
 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;

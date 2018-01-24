@@ -12,7 +12,7 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
     let player_count = args.single_quoted::<i32>()?;
     let alias = args.single_quoted::<String>().or_else(|_| {
         message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?;
+    })?.to_lowercase();
     
     let data = context.data.lock();
     let db_connection = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;

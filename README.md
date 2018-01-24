@@ -29,23 +29,19 @@ TODO:
 * turn submitted colour coded
 * error handling for unable to connect to server
 * players still show up in turns when AI or defeated
+* add notifications command to help
+* alias lowercase only
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
 * edit pinned post instead of new
 * have docker volume/cache the crate registry (speed up builds)
 
-PRAGMA foreign_keys = OFF;
-ALTER TABLE players RENAME TO tmp_players;
+how I run it
+docker build -t dom-5-bot .
 
-create table if not exists players (
-id INTEGER NOT NULL PRIMARY KEY,
-discord_user_id int NOT NULL,
-turn_notifications BOOLEAN NOT NULL,
-CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
-);
+docker run -it -d --restart unless-stopped --volume /home/ec2-user/dominions-5-status/resources:/usr/src/myapp/resources dom-5-bot
 
-insert into players(id, discord_user_id, turn_notifications)
-select id, discord_user_id, 1
-from tmp_players;
-PRAGMA foreign_keys = ON;
+if you run out of disk:
+ docker system prune -a
+

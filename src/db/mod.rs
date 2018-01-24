@@ -234,7 +234,10 @@ impl DbConnection {
     pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Error> {
         let conn = &*self.0.clone().get()?;
         let rows = conn.execute(
-            "UPDATE game_servers SET last_seen_turn = ?1 WHERE alias = ?2 AND last_seen_turn <> ?1", 
+            "UPDATE started_servers
+            SET last_seen_turn = ?1
+            WHERE id = (select started_server_id from game_servers where alias = ?2)
+            AND last_seen_turn <> ?1", 
             &[&current_turn, &game_alias]
         )?;
         Ok(rows > 0)
