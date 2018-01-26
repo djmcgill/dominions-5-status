@@ -12,7 +12,7 @@ lazy_static = "*"
 log = "0.4.*"
 r2d2 = "0.8.2"
 r2d2_sqlite = "0.5.0"
-rusqlite = {version = "0.13.*", features = ["bundled"]}
+rusqlite = {version = "0.13.*", features = ["bundled", "trace"]}
 serenity = "0.4.6"
 simplelog = "^0.4.4"
 typemap = "0.3"

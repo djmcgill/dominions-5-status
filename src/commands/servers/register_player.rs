@@ -4,6 +4,7 @@ use serenity::model::{Message, UserId};
 
 use server::get_game_data;
 use model::{Nation, Player, GameServerState};
+use model::enums::*;
 use db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(user_id: UserId, alias: &str, db_conn: &DbConnection) -> Result<(), CommandError> {
@@ -29,7 +30,14 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
     match server.state {
-        GameServerState::Lobby(_lobby_state) => {
+        GameServerState::Lobby(lobby_state) => {
+            let nations = NATIONS_BY_ID.iter().filter(|&(&id, &(name, era))| {
+                let lname: String = name.to_owned().to_lowercase();
+                era == lobby_state.era && lname.starts_with(&arg_nation_name)
+            });
+            print!("NATION FOUND: ");
+            println!("{:?}", nations);
+
             Err(CommandError::from("lobbies not implemented yet"))
         }
         GameServerState::StartedState(started_state) => {

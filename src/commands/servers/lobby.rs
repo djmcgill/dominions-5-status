@@ -18,7 +18,7 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
     let db_connection = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
     db_connection.insert_game_server(&GameServer {
         alias: alias.clone(),
-        state: GameServerState::Lobby( LobbyState {
+        state: GameServerState::Lobby(LobbyState {
             era: era,
             owner: message.author.id,
             player_count: player_count,

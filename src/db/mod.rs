@@ -1,6 +1,7 @@
 use failure::{err_msg,Error};
 use r2d2_sqlite::SqliteConnectionManager;
 use r2d2::Pool;
+use rusqlite::Connection;
 use serenity::model::UserId;
 use typemap::Key;
 use num_traits::{FromPrimitive, ToPrimitive};
@@ -86,6 +87,7 @@ impl DbConnection {
 
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
+        info!("inserting game server {:?}", game_server);
         match game_server.state {
             GameServerState::Lobby(ref lobby_state) => {
                 // TODO: transaction
@@ -106,12 +108,18 @@ impl DbConnection {
                         &lobby_state.player_count,
                     ]
                 )?;
+                info!("{:?}{:?}{:?}{:?}", &game_server.alias,
+                      &lobby_state.era.to_i32(),
+                      &(lobby_state.owner.0 as i64),
+                      &lobby_state.player_count);
                 conn.execute(
                     "INSERT INTO game_servers (alias, lobby_id)
                     SELECT ?1, l.id
                     FROM lobbies l
                     LEFT JOIN game_servers s ON s.lobby_id = l.id
-                    WHERE l.era = ?2 AND l.owner_id = ?3 AND l.player_count = ?4
+                    WHERE l.era = ?2
+                    AND l.owner_id = (SELECT id FROM players where discord_user_id = ?3)
+                    AND l.player_count = ?4
                     AND s.id IS NULL",
                     &[&game_server.alias,
                       &lobby_state.era.to_i32(),
