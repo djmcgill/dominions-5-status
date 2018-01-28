@@ -23,14 +23,13 @@ Commands (server alias is optional, defaults to channel name):
 * !help: display this text
 
 TODO:
-* register for games that don't exist yet
 * make subfunctions pure and testable
 * error if nation registering is ambiguous
 * help text in embed
 * turns in embed
 * turn submitted colour coded
-* players still show up in turns when AI or defeated
-* lobbies list all open positions
+* fix: players still show up in turns when AI or defeated
+* fix: turns errors with lobby
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
@@ -45,3 +44,13 @@ docker run -it -d --restart unless-stopped --volume /home/ec2-user/dominions-5-s
 if you run out of disk:
  docker system prune -a
 
+a cheat to update the app without rebuilding the container:
+docker exec -it \<container\> bash
+
+then inside the container:
+    git pull
+    cargo install --force
+    exit
+
+then:
+ docker restart \<container\>
