@@ -63,30 +63,30 @@ fn search<I: InspectorCategory>(message: &Message, args: Args) -> Result<(), Com
 use serenity::framework::standard::StandardFramework;
 pub trait WithSearchCommands: Sized {
     fn get_standard_framework(self) -> StandardFramework;
-    fn with_search_commands(self) -> StandardFramework {
+    fn with_search_commands(self, bucket: &str) -> StandardFramework {
         self.get_standard_framework()
             .command(Item::show(), |c| c
-                .bucket("simple")
+                .bucket(bucket)
                 .exec(|_, m, a| search::<Item>(m, a))
             )
             .command(Spell::show(), |c| c
-                .bucket("simple")
+                .bucket(bucket)
                 .exec(|_, m, a| search::<Spell>(m, a))
             )
             .command(Unit::show(), |c| c
-                .bucket("simple")
+                .bucket(bucket)
                 .exec(|_, m, a| search::<Unit>(m, a))
             )
             .command(Site::show(), |c| c
-                .bucket("simple")
+                .bucket(bucket)
                 .exec(|_, m, a| search::<Site>(m, a))
             )
             .command(Merc::show(), |c| c
-                .bucket("simple")
+                .bucket(bucket)
                 .exec(|_, m, a| search::<Merc>(m, a))
             )
             .command(Event::show(), |c| c
-                .bucket("simple")
+                .bucket(bucket)
                 .exec(|_, m, a| search::<Event>(m, a))
             )
     }

@@ -71,8 +71,8 @@ fn do_main() -> Result<(), Box<Error>> {
     discord_client.with_framework(StandardFramework::new()
         .configure(|c| c.prefix("!"))
         .simple_bucket("simple", 1)
-        .with_search_commands()
-        .with_servers_commands()
+        .with_search_commands("simple")
+        .with_servers_commands("simple")
         .command("help", |c| c
             .bucket("simple")
             .exec(commands::help))

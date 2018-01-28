@@ -7,25 +7,6 @@ use model::{Player, GameServerState};
 use model::enums::*;
 use db::{DbConnection, DbConnectionKey};
 
-fn unregister_player_helper(user_id: UserId, alias: &str, db_conn: &DbConnection) -> Result<(), CommandError> {
-    db_conn.remove_player_from_game(&alias, user_id).map_err(CommandError::from)?;
-    Ok(())
-}
-
-pub fn unregister_player(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    let alias = args.single_quoted::<String>().or_else(|_| {
-        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?.to_lowercase();
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
-    unregister_player_helper(message.author.id, &alias, &db_conn)?;
-
-    let text = format!("Removing user {} from game {}", message.author.name, alias);
-    info!("{}", text);
-    let _ = message.reply(&text);
-    Ok(())
-}
-
 fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, db_conn: &DbConnection, message: &Message) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
@@ -38,9 +19,9 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             if nations.len() != 1 {
                 return Err(CommandError::from("ambiguous nation name"));
             }
-            let (nation_id, _) = nations[0];
-            db_conn.insert_server_player(&server.alias, &user_id, *nation_id).map_err(CommandError::from)?;
-            message.reply(&"registering")?;
+            let (&nation_id, &(nation_name, nation_era)) = nations[0];
+            db_conn.insert_server_player(&server.alias, &user_id, nation_id).map_err(CommandError::from)?;
+            message.reply(&format!("registering {} {} for {}", nation_era, nation_name, user_id.get()?))?;
             Ok(())
         }
         GameServerState::StartedState(started_state) => {
@@ -70,7 +51,7 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             db_conn.insert_player(&player).map_err(CommandError::from)?;
             info!("{} {} {}", server.alias, user_id, nation.id as u32);
             db_conn.insert_server_player(&server.alias, &user_id, nation.id as u32).map_err(CommandError::from)?;
-            let text = format!("registering nation {} for user {}", nation.name, message.author.name);
+            let text = format!("registering nation {} for user {}", nation.name, message.author);
             let _ = message.reply(&text);
             Ok(())
         }
