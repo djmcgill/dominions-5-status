@@ -18,6 +18,7 @@ Commands (server alias is optional, defaults to channel name):
 * !unregister \[\<alias\>\]: unregister yourself in a game
 * !turns: show all of the games you're in and their turn status
 * !notifications \{true, false\}: enable/disable turn notifications
+* !lobby \{EA/MA/LA\} \<num\_players\> \[\<alias\>\]: start a game lobby
 * !\{item, spell, unit, site, merc, event\} \<text\>: get dom5inspector search url
 * !help: display this text
 

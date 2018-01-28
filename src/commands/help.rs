@@ -9,6 +9,7 @@ command!(help(_context, message) {
         - !unregister [<alias>]: unregister yourself in a game\n\
         - !turns: show all of the games you're in and their turn status\n\
         - !notifications {true, false}: enable/disable turn notifications\n\
+        - !lobby {EA/MA/LA} <num_players> [<alias>]\n\
         - !{item, spell, unit, site, merc, event} <text>: get dom5inspector search url\n\
         - !help: display this text"
     );
