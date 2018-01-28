@@ -5,7 +5,7 @@ use serenity::prelude::Context;
 use serenity::model::Message;
 
 use model::GameServerState;
-use model::enums::NationStatus;
+use model::enums::{Nations, NationStatus};
 use db::DbConnectionKey;
 
 pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
@@ -21,7 +21,12 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
 
     match server.state {
         GameServerState::Lobby(_) => {
-            message.reply(&format!("{} (Lobby)", server.alias))?;
+            let mut text = format!("{} (Lobby)\nPlayers\n", server.alias);
+            for (player, nation_id) in db_conn.players_with_nations_for_game_alias(&alias)? {
+                let &(nation_name, era) = Nations::get_nation_desc(nation_id);
+                text.push_str(&format!("{}: {} {}\n", player.discord_user_id.get()?, era, nation_name));
+            }
+            message.reply(&text)?;
         }
         GameServerState::StartedState(started_state) => {
             let ref server_address = started_state.address;

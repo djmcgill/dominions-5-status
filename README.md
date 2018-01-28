@@ -17,6 +17,7 @@ Commands (server alias is optional, defaults to channel name):
 * !register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
 * !unregister \[\<alias\>\]: unregister yourself in a game
 * !turns: show all of the games you're in and their turn status
+* !notifications \{true, false\}: enable/disable turn notifications
 * !\{item, spell, unit, site, merc, event\} \<text\>: get dom5inspector search url
 * !help: display this text
 
@@ -27,10 +28,8 @@ TODO:
 * help text in embed
 * turns in embed
 * turn submitted colour coded
-* error handling for unable to connect to server
 * players still show up in turns when AI or defeated
-* add notifications command to help
-* alias lowercase only
+* lobbies list all open positions
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc

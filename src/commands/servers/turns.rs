@@ -5,6 +5,7 @@ use serenity::model::Message;
 use server;
 use db::DbConnectionKey;
 use model::{GameServer, GameServerState};
+use model::enums::SubmissionStatus;
 
 pub fn turns(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
@@ -29,13 +30,17 @@ pub fn turn_for_server(server: &GameServer, nation_id: i32) -> Result<String, Co
         let total_mins_remaining = game_data.turn_timer / (1000*60);
         let hours_remaining = total_mins_remaining/60;
         let mins_remaining = total_mins_remaining - hours_remaining*60;
-        Ok(format!("{} turn {} ({}h {}m): {} (submitted: {})\n",
+        let player_count = game_data.nations.len();
+        let submitted_count = game_data.nations.iter().fold(0, |t, i| if i.submitted == SubmissionStatus::Submitted { t+1 } else { t });
+        Ok(format!("{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
             server.alias,
             game_data.turn,
             hours_remaining,
             mins_remaining,
             nation.name,
             nation.submitted.show(),
+            submitted_count,
+            player_count,
         ))
     } else {
         Err(CommandError::from("lobbies not implemented yet"))

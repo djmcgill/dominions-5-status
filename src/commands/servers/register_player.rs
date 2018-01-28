@@ -3,7 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::{Message, UserId};
 
 use server::get_game_data;
-use model::{Nation, Player, GameServerState};
+use model::{Player, GameServerState};
 use model::enums::*;
 use db::{DbConnection, DbConnectionKey};
 
@@ -26,19 +26,22 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
     Ok(())
 }
 
-fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, db_conn: &DbConnection) -> Result<Nation, CommandError> {
+fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, db_conn: &DbConnection, message: &Message) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
     match server.state {
         GameServerState::Lobby(lobby_state) => {
-            let nations = NATIONS_BY_ID.iter().filter(|&(&id, &(name, era))| {
+            let nations = NATIONS_BY_ID.iter().filter(|&(&_id, &(name, era))| {
                 let lname: String = name.to_owned().to_lowercase();
                 era == lobby_state.era && lname.starts_with(&arg_nation_name)
-            });
-            print!("NATION FOUND: ");
-            println!("{:?}", nations);
-
-            Err(CommandError::from("lobbies not implemented yet"))
+            }).collect::<Vec<_>>();
+            if nations.len() != 1 {
+                return Err(CommandError::from("ambiguous nation name"));
+            }
+            let (nation_id, _) = nations[0];
+            db_conn.insert_server_player(&server.alias, &user_id, *nation_id).map_err(CommandError::from)?;
+            message.reply(&"registering")?;
+            Ok(())
         }
         GameServerState::StartedState(started_state) => {
             let data = get_game_data(&started_state.address)?;
@@ -67,8 +70,9 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             db_conn.insert_player(&player).map_err(CommandError::from)?;
             info!("{} {} {}", server.alias, user_id, nation.id as u32);
             db_conn.insert_server_player(&server.alias, &user_id, nation.id as u32).map_err(CommandError::from)?;
-
-            Ok(nation.clone()) 
+            let text = format!("registering nation {} for user {}", nation.name, message.author.name);
+            let _ = message.reply(&text);
+            Ok(())
         }
     }  
 }
@@ -87,8 +91,6 @@ pub fn register_player(context: &mut Context, message: &Message, args: Args) -> 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
 
-    let nation = register_player_helper(message.author.id, &arg_nation_name, &alias, &db_conn)?;
-    let text = format!("registering nation {} for user {}", nation.name, message.author.name);
-    let _ = message.reply(&text);
+    register_player_helper(message.author.id, &arg_nation_name, &alias, &db_conn, message)?;
     Ok(())
 }

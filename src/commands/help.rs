@@ -8,6 +8,7 @@ command!(help(_context, message) {
         - !register nation_prefix [<alias>]: register yourself as a nation in a game\n\
         - !unregister [<alias>]: unregister yourself in a game\n\
         - !turns: show all of the games you're in and their turn status\n\
+        - !notifications {true, false}: enable/disable turn notifications\n\
         - !{item, spell, unit, site, merc, event} <text>: get dom5inspector search url\n\
         - !help: display this text"
     );
