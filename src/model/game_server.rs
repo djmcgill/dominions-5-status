@@ -9,7 +9,7 @@ pub struct GameServer {
 
 #[derive(Debug)]
 pub enum GameServerState {
-    StartedState(StartedState),
+    StartedState(StartedState, Option<LobbyState>),
     Lobby(LobbyState),
 }
 

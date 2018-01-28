@@ -12,19 +12,30 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
 
     match server.state {
         GameServerState::Lobby(lobby_state) => {
+            let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+            if players_nations.len() as i32 >= lobby_state.player_count {
+                return Err(CommandError::from("lobby already full"));
+            };
+
             let nations = NATIONS_BY_ID.iter().filter(|&(&_id, &(name, era))| {
                 let lname: String = name.to_owned().to_lowercase();
                 era == lobby_state.era && lname.starts_with(&arg_nation_name)
             }).collect::<Vec<_>>();
-            if nations.len() != 1 {
+            let nations_len = nations.len();
+            if nations_len > 1 {
                 return Err(CommandError::from("ambiguous nation name"));
-            }
+            } else if nations_len < 1 {
+                return Err(CommandError::from("could not find nation"));
+            };
             let (&nation_id, &(nation_name, nation_era)) = nations[0];
+            if players_nations.iter().find(|&&(_, player_nation_id)| player_nation_id == nation_id as usize).is_some() {
+                return Err(CommandError::from(format!("Nation {} already exists in lobby", nation_name)));
+            }
             db_conn.insert_server_player(&server.alias, &user_id, nation_id).map_err(CommandError::from)?;
             message.reply(&format!("registering {} {} for {}", nation_era, nation_name, user_id.get()?))?;
             Ok(())
         }
-        GameServerState::StartedState(started_state) => {
+        GameServerState::StartedState(started_state, _) => {
             let data = get_game_data(&started_state.address)?;
 
             // TODO: allow for players with registered nation but not ingame (not yet uploaded)

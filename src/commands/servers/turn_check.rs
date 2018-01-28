@@ -33,7 +33,7 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>
 }
 
 fn check_server_for_new_turn(server: GameServer, db_conn: &DbConnection) -> Result<(), Box<Error>> {
-    if let GameServerState::StartedState(started_state) = server.state {
+    if let GameServerState::StartedState(started_state, _) = server.state {
         info!("checking {} for new turn", server.alias);
         let game_data = server::get_game_data(&started_state.address)?;
         let new_turn = db_conn.update_game_with_possibly_new_turn(

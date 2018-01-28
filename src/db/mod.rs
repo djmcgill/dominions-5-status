@@ -128,7 +128,7 @@ impl DbConnection {
                 )?;
                 Ok(())                
             }
-            GameServerState::StartedState(ref started_state) => {
+            GameServerState::StartedState(ref started_state, _) => {
                 conn.execute(
                     "INSERT INTO started_servers (address, last_seen_turn)
                     VALUES(?1, ?2)"
@@ -345,7 +345,16 @@ fn make_game_server(
             GameServerState::StartedState (StartedState {
                 address: address,
                 last_seen_turn: last_seen_turn,
-            }),
+            }, None),
+        (Some(address), Some(last_seen_turn), Some(owner), Some(era), Some(player_count)) =>
+            GameServerState::StartedState (StartedState {
+                address: address,
+                last_seen_turn: last_seen_turn,
+            }, Some(LobbyState {
+                owner: UserId(owner as u64),
+                era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
+                player_count: player_count,
+            })),
         (None, None, Some(owner), Some(era), Some(player_count)) =>
             GameServerState::Lobby (LobbyState {
                 owner: UserId(owner as u64),

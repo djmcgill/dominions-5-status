@@ -23,7 +23,7 @@ pub fn turns(context: &mut Context, message: &Message) -> Result<(), CommandErro
 }
 
 pub fn turn_for_server(server: &GameServer, nation_id: i32) -> Result<String, CommandError> {
-    if let GameServerState::StartedState(ref started_state) = server.state {
+    if let GameServerState::StartedState(ref started_state, _) = server.state {
         let game_data = server::get_game_data(&started_state.address)?;
         let ref nation = game_data.nations.iter().find(|&n| n.id == nation_id as usize)
             .ok_or(format!("could not find nation {} in server {}", nation_id, server.alias))?;

@@ -15,7 +15,8 @@ fn add_server_helper(server_address: &str, game_alias: &str, db_connection: &mut
             StartedState {
                 address: server_address.to_string(),
                 last_seen_turn: game_data.turn,
-            }
+            },
+            None,
         ),
     };
 

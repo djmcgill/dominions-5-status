@@ -16,7 +16,7 @@ pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), Comm
             GameServerState::Lobby(_) => 
                 text.push_str(&format!("{} (-)\n", server.alias)),
             
-            GameServerState::StartedState(started_state) => 
+            GameServerState::StartedState(started_state, _) => 
                 text.push_str(&format!("{} ({})\n", server.alias, started_state.address)),
         }
 

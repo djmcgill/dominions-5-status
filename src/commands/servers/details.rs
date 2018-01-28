@@ -28,7 +28,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
                 &alias,
             )?
         }
-        GameServerState::StartedState(started_state) => {
+        GameServerState::StartedState(started_state, _) => {
             started_details(
                 db_conn,
                 started_state,
