@@ -22,6 +22,9 @@ use self::turns::*;
 mod lobby;
 use self::lobby::*;
 
+mod start;
+use self::start::*;
+
 mod notifications;
 use self::notifications::*;
 
@@ -67,6 +70,10 @@ pub trait WithServersCommands: Sized {
         .command("notifications", |c| c
             .bucket(bucket)
             .exec(|cx, m, a| notifications(cx, m, a))
+        )
+        .command("start", |c| c
+            .bucket(bucket)
+            .exec(|cx, m, a| start(cx, m, a))
         )
     }
 }

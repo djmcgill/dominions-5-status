@@ -28,10 +28,18 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
                 &alias,
             )?
         }
-        GameServerState::StartedState(started_state, _) => {
+        GameServerState::StartedState(started_state, None) => {
             started_details(
                 db_conn,
                 started_state,
+                &alias,
+            )?
+        }
+        GameServerState::StartedState(started_state, Some(lobby_state)) => {
+            started_from_lobby_details(
+                db_conn,
+                started_state,
+                lobby_state,
                 &alias,
             )?
         }
@@ -72,6 +80,85 @@ fn lobby_details(
         .field ( |f| f
             .name("Player")
             .value(player_names)
+        );
+    Ok(e)
+}
+
+fn started_from_lobby_details(
+    db_conn: &DbConnection,
+    started_state: StartedState,
+    lobby_state: LobbyState,
+    alias: &str,
+) -> Result<CreateEmbed, CommandError> {
+    let ref server_address = started_state.address;
+    let mut game_data = get_game_data(&server_address)?;
+    game_data.nations.sort_unstable_by(|a, b| a.name.cmp(&b.name));
+
+    let mut nation_names = String::new();
+    let mut player_names = String::new();
+    let mut submitted_status = String::new();
+
+    let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+
+    for nation in &game_data.nations {
+        debug!("Creating format for nation {} {}", nation.era, nation.name);
+        nation_names.push_str(&format!("{} {}\n", nation.era, nation.name));
+
+        let nation_string = if let NationStatus::Human = nation.status {
+            if let Some(&(ref player, _)) = id_player_nations.iter().find(
+                |&&(_, nation_id)| nation_id == nation.id
+                ) {
+                    format!("**{}**", player.discord_user_id.get()?)    
+                } else {
+                    nation.status.show().to_string()
+                }
+
+        } else {
+            nation.status.show().to_string()
+        };
+
+        player_names.push_str(&format!("{}\n", nation_string));
+        
+        if let NationStatus::Human = nation.status {
+            submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
+        } else {
+            submitted_status.push_str(&".\n");
+        }
+    }
+
+    for _ in 0..(lobby_state.player_count - game_data.nations.len() as i32) {
+        nation_names.push_str(&"NOT UPLOADED");
+        player_names.push_str(&".");
+        submitted_status.push_str(&".");
+    }
+
+    info!("Server details string created, now sending.");
+    let total_mins_remaining = game_data.turn_timer / (1000*60);
+    let hours_remaining = total_mins_remaining/60;
+    let mins_remaining = total_mins_remaining - hours_remaining*60;
+
+    let embed_title = format!("{}: turn {}, {}h {}m remaining",
+                game_data.game_name,
+                game_data.turn,
+                hours_remaining,
+                mins_remaining);
+
+    info!("replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
+    embed_title, nation_names, player_names, submitted_status);
+
+    let e = CreateEmbed::default()
+        .title(embed_title)
+        .field( |f| f
+            .name("Nation")
+            .value(nation_names)
+        )
+        .field ( |f| f
+            .name("Player")
+            .value(player_names)
+        )
+        .field ( |f| f
+            .name("Submitted")
+            .value(submitted_status)
         );
     Ok(e)
 }

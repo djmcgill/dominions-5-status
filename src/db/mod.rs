@@ -329,6 +329,24 @@ impl DbConnection {
         ", &[&(player.0 as i64), &desired_turn_notifications])?;
         Ok(())
     }
+
+    pub fn insert_started_state(&self, alias: &str, started_state: &StartedState) -> Result<(), Error> {
+        let conn = &*self.0.clone().get()?;
+        conn.execute("
+            INSERT INTO started_servers s (address, last_seen_turn)
+            VALUES (?1, ?2)
+        ", &[&started_state.address, &started_state.last_seen_turn])?;
+
+        conn.execute("
+            UPDATE game_servers g
+            SET started_server_id = 
+                (SELECT s.id
+                from started_state s
+                where s.address = ?1 and s.last_seen_turn = ?2
+                and s.id not in (select started_server_id from game_servers));
+        ", &[&started_state.address, &started_state.last_seen_turn])?;
+        Ok(())
+    }
 }
 
 fn make_game_server(
