@@ -18,18 +18,20 @@ Commands (server alias is optional, defaults to channel name):
 * !unregister \[\<alias\>\]: unregister yourself in a game
 * !turns: show all of the games you're in and their turn status
 * !notifications \{true, false\}: enable/disable turn notifications
-* !lobby \{EA/MA/LA\} \<num\_players\> \[\<alias\>\]: start a game lobby
+* !lobby \{EA/MA/LA\} \<num\_players\> \[\<alias\>\]: open a game lobby
 * !\{item, spell, unit, site, merc, event\} \<text\>: get dom5inspector search url
+* !start \<address:port\> \[\<alias\>\]: register a started server for a lobby game
 * !help: display this text
 
 TODO:
 * make subfunctions pure and testable
 * error if nation registering is ambiguous
-* help text in embed
-* turns in embed
 * turn submitted colour coded
-* fix: players still show up in turns when AI or defeated
-* fix: turns errors with lobby
+* ban nation in lobby
+* update help with start
+* permissions for commands
+* more embeds, more printing of user name instead of user id
+* delete started_servers/lobbies when deleting server
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc

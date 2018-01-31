@@ -126,10 +126,11 @@ fn started_from_lobby_details(
         }
     }
 
+    // let not_uploaded_players = id_player_nations.filter(|()|)
     for _ in 0..(lobby_state.player_count - game_data.nations.len() as i32) {
-        nation_names.push_str(&"NOT UPLOADED");
-        player_names.push_str(&".");
-        submitted_status.push_str(&".");
+        nation_names.push_str(&"NOT UPLOADED\n");
+        player_names.push_str(&".\n");
+        submitted_status.push_str(&".\n");
     }
 
     info!("Server details string created, now sending.");
