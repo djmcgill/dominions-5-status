@@ -31,6 +31,12 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             if players_nations.iter().find(|&&(_, player_nation_id)| player_nation_id == nation_id as usize).is_some() {
                 return Err(CommandError::from(format!("Nation {} already exists in lobby", nation_name)));
             }
+            let player = Player {
+                discord_user_id: user_id,
+                turn_notifications: true,
+            }; 
+            // TODO: transaction
+            db_conn.insert_player(&player).map_err(CommandError::from)?;
             db_conn.insert_server_player(&server.alias, &user_id, nation_id).map_err(CommandError::from)?;
             message.reply(&format!("registering {} {} for {}", nation_era, nation_name, user_id.get()?))?;
             Ok(())
