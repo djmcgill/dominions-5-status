@@ -126,8 +126,23 @@ fn started_from_lobby_details(
         }
     }
 
-    // let not_uploaded_players = id_player_nations.filter(|()|)
-    for _ in 0..(lobby_state.player_count - game_data.nations.len() as i32) {
+    let mut not_uploaded_players = id_player_nations.clone();
+    not_uploaded_players.retain(
+        |&(ref player, nation_id)| game_data.nations.iter().find(
+            |ref nation| nation.id == nation_id
+        ).is_none()
+    );
+
+    for &(ref player, _) in &not_uploaded_players {
+        nation_names.push_str(&"NOT UPLOADED\n");
+        player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
+        submitted_status.push_str(&".\n");
+    }
+    let remaining = lobby_state.player_count
+                        - game_data.nations.len() as i32
+                        - not_uploaded_players.len() as i32;
+
+    for _ in 0..remaining {
         nation_names.push_str(&"NOT UPLOADED\n");
         player_names.push_str(&".\n");
         submitted_status.push_str(&".\n");
