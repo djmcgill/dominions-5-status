@@ -3,11 +3,9 @@ use ::server::get_game_data;
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::Message;
-use serenity::builder::CreateEmbed;
 
 use model::*;
-use model::enums::*;
-use db::{DbConnection, DbConnectionKey};
+use db::DbConnectionKey;
 
 pub fn start(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let data = context.data.lock();
@@ -36,6 +34,7 @@ pub fn start(context: &mut Context, message: &Message, mut args: Args) -> Result
             };
 
             db_conn.insert_started_state(&alias, &started_state)?;
+            message.reply(&"started!")?;
         }
     }
     Ok(())
