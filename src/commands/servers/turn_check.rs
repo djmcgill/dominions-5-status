@@ -1,7 +1,7 @@
 use typemap::ShareMap;
 
 use db::{DbConnection, DbConnectionKey};
-use model::{GameServer, GameServerState};
+use model::{GameServer, GameServerState, Player};
 use model::enums::{NationStatus, SubmissionStatus};
 use std::{thread, time};
 use serenity::prelude::Mutex;
@@ -32,14 +32,17 @@ fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>
     Ok(())
 }
 
-fn check_server_for_new_turn(server: GameServer, db_conn: &DbConnection) -> Result<(), Box<Error>> {
+fn check_server_for_new_turn_helper(server: GameServer, db_conn: &DbConnection)
+    -> Result<Vec<(Player, String)>, Box<Error>> {
+
+    let mut ret = Vec::new();
     if let GameServerState::StartedState(started_state, _) = server.state {
         info!("checking {} for new turn", server.alias);
         let game_data = server::get_game_data(&started_state.address)?;
         let new_turn = db_conn.update_game_with_possibly_new_turn(
             &server.alias,
             game_data.turn
-        )?; 
+        )?;
 
         if new_turn {
             info!("new turn in game {}", server.alias);
@@ -51,18 +54,28 @@ fn check_server_for_new_turn(server: GameServer, db_conn: &DbConnection) -> Resu
                             use model::enums::Nations;
                             let &(name, era) = Nations::get_nation_desc(nation_id);
                             let text = format!("your nation {} {} has a new turn ({}) in {}",
-                                era,
-                                name,
-                                game_data.turn,
-                                server.alias);
+                                               era,
+                                               name,
+                                               game_data.turn,
+                                               server.alias);
                             info!("Sending DM: {}", text);
-                            let private_channel = player.discord_user_id.create_dm_channel()?;
-                            private_channel.say(&text)?;
-                    }
+                            ret.push((player, text));
+                        }
                     }
                 }
             }
         }
     };
+
+
+    Ok(ret)
+}
+
+fn check_server_for_new_turn(server: GameServer, db_conn: &DbConnection) -> Result<(), Box<Error>> {
+    // TODO: group players
+    for (player, text) in check_server_for_new_turn_helper(server, db_conn)? {
+        let private_channel = player.discord_user_id.create_dm_channel()?;
+        private_channel.say(&text)?;
+    }
     Ok(())
 }

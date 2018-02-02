@@ -277,6 +277,16 @@ impl DbConnection {
             WHERE alias = ?1",
             &[&game_alias]
         )?;
+        conn.execute(
+            "DELETE FROM started_servers
+            WHERE id NOT IN (select started_server_id from game_servers)",
+            &[]
+        )?;
+        conn.execute(
+            "DELETE FROM lobbies
+            WHERE id NOT IN (select lobby_id from game_servers)",
+            &[]
+        )?;
         Ok(())
     }
 

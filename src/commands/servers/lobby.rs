@@ -1,10 +1,22 @@
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
-use serenity::model::Message;
+use serenity::model::{Message, UserId};
 
 use model::{GameServer, GameServerState, LobbyState};
 use model::enums::Era;
-use db::DbConnectionKey;
+use db::*;
+
+fn lobby_helper(db_conn: &DbConnection, era: Era, player_count: i32, alias: &String, author_id: UserId) -> Result<(), CommandError> {
+    db_conn.insert_game_server(&GameServer {
+        alias: alias.clone(),
+        state: GameServerState::Lobby(LobbyState {
+            era,
+            owner: author_id,
+            player_count,
+        }),
+    })?;
+    Ok(())
+}
 
 pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let era_str = args.single_quoted::<String>()?;
@@ -16,14 +28,9 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
     
     let data = context.data.lock();
     let db_connection = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
-    db_connection.insert_game_server(&GameServer {
-        alias: alias.clone(),
-        state: GameServerState::Lobby(LobbyState {
-            era: era,
-            owner: message.author.id,
-            player_count: player_count,
-        }), 
-    })?;
+
+    lobby_helper(db_connection, era, player_count, &alias, message.author.id)?;
+
     message.reply(&format!("Creating game lobby with name {}", alias))?;
     Ok(())
 }

@@ -45,20 +45,24 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             let data = get_game_data(&started_state.address)?;
 
             // TODO: allow for players with registered nation but not ingame (not yet uploaded)
-            let nation = data.nations.iter().find(|&nation| // TODO: more efficient algo
+            let nations = data.nations.iter().filter(|&nation| // TODO: more efficient algo
                 nation.name.to_lowercase().starts_with(&arg_nation_name) 
-            ).ok_or_else(|| {
-                let err = if data.turn == -1 {
+            ).collect::<Vec<_>>();
+
+            let nations_len = nations.len();
+            if nations_len > 1 {
+                return Err(CommandError::from("ambiguous nation name"));
+            } else if nations_len < 1 {
+                let error = if data.turn == -1 {
                     format!("Could not find nation starting with {}. Make sure you've uploaded a pretender first"
-                        , arg_nation_name)
+                            , arg_nation_name)
                 } else {
                     format!("Could not find nation starting with {}", arg_nation_name)
                 };
-                
-                info!("{}", err);
-                err
-            })?; 
+                return Err(CommandError::from(error));
+            };
 
+            let nation = nations[0];
             let player = Player {
                 discord_user_id: user_id,
                 turn_notifications: true,

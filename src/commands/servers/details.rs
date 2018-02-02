@@ -9,15 +9,7 @@ use model::{GameServerState, LobbyState, StartedState};
 use model::enums::{Nations, NationStatus};
 use db::{DbConnection, DbConnectionKey};
 
-pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
-    let alias = args.single_quoted::<String>().or_else(|_| {
-        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?.to_lowercase();
-    if !args.is_empty() {
-        return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
-    }
+pub fn details_helper(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
     let embed_response = match server.state {
@@ -44,6 +36,20 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
             )?
         }
     };
+    Ok(embed_response)
+}
+
+pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+    let data = context.data.lock();
+    let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let alias = args.single_quoted::<String>().or_else(|_| {
+        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
+    })?.to_lowercase();
+    if !args.is_empty() {
+        return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
+    }
+
+    let embed_response = details_helper(db_conn, &alias)?;
     message.channel_id.send_message(|m| m
         .embed(|_| embed_response)
     )?;
@@ -87,7 +93,7 @@ fn lobby_details(
 fn started_from_lobby_details(
     db_conn: &DbConnection,
     started_state: StartedState,
-    lobby_state: LobbyState,
+    _lobby_state: LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
     let ref server_address = started_state.address;
@@ -126,9 +132,10 @@ fn started_from_lobby_details(
         }
     }
 
+    // TODO: yet again, not quadratic please
     let mut not_uploaded_players = id_player_nations.clone();
     not_uploaded_players.retain(
-        |&(ref player, nation_id)| game_data.nations.iter().find(
+        |&(_, nation_id)| game_data.nations.iter().find(
             |ref nation| nation.id == nation_id
         ).is_none()
     );
@@ -136,15 +143,6 @@ fn started_from_lobby_details(
     for &(ref player, _) in &not_uploaded_players {
         nation_names.push_str(&"NOT UPLOADED\n");
         player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
-        submitted_status.push_str(&".\n");
-    }
-    let remaining = lobby_state.player_count
-                        - game_data.nations.len() as i32
-                        - not_uploaded_players.len() as i32;
-
-    for _ in 0..remaining {
-        nation_names.push_str(&"NOT UPLOADED\n");
-        player_names.push_str(&".\n");
         submitted_status.push_str(&".\n");
     }
 
