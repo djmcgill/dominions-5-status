@@ -31,6 +31,7 @@ use std::fs::File;
 use std::io::Read;
 
 use db::{DbConnection, DbConnectionKey};
+use server::RealServerConnection;
 
 struct Handler;
 impl EventHandler for Handler {
@@ -72,7 +73,7 @@ fn do_main() -> Result<(), Box<Error>> {
         .configure(|c| c.prefix("!"))
         .simple_bucket("simple", 1)
         .with_search_commands("simple")
-        .with_servers_commands("simple")
+        .with_servers_commands::<RealServerConnection>("simple")
         .command("help", |c| c
             .bucket("simple")
             .exec(commands::help))
@@ -93,7 +94,7 @@ fn do_main() -> Result<(), Box<Error>> {
 
     let data_clone = discord_client.data.clone();
     thread::spawn(move || {
-        commands::servers::check_for_new_turns_every_1_min(data_clone.as_ref());
+        commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(data_clone.as_ref());
     });
     // start listening for events by starting a single shard
 

@@ -32,12 +32,13 @@ mod turn_check;
 pub use self::turn_check::*;
 
 use serenity::framework::standard::StandardFramework;
+use server::ServerConnection;
 pub trait WithServersCommands: Sized {
     fn get_standard_framework(self) -> StandardFramework;
-    fn with_servers_commands(self, bucket: &str) -> StandardFramework { self.get_standard_framework()
+    fn with_servers_commands<C: ServerConnection>(self, bucket: &str) -> StandardFramework { self.get_standard_framework()
         .command("add", |c| c
             .bucket(bucket)
-            .exec(|cx, m, a| add_server(cx, m, a))
+            .exec(|cx, m, a| add_server::<C>(cx, m, a))
         )
         .command("list", |c| c
             .bucket(bucket)
@@ -49,11 +50,11 @@ pub trait WithServersCommands: Sized {
         )
         .command("details", |c| c
             .bucket(bucket)
-            .exec(|cx, m, a| details(cx, m, a))
+            .exec(|cx, m, a| details::<C>(cx, m, a))
         )
         .command("register", |c| c
             .bucket(bucket)
-            .exec(|cx, m, a| register_player(cx, m, a))
+            .exec(|cx, m, a| register_player::<C>(cx, m, a))
         )
         .command("unregister", |c| c
             .bucket(bucket)
@@ -61,7 +62,7 @@ pub trait WithServersCommands: Sized {
         )
         .command("turns", |c| c
             .bucket(bucket)
-            .exec(|cx, m, _| turns(cx, m))
+            .exec(|cx, m, _| turns::<C>(cx, m))
         )
         .command("lobby", |c| c
             .bucket(bucket)
@@ -73,7 +74,7 @@ pub trait WithServersCommands: Sized {
         )
         .command("start", |c| c
             .bucket(bucket)
-            .exec(|cx, m, a| start(cx, m, a))
+            .exec(|cx, m, a| start::<C>(cx, m, a))
         )
     }
 }

@@ -2,19 +2,19 @@ use serenity::framework::standard::CommandError;
 use serenity::prelude::Context;
 use serenity::model::{Message, UserId};
 
-use server;
+use server::ServerConnection;
 use db::*;
 use model::{GameServerState, Nation};
 use model::enums::*;
 
-fn turns_helper(user_id: UserId, db_conn: &DbConnection) -> Result<String, CommandError> {
+fn turns_helper<C: ServerConnection>(user_id: UserId, db_conn: &DbConnection) -> Result<String, CommandError> {
     let servers_and_nations_for_player = db_conn.servers_for_player(user_id)?;
 
     let mut text = "Your turns:\n".to_string();
     for (server, nation_id) in servers_and_nations_for_player {
         // TODO: iflet macro crate
         if let GameServerState::StartedState(ref started_state, _) = server.state {
-            if let Ok(game_data) = server::get_game_data(&started_state.address) {
+            if let Ok(game_data) = C::get_game_data(&started_state.address) {
                 if let Some(nation) = game_data.nations.iter().find(|&n| n.id == nation_id as usize) {
                     if nation.status == NationStatus::Human {
                         let (hours_remaining, mins_remaining) = hours_mins_remaining(game_data.turn_timer);
@@ -43,10 +43,10 @@ fn turns_helper(user_id: UserId, db_conn: &DbConnection) -> Result<String, Comma
     Ok(text)
 }
 
-pub fn turns(context: &mut Context, message: &Message) -> Result<(), CommandError> {
+pub fn turns<C: ServerConnection>(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| CommandError("No db connection".to_string()))?;
-    let text = turns_helper(message.author.id, db_conn)?;
+    let text = turns_helper::<C>(message.author.id, db_conn)?;
     info!("replying with {}", text);
     let private_channel = message.author.id.create_dm_channel()?;
     private_channel.say(&text)?;

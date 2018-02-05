@@ -1,4 +1,4 @@
-use ::server::get_game_data;
+use server::ServerConnection;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
@@ -7,14 +7,14 @@ use serenity::model::Message;
 use model::*;
 use db::*;
 
-fn start_helper(db_conn: &DbConnection, address: &String, alias: &String) -> Result<(), CommandError> {
+fn start_helper<C: ServerConnection>(db_conn: &DbConnection, address: &String, alias: &String) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
     match server.state {
         GameServerState::StartedState(_, _) => return Err(CommandError::from("game already started")),
         // TODO: warn if lobby didn't fill
         GameServerState::Lobby(lobby_state) => {
-            let game_data = get_game_data(&address)?;
+            let game_data = C::get_game_data(&address)?;
             if game_data.nations.len() as i32 > lobby_state.player_count {
                 return Err(CommandError::from("game has more players than the lobby"));
             }
@@ -30,7 +30,7 @@ fn start_helper(db_conn: &DbConnection, address: &String, alias: &String) -> Res
     Ok(())
 }
 
-pub fn start(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+pub fn start<C: ServerConnection>(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
     let address = args.single_quoted::<String>()?; 
@@ -40,7 +40,7 @@ pub fn start(context: &mut Context, message: &Message, mut args: Args) -> Result
     if !args.is_empty() {
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
     }
-    start_helper(db_conn, &address, &alias)?;
+    start_helper::<C>(db_conn, &address, &alias)?;
     message.reply(&"started!")?;
     Ok(())
 }

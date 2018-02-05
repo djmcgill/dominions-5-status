@@ -1,4 +1,4 @@
-use ::server::get_game_data;
+use server::ServerConnection;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
@@ -9,7 +9,7 @@ use model::{GameServerState, LobbyState, StartedState};
 use model::enums::{Nations, NationStatus};
 use db::{DbConnection, DbConnectionKey};
 
-pub fn details_helper(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed, CommandError> {
+pub fn details_helper<C: ServerConnection>(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
     let embed_response = match server.state {
@@ -21,14 +21,14 @@ pub fn details_helper(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed
             )?
         }
         GameServerState::StartedState(started_state, None) => {
-            started_details(
+            started_details::<C>(
                 db_conn,
                 started_state,
                 &alias,
             )?
         }
         GameServerState::StartedState(started_state, Some(lobby_state)) => {
-            started_from_lobby_details(
+            started_from_lobby_details::<C>(
                 db_conn,
                 started_state,
                 lobby_state,
@@ -39,7 +39,7 @@ pub fn details_helper(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed
     Ok(embed_response)
 }
 
-pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+pub fn details<C: ServerConnection>(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
     let alias = args.single_quoted::<String>().or_else(|_| {
@@ -49,7 +49,7 @@ pub fn details(context: &mut Context, message: &Message, mut args: Args) -> Resu
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
     }
 
-    let embed_response = details_helper(db_conn, &alias)?;
+    let embed_response = details_helper::<C>(db_conn, &alias)?;
     message.channel_id.send_message(|m| m
         .embed(|_| embed_response)
     )?;
@@ -90,14 +90,14 @@ fn lobby_details(
     Ok(e)
 }
 
-fn started_from_lobby_details(
+fn started_from_lobby_details<C: ServerConnection>(
     db_conn: &DbConnection,
     started_state: StartedState,
     _lobby_state: LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
     let ref server_address = started_state.address;
-    let mut game_data = get_game_data(&server_address)?;
+    let mut game_data = C::get_game_data(&server_address)?;
     game_data.nations.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     let mut nation_names = String::new();
@@ -177,13 +177,13 @@ fn started_from_lobby_details(
     Ok(e)
 }
 
-fn started_details(
+fn started_details<C: ServerConnection>(
     db_conn: &DbConnection,
     started_state: StartedState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
     let ref server_address = started_state.address;
-    let mut game_data = get_game_data(&server_address)?;
+    let mut game_data = C::get_game_data(&server_address)?;
     game_data.nations.sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
     let mut nation_names = String::new();

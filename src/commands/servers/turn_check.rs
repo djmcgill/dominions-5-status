@@ -6,39 +6,39 @@ use model::enums::{NationStatus, SubmissionStatus};
 use std::{thread, time};
 use serenity::prelude::Mutex;
 use std::error::Error;
-use ::server;
+use server::ServerConnection;
 
-pub fn check_for_new_turns_every_1_min(mutex: &Mutex<ShareMap>) {
+pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareMap>) {
     loop {
         thread::sleep(time::Duration::from_secs(60));
         info!("checking for new turns!");
-        message_players_if_new_turn(&mutex).unwrap_or_else(|e| {
+        message_players_if_new_turn::<C>(&mutex).unwrap_or_else(|e| {
             error!("Checking for new turns failed with: {}", e);
         });
     }
 }
 
-fn message_players_if_new_turn(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>> {
+fn message_players_if_new_turn<C: ServerConnection>(mutex: &Mutex<ShareMap>) -> Result<(), Box<Error>> {
     let data = mutex.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
     // TODO: transactions
     let servers = db_conn.retrieve_all_servers()?;
     for server in servers {
         let server_name = server.alias.clone();
-        if let Err(err) = check_server_for_new_turn(server, &db_conn) {
+        if let Err(err) = check_server_for_new_turn::<C>(server, &db_conn) {
             println!("error checking {} for turn: {:?}", server_name, err);
         };
     }
     Ok(())
 }
 
-fn check_server_for_new_turn_helper(server: GameServer, db_conn: &DbConnection)
+fn check_server_for_new_turn_helper<C: ServerConnection>(server: GameServer, db_conn: &DbConnection)
     -> Result<Vec<(Player, String)>, Box<Error>> {
 
     let mut ret = Vec::new();
     if let GameServerState::StartedState(started_state, _) = server.state {
         info!("checking {} for new turn", server.alias);
-        let game_data = server::get_game_data(&started_state.address)?;
+        let game_data = C::get_game_data(&started_state.address)?;
         let new_turn = db_conn.update_game_with_possibly_new_turn(
             &server.alias,
             game_data.turn
@@ -71,9 +71,9 @@ fn check_server_for_new_turn_helper(server: GameServer, db_conn: &DbConnection)
     Ok(ret)
 }
 
-fn check_server_for_new_turn(server: GameServer, db_conn: &DbConnection) -> Result<(), Box<Error>> {
+fn check_server_for_new_turn<C: ServerConnection>(server: GameServer, db_conn: &DbConnection) -> Result<(), Box<Error>> {
     // TODO: group players
-    for (player, text) in check_server_for_new_turn_helper(server, db_conn)? {
+    for (player, text) in check_server_for_new_turn_helper::<C>(server, db_conn)? {
         let private_channel = player.discord_user_id.create_dm_channel()?;
         private_channel.say(&text)?;
     }

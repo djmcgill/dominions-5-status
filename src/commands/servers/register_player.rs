@@ -2,12 +2,12 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::{Message, UserId};
 
-use server::get_game_data;
+use server::ServerConnection;
 use model::{Player, GameServerState};
 use model::enums::*;
 use db::{DbConnection, DbConnectionKey};
 
-fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, db_conn: &DbConnection, message: &Message) -> Result<(), CommandError> {
+fn register_player_helper<C: ServerConnection>(user_id: UserId, arg_nation_name: &str, alias: &str, db_conn: &DbConnection, message: &Message) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
     match server.state {
@@ -34,7 +34,7 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             let player = Player {
                 discord_user_id: user_id,
                 turn_notifications: true,
-            }; 
+            };
             // TODO: transaction
             db_conn.insert_player(&player).map_err(CommandError::from)?;
             db_conn.insert_server_player(&server.alias, &user_id, nation_id).map_err(CommandError::from)?;
@@ -42,7 +42,7 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
             Ok(())
         }
         GameServerState::StartedState(started_state, _) => {
-            let data = get_game_data(&started_state.address)?;
+            let data = C::get_game_data(&started_state.address)?;
 
             // TODO: allow for players with registered nation but not ingame (not yet uploaded)
             let nations = data.nations.iter().filter(|&nation| // TODO: more efficient algo
@@ -79,7 +79,7 @@ fn register_player_helper(user_id: UserId, arg_nation_name: &str, alias: &str, d
     }  
 }
 
-pub fn register_player(context: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
+pub fn register_player<C: ServerConnection>(context: &mut Context, message: &Message, args: Args) -> Result<(), CommandError> {
     let args = args.multiple_quoted::<String>()?;
     if args.len() > 2 {
         return Err(CommandError::from("Too many arguments. TIP: spaces in arguments need to be quoted \"like this\""));
@@ -93,6 +93,6 @@ pub fn register_player(context: &mut Context, message: &Message, args: Args) -> 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
 
-    register_player_helper(message.author.id, &arg_nation_name, &alias, &db_conn, message)?;
+    register_player_helper::<C>(message.author.id, &arg_nation_name, &alias, &db_conn, message)?;
     Ok(())
 }

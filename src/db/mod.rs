@@ -23,7 +23,6 @@ impl DbConnection {
         Ok(db_conn)
     }
 
-    // TODO: be more robust about lobbies and servers having the same name
     fn initialise(&self) -> Result<(), Error> {
         let conn = &*self.0.clone().get()?;
         conn.execute_batch("
@@ -397,4 +396,21 @@ fn make_game_server(
         state: state,
     };
     Ok(server)
+}
+
+#[cfg(test)]
+impl DbConnection {
+    pub fn test() -> Self {
+        let manager = SqliteConnectionManager::memory();
+        let pool = Pool::new(manager).unwrap();
+        let db_conn = DbConnection(pool);
+        db_conn.initialise().unwrap();
+        db_conn
+    }
+
+    pub fn noop() -> Self {
+        let manager = SqliteConnectionManager::memory();
+        let pool = Pool::new(manager).unwrap();
+        DbConnection(pool)
+    }
 }

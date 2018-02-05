@@ -2,12 +2,15 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::Message;
 
-use server::get_game_data;
+use server::ServerConnection;
 use model::{GameServer, GameServerState, StartedState};
 use db::{DbConnection, DbConnectionKey};
 
-fn add_server_helper(server_address: &str, game_alias: &str, db_connection: &mut DbConnection) -> Result<(), CommandError> {
-    let game_data = get_game_data(server_address)?;
+#[cfg(test)]
+mod tests;
+
+fn add_server_helper<C: ServerConnection>(server_address: &str, game_alias: &str, db_connection: &mut DbConnection) -> Result<(), CommandError> {
+    let game_data = C::get_game_data(server_address)?;
 
     let server = GameServer {
         alias: game_alias.to_string(),
@@ -24,7 +27,7 @@ fn add_server_helper(server_address: &str, game_alias: &str, db_connection: &mut
     Ok(())
 }
 
-pub fn add_server(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+pub fn add_server<C: ServerConnection>(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
     let server_address = args.single_quoted::<String>()?;
     
     let alias = args.single_quoted::<String>().or_else(|_| {
@@ -37,7 +40,7 @@ pub fn add_server(context: &mut Context, message: &Message, mut args: Args) -> R
 
     let mut data = context.data.lock();
     let mut db_connection = data.get_mut::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
-    add_server_helper(&server_address, &alias, &mut db_connection)?;
+    add_server_helper::<C>(&server_address, &alias, &mut db_connection)?;
     let text = format!("Successfully inserted with alias {}", alias);
     let _ = message.reply(&text);
     info!("{}", text);

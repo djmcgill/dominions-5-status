@@ -7,36 +7,42 @@ use std::net;
 use model::{GameData, Nation, RawGameData};
 use model::enums::{Nations, SubmissionStatus, NationStatus};
 
-pub fn get_game_data(server_address: &str) -> io::Result<GameData> {
-    let raw_data = get_raw_game_data(server_address)?;
-    let mut game_data = GameData {
-        game_name: raw_data.game_name,
-        nations: vec![],
-        turn: raw_data.h as i32,
-        turn_timer: raw_data.d,
-    };
-    for i in 0..250 {
-        let status_num = raw_data.f[i];        
-        if status_num != 0 && status_num != 3 {
-            let submitted = raw_data.f[i+250];
-            let connected = raw_data.f[i+500];
-            let nation_id = i-1; // why -1? No fucking idea
-            let &(nation_name, era) = Nations::get_nation_desc(nation_id); 
-            let nation = Nation {
-                id: nation_id,
-                status: NationStatus::from_int(status_num),
-                submitted: SubmissionStatus::from_int(submitted),
-                connected: connected == 1,
-                name: nation_name.to_owned(),
-                era: format!("{}", era),
-            };
-            game_data.nations.push(nation);
-        }
-    }
-    Ok(game_data)
+pub trait ServerConnection {
+    fn get_game_data(server_address: &str) -> io::Result<GameData>;
 }
 
-pub fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
+pub struct RealServerConnection;
+impl ServerConnection for RealServerConnection {
+    fn get_game_data(server_address: &str) -> io::Result<GameData> {
+        let raw_data = get_raw_game_data(server_address)?;
+        let mut game_data = GameData {
+            game_name: raw_data.game_name,
+            nations: vec![],
+            turn: raw_data.h as i32,
+            turn_timer: raw_data.d,
+        };
+        for i in 0..250 {
+            let status_num = raw_data.f[i];
+            if status_num != 0 && status_num != 3 {
+                let submitted = raw_data.f[i + 250];
+                let connected = raw_data.f[i + 500];
+                let nation_id = i - 1; // why -1? No fucking idea
+                let &(nation_name, era) = Nations::get_nation_desc(nation_id);
+                let nation = Nation {
+                    id: nation_id,
+                    status: NationStatus::from_int(status_num),
+                    submitted: SubmissionStatus::from_int(submitted),
+                    connected: connected == 1,
+                    name: nation_name.to_owned(),
+                    era: format!("{}", era),
+                };
+                game_data.nations.push(nation);
+            }
+        }
+        Ok(game_data)
+    }
+}
+fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_data = parse_data(&decompressed)?;
