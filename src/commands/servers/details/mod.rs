@@ -9,6 +9,9 @@ use model::{GameServerState, LobbyState, StartedState};
 use model::enums::{Nations, NationStatus};
 use db::{DbConnection, DbConnectionKey};
 
+#[cfg(test)]
+mod tests;
+
 pub fn details_helper<C: ServerConnection>(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 

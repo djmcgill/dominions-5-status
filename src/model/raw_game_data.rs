@@ -1,5 +1,5 @@
 #[repr(C)]
-#[derive(Debug)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct RawGameData {
     pub a: [u8; 6], // 6
     pub game_name: String, // null terminated
