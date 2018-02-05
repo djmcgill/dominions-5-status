@@ -40,7 +40,7 @@ pub fn add_server<C: ServerConnection>(context: &mut Context, message: &Message,
 
     let mut data = context.data.lock();
     let mut db_connection = data.get_mut::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
-    add_server_helper::<C>(&server_address, &alias, &mut db_connection)?;
+    add_server_helper::<C>(&server_address, &alias, db_connection)?;
     let text = format!("Successfully inserted with alias {}", alias);
     let _ = message.reply(&text);
     info!("{}", text);

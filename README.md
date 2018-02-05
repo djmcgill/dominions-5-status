@@ -39,6 +39,7 @@ MAYBE:
 * have docker volume/cache the crate registry (speed up builds)
 
 how I run it
+
 docker build -t dom-5-bot .
 
 docker run -it -d --restart unless-stopped --volume /home/ec2-user/dominions-5-status/resources:/usr/src/myapp/resources dom-5-bot

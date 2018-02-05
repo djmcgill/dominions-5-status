@@ -25,7 +25,7 @@ fn message_players_if_new_turn<C: ServerConnection>(mutex: &Mutex<ShareMap>) -> 
     let servers = db_conn.retrieve_all_servers()?;
     for server in servers {
         let server_name = server.alias.clone();
-        if let Err(err) = check_server_for_new_turn::<C>(server, &db_conn) {
+        if let Err(err) = check_server_for_new_turn::<C>(server, db_conn) {
             println!("error checking {} for turn: {:?}", server_name, err);
         };
     }

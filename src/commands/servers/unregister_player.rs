@@ -15,7 +15,7 @@ pub fn unregister_player(context: &mut Context, message: &Message, mut args: Arg
     })?.to_lowercase();
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
-    unregister_player_helper(message.author.id, &alias, &db_conn)?;
+    unregister_player_helper(message.author.id, &alias, db_conn)?;
 
     let text = format!("Removing user {} from game {}", message.author.id, alias);
     info!("{}", text);

@@ -30,7 +30,7 @@ use std::error::Error;
 use std::fs::File;
 use std::io::Read;
 
-use db::{DbConnection, DbConnectionKey};
+use db::*;
 use server::RealServerConnection;
 
 struct Handler;

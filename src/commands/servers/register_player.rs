@@ -93,6 +93,6 @@ pub fn register_player<C: ServerConnection>(context: &mut Context, message: &Mes
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
 
-    register_player_helper::<C>(message.author.id, &arg_nation_name, &alias, &db_conn, message)?;
+    register_player_helper::<C>(message.author.id, &arg_nation_name, &alias, db_conn, message)?;
     Ok(())
 }

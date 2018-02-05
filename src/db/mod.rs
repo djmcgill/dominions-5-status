@@ -402,7 +402,7 @@ fn make_game_server(
 impl DbConnection {
     pub fn test() -> Self {
         let manager = SqliteConnectionManager::memory();
-        let pool = Pool::new(manager).unwrap();
+        let pool = Pool::builder().max_size(1).build(manager).unwrap();
         let db_conn = DbConnection(pool);
         db_conn.initialise().unwrap();
         db_conn
