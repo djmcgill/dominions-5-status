@@ -1,2 +1,2 @@
 DELETE FROM game_servers
-            WHERE alias = ?1
+WHERE alias = ?1;
