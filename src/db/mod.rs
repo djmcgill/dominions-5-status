@@ -26,45 +26,7 @@ impl DbConnection {
     fn initialise(&self) -> Result<(), Error> {
         info!("db::initialise");
         let conn = &*self.0.clone().get()?;
-        conn.execute_batch("
-            create table if not exists players (
-                id INTEGER NOT NULL PRIMARY KEY,
-                discord_user_id int NOT NULL,
-                turn_notifications BOOLEAN NOT NULL,
-                CONSTRAINT discord_user_id_unique UNIQUE(discord_user_id)
-            );
-
-            create table if not exists started_servers (
-                id INTEGER NOT NULL PRIMARY KEY,
-                address VARCHAR(255) NOT NULL,
-                last_seen_turn int NOT NULL,
-                CONSTRAINT server_address_unique UNIQUE (address)
-            );
-
-            create table if not exists lobbies (
-                id INTEGER NOT NULL PRIMARY KEY,
-                owner_id int NOT NULL REFERENCES players(id),
-                player_count int NOT NULL,
-                era int NOT NULL
-            );
-
-            create table if not exists game_servers (
-                id INTEGER NOT NULL PRIMARY KEY,
-                alias VARCHAR(255) NOT NULL,
-
-                started_server_id int REFERENCES started_servers(id),
-                lobby_id int REFERENCES lobbies(id),
-                
-                CONSTRAINT server_alias_unique UNIQUE (alias)
-            );
-
-            create table if not exists server_players (
-                server_id int NOT NULL REFERENCES game_servers(id),
-               player_id int NOT NULL REFERENCES players(id),
-               nation_id int NOT NULL,
-               CONSTRAINT server_nation_unique UNIQUE (server_id, nation_id)
-            );"
-        )?;
+        conn.execute_batch(include_str!("sql/create_tables.sql"))?;
         Ok(())
     }
 
@@ -75,12 +37,10 @@ impl DbConnection {
             nation_id: u32) -> Result<(), Error> {
         info!("db::insert_server_player");
         let conn = &*self.0.clone().get()?;
-        conn.execute("INSERT INTO server_players (server_id, player_id, nation_id)
-        SELECT g.id, p.id, ?1
-        FROM game_servers g
-        JOIN players p ON p.discord_user_id = ?2
-        WHERE g.alias = ?3
-        ", &[&nation_id, &(player_user_id.0 as i64), &server_alias])?;
+        conn.execute(
+            include_str!("sql/insert_server_player.sql"),
+            &[&nation_id, &(player_user_id.0 as i64), &server_alias]
+        )?;
         Ok(())
     }
 
@@ -91,31 +51,19 @@ impl DbConnection {
             GameServerState::Lobby(ref lobby_state) => {
                 // TODO: transaction
                 conn.execute(
-                    "INSERT INTO players (discord_user_id, turn_notifications)
-                    SELECT ?1, 1
-                    WHERE NOT EXISTS (select 1 from players where discord_user_id = ?1)"
-                    , &[&(lobby_state.owner.0 as i64)]
+                    include_str!("sql/insert_game_server_lobby_state.sql"),
+                    &[&(lobby_state.owner.0 as i64)]
                 )?;
 
                 conn.execute(
-                    "INSERT INTO lobbies (owner_id, era, player_count)
-                    SELECT id, ?1, ?3
-                    FROM players
-                    WHERE discord_user_id = ?2",
+                    include_str!("sql/insert_lobby.sql"),
                     &[  &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
                         &lobby_state.player_count,
                     ]
                 )?;
                 conn.execute(
-                    "INSERT INTO game_servers (alias, lobby_id)
-                    SELECT ?1, l.id
-                    FROM lobbies l
-                    LEFT JOIN game_servers s ON s.lobby_id = l.id
-                    WHERE l.era = ?2
-                    AND l.owner_id = (SELECT id FROM players where discord_user_id = ?3)
-                    AND l.player_count = ?4
-                    AND s.id IS NULL",
+                    include_str!("sql/insert_game_server_from_lobby.sql"),
                     &[&game_server.alias,
                       &lobby_state.era.to_i32(),
                       &(lobby_state.owner.0 as i64),
@@ -126,15 +74,11 @@ impl DbConnection {
             }
             GameServerState::StartedState(ref started_state, _) => {
                 conn.execute(
-                    "INSERT INTO started_servers (address, last_seen_turn)
-                    VALUES(?1, ?2)"
+                    include_str!("sql/insert_started_server.sql")
                     , &[&started_state.address, &started_state.last_seen_turn]
                 )?;
                 conn.execute(
-                    "INSERT INTO game_servers (alias, started_server_id)
-                    SELECT ?1, id
-                    FROM started_servers
-                    WHERE address = ?2"
+                    include_str!("sql/insert_started_game_server.sql")
                     , &[&game_server.alias, &started_state.address]
                 )?;
                 Ok(())
@@ -146,9 +90,7 @@ impl DbConnection {
         info!("db::insert_player");
         let conn = &*self.0.clone().get()?;
         conn.execute(
-            "INSERT INTO players (discord_user_id, turn_notifications)
-            SELECT ?1, ?2
-            WHERE NOT EXISTS (select 1 from players where discord_user_id = ?1)"
+            include_str!("sql/insert_player.sql")
         , &[&(player.discord_user_id.0 as i64), &player.turn_notifications])?;
         Ok(())
     }
@@ -156,11 +98,7 @@ impl DbConnection {
     pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
         info!("db::retrieve_all_servers");
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare("
-            SELECT g.alias, s.address, s.last_seen_turn, l.owner_id, l.era, l.player_count
-            FROM game_servers g
-            LEFT JOIN started_servers s ON s.id = g.started_server_id
-            LEFT JOIN lobbies l ON l.id = g.lobby_id ")?;
+        let mut stmt = conn.prepare(include_str!("sql/select_game_servers.sql"))?;
         let foo = stmt.query_map(&[], |ref row| {
             let maybe_address: Option<String> = row.get(1);
             let maybe_last_seen_turn: Option<i32> = row.get(2);
@@ -185,13 +123,7 @@ impl DbConnection {
     pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(Player, usize)>, Error> {
         info!("players_with_nations_for_game_alias");
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare(
-            "SELECT p.discord_user_id, sp.nation_id, p.turn_notifications
-            FROM game_servers s
-            JOIN server_players sp on sp.server_id = s.id
-            JOIN players p on p.id = sp.player_id
-            WHERE s.alias = ?1
-            ")?;
+        let mut stmt = conn.prepare(include_str!("sql/select_players_nations.sql"))?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
             let discord_user_id: i64 = row.get(0);
             let player = Player {
@@ -208,12 +140,7 @@ impl DbConnection {
     pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
         info!("db::game_for_alias");
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare("
-            SELECT s.address, s.last_seen_turn, l.owner_id, l.era, l.player_count
-            FROM game_servers g
-            LEFT JOIN started_servers s ON s.id = g.started_server_id
-            LEFT JOIN lobbies l ON l.id = g.lobby_id
-            WHERE g.alias = ?1")?;
+        let mut stmt = conn.prepare(include_str!("sql/select_game_server_for_alias.sql"))?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
             let maybe_address: Option<String> = row.get(0);
             let maybe_last_seen_turn: Option<i32> = row.get(1);
@@ -242,10 +169,7 @@ impl DbConnection {
         info!("db::update_game_with_possibly_new_turn");
         let conn = &*self.0.clone().get()?;
         let rows = conn.execute(
-            "UPDATE started_servers
-            SET last_seen_turn = ?1
-            WHERE id = (select started_server_id from game_servers where alias = ?2)
-            AND last_seen_turn <> ?1", 
+            include_str!("sql/update_game_with_turn.sql"),
             &[&current_turn, &game_alias]
         )?;
         Ok(rows > 0)
@@ -255,12 +179,7 @@ impl DbConnection {
         info!("db::remove_player_from_game");
         let conn = &*self.0.clone().get()?;
         conn.execute(
-            "DELETE FROM server_players
-            WHERE server_id IN
-            (SELECT id from game_servers WHERE alias = ?1)
-            AND player_id IN 
-            (SELECT id from players WHERE discord_user_id = ?2)
-            ",
+            include_str!("sql/delete_player_from_game.sql"),
             &[&game_alias, &(user.0 as i64)]
         )?;
         Ok(())
@@ -270,24 +189,19 @@ impl DbConnection {
         info!("db::remove_server");
         let conn = &*self.0.clone().get()?;
         conn.execute(
-            "DELETE FROM server_players
-            WHERE server_id IN
-            (SELECT id from game_servers WHERE alias = ?1)",
+            include_str!("sql/delete_server_players.sql"),
             &[&game_alias]
         )?;
         conn.execute(
-            "DELETE FROM game_servers
-            WHERE alias = ?1",
+            include_str!("sql/delete_game_server.sql"),
             &[&game_alias]
         )?;
         conn.execute(
-            "DELETE FROM started_servers
-            WHERE id NOT IN (select started_server_id from game_servers)",
+            include_str!("sql/delete_started_server.sql"),
             &[]
         )?;
         conn.execute(
-            "DELETE FROM lobbies
-            WHERE id NOT IN (select lobby_id from game_servers)",
+            include_str!("sql/delete_lobby.sql"),
             &[]
         )?;
         Ok(())
@@ -296,15 +210,7 @@ impl DbConnection {
     pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
         info!("servers_for_player");
         let conn = &*self.0.clone().get()?;
-        let mut stmt = conn.prepare("
-            SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner_id, l.era, l.player_count
-            FROM players p
-            JOIN server_players sp on sp.player_id = p.id
-            JOIN game_servers g on g.id = sp.server_id
-            LEFT JOIN lobbies l on l.id = g.lobby_id
-            LEFT JOIN started_servers s on s.id = g.started_server_id
-            WHERE p.discord_user_id = ?1
-        ")?;
+        let mut stmt = conn.prepare(include_str!("sql/select_servers_for_player.sql"))?;
 
         let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
             let alias: String = row.get(1);
@@ -337,30 +243,17 @@ impl DbConnection {
     pub fn set_turn_notifications(&self, player: UserId, desired_turn_notifications: bool) -> Result<(), Error> {
         info!("db::set_turn_notifications");
         let conn = &*self.0.clone().get()?;
-        conn.execute("
-            UPDATE players
-            SET turn_notifications = ?2
-            WHERE discord_user_id = ?1
-        ", &[&(player.0 as i64), &desired_turn_notifications])?;
+        conn.execute(include_str!("sql/update_turn_notifications.sql"), &[&(player.0 as i64), &desired_turn_notifications])?;
         Ok(())
     }
 
     pub fn insert_started_state(&self, alias: &str, started_state: &StartedState) -> Result<(), Error> {
         info!("insert_started_state");
         let conn = &*self.0.clone().get()?;
-        conn.execute("
-            INSERT INTO started_servers (address, last_seen_turn)
-            VALUES (?1, ?2)
-        ", &[&started_state.address, &started_state.last_seen_turn])?;
+        conn.execute(include_str!("sql/insert_started_state.sql"),
+                     &[&started_state.address, &started_state.last_seen_turn])?;
 
-        conn.execute("
-            UPDATE game_servers
-            SET started_server_id = 
-                (SELECT s.id
-                from started_servers s
-                where s.address = ?1 and s.last_seen_turn = ?2)
-            WHERE alias = ?3
-        ", &[&started_state.address, &started_state.last_seen_turn, &alias])?;
+        conn.execute(include_str!("sql/update_game_with_started_state.sql"), &[&started_state.address, &started_state.last_seen_turn, &alias])?;
         Ok(())
     }
 }
