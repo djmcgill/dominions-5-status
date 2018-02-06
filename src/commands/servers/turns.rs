@@ -47,7 +47,7 @@ pub fn turns<C: ServerConnection>(context: &mut Context, message: &Message) -> R
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| CommandError("No db connection".to_string()))?;
     let text = turns_helper::<C>(message.author.id, db_conn)?;
-    info!("replying with {}", text);
+    info!("turns: replying with {}", text);
     let private_channel = message.author.id.create_dm_channel()?;
     private_channel.say(&text)?;
     Ok(())

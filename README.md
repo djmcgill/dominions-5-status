@@ -4,7 +4,7 @@ Thanks to https://github.com/culka/dom4status and http://www.cs.helsinki.fi/u/ai
 
 To run:
 * Create a discord bot account by following https://github.com/reactiflux/discord-irc/wiki/Creating-a-discord-bot-&-getting-a-token . The instructions there give you a bot with no permissions (DM only).
-* Put the bot token in a file at the directory root called "token".
+* Put the bot token in a file in the resources folder called "token".
 * To get it to speak in channels, follow the instructions at https://discordapi.com/permissions.html
 * Then run with "cargo run --release". You need to install Rust to do this: https://www.rust-lang.org/en-US/ .
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.

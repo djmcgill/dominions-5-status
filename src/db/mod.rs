@@ -24,6 +24,7 @@ impl DbConnection {
     }
 
     fn initialise(&self) -> Result<(), Error> {
+        info!("db::initialise");
         let conn = &*self.0.clone().get()?;
         conn.execute_batch("
             create table if not exists players (
@@ -72,7 +73,7 @@ impl DbConnection {
             server_alias: &str, 
             player_user_id: &UserId, 
             nation_id: u32) -> Result<(), Error> {
-        
+        info!("db::insert_server_player");
         let conn = &*self.0.clone().get()?;
         conn.execute("INSERT INTO server_players (server_id, player_id, nation_id)
         SELECT g.id, p.id, ?1
@@ -84,8 +85,8 @@ impl DbConnection {
     }
 
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
+        info!("db::insert_game_server: {:?}", game_server);
         let conn = &*self.0.clone().get()?;
-        info!("inserting game server {:?}", game_server);
         match game_server.state {
             GameServerState::Lobby(ref lobby_state) => {
                 // TODO: transaction
@@ -106,10 +107,6 @@ impl DbConnection {
                         &lobby_state.player_count,
                     ]
                 )?;
-                info!("{:?}{:?}{:?}{:?}", &game_server.alias,
-                      &lobby_state.era.to_i32(),
-                      &(lobby_state.owner.0 as i64),
-                      &lobby_state.player_count);
                 conn.execute(
                     "INSERT INTO game_servers (alias, lobby_id)
                     SELECT ?1, l.id
@@ -146,6 +143,7 @@ impl DbConnection {
     }
 
     pub fn insert_player(&self, player: &Player) -> Result<(), Error> {
+        info!("db::insert_player");
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "INSERT INTO players (discord_user_id, turn_notifications)
@@ -156,6 +154,7 @@ impl DbConnection {
     }
 
     pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
+        info!("db::retrieve_all_servers");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
             SELECT g.alias, s.address, s.last_seen_turn, l.owner_id, l.era, l.player_count
@@ -184,6 +183,7 @@ impl DbConnection {
     }
 
     pub fn players_with_nations_for_game_alias(&self, game_alias: &str) -> Result<Vec<(Player, usize)>, Error> {
+        info!("players_with_nations_for_game_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(
             "SELECT p.discord_user_id, sp.nation_id, p.turn_notifications
@@ -206,6 +206,7 @@ impl DbConnection {
     }
 
     pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
+        info!("db::game_for_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
             SELECT s.address, s.last_seen_turn, l.owner_id, l.era, l.player_count
@@ -238,6 +239,7 @@ impl DbConnection {
     }
 
     pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Error> {
+        info!("db::update_game_with_possibly_new_turn");
         let conn = &*self.0.clone().get()?;
         let rows = conn.execute(
             "UPDATE started_servers
@@ -250,6 +252,7 @@ impl DbConnection {
     }
 
     pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<(), Error> {
+        info!("db::remove_player_from_game");
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "DELETE FROM server_players
@@ -264,6 +267,7 @@ impl DbConnection {
     }
 
     pub fn remove_server(&self, game_alias: &str) -> Result<(), Error> {
+        info!("db::remove_server");
         let conn = &*self.0.clone().get()?;
         conn.execute(
             "DELETE FROM server_players
@@ -290,6 +294,7 @@ impl DbConnection {
     }
 
     pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
+        info!("servers_for_player");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare("
             SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner_id, l.era, l.player_count
@@ -330,6 +335,7 @@ impl DbConnection {
     }
 
     pub fn set_turn_notifications(&self, player: UserId, desired_turn_notifications: bool) -> Result<(), Error> {
+        info!("db::set_turn_notifications");
         let conn = &*self.0.clone().get()?;
         conn.execute("
             UPDATE players
@@ -340,6 +346,7 @@ impl DbConnection {
     }
 
     pub fn insert_started_state(&self, alias: &str, started_state: &StartedState) -> Result<(), Error> {
+        info!("insert_started_state");
         let conn = &*self.0.clone().get()?;
         conn.execute("
             INSERT INTO started_servers (address, last_seen_turn)

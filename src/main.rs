@@ -85,7 +85,7 @@ fn do_main() -> Result<(), Box<Error>> {
             if let Err(err) = result {
                 print!("command error: ");
                 let text = format!("ERROR: {}", err.0);
-                info!("{}", text);
+                info!("replying with {}", text);
                 let _ = msg.reply(&text);
             }
         })
