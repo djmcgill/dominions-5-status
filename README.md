@@ -25,17 +25,17 @@ Commands (server alias is optional, defaults to channel name):
 
 TODO:
 * make subfunctions pure and testable
-* error if nation registering is ambiguous
+* add more detail to turns (who went AI, who maybe stalled)
 * turn submitted colour coded
-* ban nation in lobby
-* update help with start
+* description for games (enforced banned nations?)
 * permissions for commands
-* more embeds, more printing of user name instead of user id
+* more embeds
 * delete started_servers/lobbies when deleting server
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
 * edit pinned post instead of new
+* channel alerts of new turns, who went AI, who stalled
 * have docker volume/cache the crate registry (speed up builds)
 
 how I run it

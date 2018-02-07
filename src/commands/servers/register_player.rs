@@ -23,9 +23,9 @@ fn register_player_helper<C: ServerConnection>(user_id: UserId, arg_nation_name:
             }).collect::<Vec<_>>();
             let nations_len = nations.len();
             if nations_len > 1 {
-                return Err(CommandError::from("ambiguous nation name"));
+                return Err(CommandError::from(format!("ambiguous nation name: {}", arg_nation_name)));
             } else if nations_len < 1 {
-                return Err(CommandError::from("could not find nation"));
+                return Err(CommandError::from(format!("could not find nation: {}", arg_nation_name)));
             };
             let (&nation_id, &(nation_name, nation_era)) = nations[0];
             if players_nations.iter().find(|&&(_, player_nation_id)| player_nation_id == nation_id as usize).is_some() {
@@ -51,7 +51,7 @@ fn register_player_helper<C: ServerConnection>(user_id: UserId, arg_nation_name:
 
             let nations_len = nations.len();
             if nations_len > 1 {
-                return Err(CommandError::from("ambiguous nation name"));
+                return Err(CommandError::from(format!("ambiguous nation name: {}", arg_nation_name)));
             } else if nations_len < 1 {
                 let error = if data.turn == -1 {
                     format!("Could not find nation starting with {}. Make sure you've uploaded a pretender first"
