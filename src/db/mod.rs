@@ -161,7 +161,7 @@ impl DbConnection {
         if vec.len() == 1 {
             Ok(vec.into_iter().next().ok_or(err_msg("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
         } else {
-            Err(err_msg("could not find the game"))
+            Err(err_msg(format!("could not find the game with alias {}", game_alias)))
         }
     }
 
