@@ -4,6 +4,9 @@ use serenity::model::Message;
 
 use db::*;
 
+#[cfg(test)]
+mod tests;
+
 fn remove_server_helper(db_conn: &DbConnection, alias: &str) -> Result<(), CommandError> {
     db_conn.remove_server(&alias).map_err(CommandError::from)?;
     Ok(())

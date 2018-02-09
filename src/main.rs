@@ -47,7 +47,7 @@ fn main() {
 }
 
 fn do_main() -> Result<(), Box<Error>> {
-    SimpleLogger::init(LogLevelFilter::Info, Config::default())?;
+    SimpleLogger::init(LogLevelFilter::Debug, Config::default())?;
     info!("Logger initialised");
     let token = {
         let mut token_file = File::open("resources/token")?;

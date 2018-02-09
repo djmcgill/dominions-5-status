@@ -31,6 +31,9 @@ TODO:
 * permissions for commands
 * more embeds
 * delete started_servers/lobbies when deleting server
+* add -> delete -> start broke, didn't delete started_Server
+* modded nations for each game
+* show nation number (and sign up for it?)
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc

@@ -72,7 +72,7 @@ impl DbConnection {
                 )?;
                 Ok(())                
             }
-            GameServerState::StartedState(ref started_state, _) => {
+            GameServerState::StartedState(ref started_state, None) => {
                 conn.execute(
                     include_str!("sql/insert_started_server.sql")
                     , &[&started_state.address, &started_state.last_seen_turn]
@@ -83,6 +83,39 @@ impl DbConnection {
                 )?;
                 Ok(())
             }
+            GameServerState::StartedState(ref started_state, Some(ref lobby_state)) => {
+                conn.execute(
+                    include_str!("sql/insert_game_server_lobby_state.sql"),
+                    &[&(lobby_state.owner.0 as i64)]
+                )?;
+
+                conn.execute(
+                    include_str!("sql/insert_lobby.sql"),
+                    &[  &lobby_state.era.to_i32(),
+                        &(lobby_state.owner.0 as i64),
+                        &lobby_state.player_count,
+                    ]
+                )?;
+                conn.execute(
+                    include_str!("sql/insert_game_server_from_lobby.sql"),
+                    &[&game_server.alias,
+                        &lobby_state.era.to_i32(),
+                        &(lobby_state.owner.0 as i64),
+                        &lobby_state.player_count,
+                    ]
+                )?;
+                conn.execute(include_str!("sql/insert_started_state.sql"),
+                             &[&started_state.address, &started_state.last_seen_turn]
+                )?;
+
+                conn.execute(include_str!("sql/update_game_with_started_state.sql"),
+                             &[&started_state.address, &started_state.last_seen_turn, &game_server.alias]
+                )?;
+
+                Ok(())
+
+            }
+
         }
     }
 
@@ -312,5 +345,20 @@ impl DbConnection {
         let manager = SqliteConnectionManager::memory();
         let pool = Pool::new(manager).unwrap();
         DbConnection(pool)
+    }
+
+    pub fn count_servers(&self) -> i32 {
+        let conn = &*self.0.clone().get().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM game_servers", &[], |r| r.get(0)).unwrap()
+    }
+
+    pub fn count_started_server_state(&self) -> i32 {
+        let conn = &*self.0.clone().get().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM started_servers", &[], |r| r.get(0)).unwrap()
+    }
+
+    pub fn count_lobby_state(&self) -> i32 {
+        let conn = &*self.0.clone().get().unwrap();
+        conn.query_row("SELECT COUNT(*) FROM lobbies", &[], |r| r.get(0)).unwrap()
     }
 }

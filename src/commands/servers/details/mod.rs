@@ -14,6 +14,7 @@ mod tests;
 
 pub fn details_helper<C: ServerConnection>(db_conn: &DbConnection, alias: &str) -> Result<CreateEmbed, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
+    info!("got server details");
 
     let embed_response = match server.state {
         GameServerState::Lobby(lobby_state) => {
@@ -64,6 +65,8 @@ fn lobby_details(
     lobby_state: LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
+    debug!("OWNER {}", lobby_state.owner);
+    debug!("OWNER_GET {:?}", lobby_state.owner.get());
     let embed_title = format!("{} (Lobby)", alias);
     let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let registered_player_count = players_nations.len() as i32;
@@ -80,6 +83,7 @@ fn lobby_details(
         player_names.push_str(&".\n");
         nation_names.push_str(&"OPEN\n");
     }
+    let owner = lobby_state.owner.get()?;
     let e = CreateEmbed::default()
         .title(embed_title)
         .field( |f| f
@@ -89,6 +93,10 @@ fn lobby_details(
         .field ( |f| f
             .name("Player")
             .value(player_names)
+        ).field ( |f| f
+            .name("Owner")
+            .inline(false)
+            .value(format!("{}", owner))
         );
     Ok(e)
 }
@@ -96,7 +104,7 @@ fn lobby_details(
 fn started_from_lobby_details<C: ServerConnection>(
     db_conn: &DbConnection,
     started_state: StartedState,
-    _lobby_state: LobbyState,
+    lobby_state: LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
     let ref server_address = started_state.address;
@@ -154,15 +162,18 @@ fn started_from_lobby_details<C: ServerConnection>(
     let hours_remaining = total_mins_remaining/60;
     let mins_remaining = total_mins_remaining - hours_remaining*60;
 
+    info!("getting owner name");
     let embed_title = format!("{}: turn {}, {}h {}m remaining",
-                game_data.game_name,
-                game_data.turn,
-                hours_remaining,
-                mins_remaining);
+        game_data.game_name,
+        game_data.turn,
+        hours_remaining,
+        mins_remaining
+    );
 
     info!("replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
     embed_title, nation_names, player_names, submitted_status);
 
+    let owner = lobby_state.owner.get()?;
     let e = CreateEmbed::default()
         .title(embed_title)
         .field( |f| f
@@ -176,6 +187,10 @@ fn started_from_lobby_details<C: ServerConnection>(
         .field ( |f| f
             .name("Submitted")
             .value(submitted_status)
+        ).field ( |f| f
+            .name("Owner")
+            .inline(false)
+            .value(format!("{}", owner))
         );
     Ok(e)
 }
