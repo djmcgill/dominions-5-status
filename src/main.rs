@@ -15,8 +15,9 @@ extern crate url;
 #[macro_use] extern crate enum_primitive_derive;
 extern crate num_traits;
 
-mod commands;
+#[cfg_attr(test, macro_use)]
 mod db;
+mod commands;
 mod model;
 mod server;
 

@@ -8,6 +8,9 @@ use num_traits::{FromPrimitive, ToPrimitive};
 use model::*;
 use model::enums::*;
 
+#[cfg(test)]
+pub mod test_helpers;
+
 pub struct DbConnectionKey;
 impl Key for DbConnectionKey {
     type Value = DbConnection;
@@ -199,12 +202,18 @@ impl DbConnection {
     }
 
     pub fn update_game_with_possibly_new_turn(&self, game_alias: &str, current_turn: i32) -> Result<bool, Error> {
+        fn trace_fn(s: &str) {
+            info!("TRACE: {}", s);
+        }
+
         info!("db::update_game_with_possibly_new_turn");
-        let conn = &*self.0.clone().get()?;
+        let conn = &mut *self.0.clone().get()?;
+        conn.trace(Some(trace_fn));
         let rows = conn.execute(
             include_str!("sql/update_game_with_turn.sql"),
             &[&current_turn, &game_alias]
         )?;
+        info!("db::update_game_with_possibly_new_turn FINISHED");
         Ok(rows > 0)
     }
 
@@ -329,36 +338,4 @@ fn make_game_server(
         state: state,
     };
     Ok(server)
-}
-
-#[cfg(test)]
-impl DbConnection {
-    pub fn test() -> Self {
-        let manager = SqliteConnectionManager::memory();
-        let pool = Pool::builder().max_size(1).build(manager).unwrap();
-        let db_conn = DbConnection(pool);
-        db_conn.initialise().unwrap();
-        db_conn
-    }
-
-    pub fn noop() -> Self {
-        let manager = SqliteConnectionManager::memory();
-        let pool = Pool::new(manager).unwrap();
-        DbConnection(pool)
-    }
-
-    pub fn count_servers(&self) -> i32 {
-        let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM game_servers", &[], |r| r.get(0)).unwrap()
-    }
-
-    pub fn count_started_server_state(&self) -> i32 {
-        let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM started_servers", &[], |r| r.get(0)).unwrap()
-    }
-
-    pub fn count_lobby_state(&self) -> i32 {
-        let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM lobbies", &[], |r| r.get(0)).unwrap()
-    }
 }

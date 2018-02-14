@@ -2,16 +2,55 @@ use super::*;
 
 use std::io;
 use model::*;
+use model::enums::*;
+use serenity::model::*;
 
 #[test]
 fn should_return_error_on_no_connection() {
-    struct TestServerConnection;
-    impl ServerConnection for TestServerConnection {
-        fn get_game_data(_server_address: &str) -> io::Result<GameData> {
-            Err(io::Error::from_raw_os_error(-1))
-        }
-    }
+    mock_server_connection!(Mock, Err(io::Error::from_raw_os_error(-1)));
 
-    let result = details_helper::<TestServerConnection>(&DbConnection::noop(), "");
+    let result = details_helper::<Mock>(&DbConnection::noop(), "");
     assert!(result.is_err());
 }
+
+#[test]
+fn should_return_lobby_details() {
+    let ref db_conn = DbConnection::test();
+
+    db_conn.insert_game_server(
+        &GameServer {
+            alias: "foo".to_owned(),
+            state: GameServerState::Lobby(LobbyState{
+                owner: UserId(1),
+                era: Era::Early,
+                player_count: 24,
+            })
+        }
+    ).unwrap();
+
+    mock_conditional_server_connection!(Mock, |server_address| {
+        if server_address == "foo" {
+            Ok(panic!())
+        } else {
+            Err(io::Error::from_raw_os_error(-1))
+        }
+    });
+
+    let res = details_helper::<Mock>(db_conn, "foo");
+    assert!(res.is_ok());
+}
+
+#[test]
+fn should_return_started_server_details() {}
+
+#[test]
+fn should_return_started_lobby_details() {}
+
+#[test]
+fn should_return_started_game_details() {}
+
+#[test]
+fn should_return_lobby_players() {}
+
+#[test]
+fn should_return_server_players() {}

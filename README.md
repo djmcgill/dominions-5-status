@@ -24,16 +24,13 @@ Commands (server alias is optional, defaults to channel name):
 * !help: display this text
 
 TODO:
-* make subfunctions pure and testable
+* make subfunctions pure and tested
 * add more detail to turns (who went AI, who maybe stalled)
 * turn submitted colour coded
 * description for games (enforced banned nations?)
 * permissions for commands
 * more embeds
-* delete started_servers/lobbies when deleting server
-* add -> delete -> start broke, didn't delete started_Server
-* modded nations for each game
-* show nation number (and sign up for it?)
+* modded nations for each game and/or show nation number (and sign up for it?)
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc

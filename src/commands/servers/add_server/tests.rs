@@ -5,14 +5,9 @@ use model::GameData;
 
 #[test]
 fn should_return_error_on_no_connection() {
-    struct TestServerConnection;
-    impl ServerConnection for TestServerConnection {
-        fn get_game_data(_server_address: &str) -> io::Result<GameData> {
-            Err(io::Error::from_raw_os_error(-1))
-        }
-    }
+    mock_server_connection!(Mock, Err(io::Error::from_raw_os_error(-1)));
 
-    let result = add_server_helper::<TestServerConnection>("", "", &DbConnection::noop());
+    let result = add_server_helper::<Mock>("", "", &DbConnection::noop());
     assert!(result.is_err());
 }
 
@@ -30,19 +25,16 @@ fn should_insert_started_server_into_db() {
         };
     }
 
-    struct TestServerConnection;
-    impl ServerConnection for TestServerConnection {
-        fn get_game_data(server_address: &str) -> io::Result<GameData> {
-            if server_address == TEST_ADDRESS {
-                Ok(TEST_GAMEDATA.clone())
-            } else {
-                Err(io::Error::from_raw_os_error(-1))
-            }
+    mock_conditional_server_connection!(Mock, |server_address| {
+        if server_address == TEST_ADDRESS {
+            Ok(TEST_GAMEDATA.clone())
+        } else {
+            Err(io::Error::from_raw_os_error(-1))
         }
-    }
+    });
 
     let db_conn = DbConnection::test();
-    let insert_result = add_server_helper::<TestServerConnection>(&TEST_ADDRESS, &TEST_ALIAS, &db_conn);
+    let insert_result = add_server_helper::<Mock>(&TEST_ADDRESS, &TEST_ALIAS, &db_conn);
     assert!(insert_result.is_ok());
 
     let fetch_result = db_conn.game_for_alias(&TEST_ALIAS);
