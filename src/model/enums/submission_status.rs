@@ -1,16 +1,19 @@
+use std::borrow::Cow;
+
 #[derive(PartialEq, Clone, Copy, Debug)]
-#[repr(u8)]
 pub enum SubmissionStatus {
-    NotSubmitted = 0,
-    PartiallySubmitted = 1,
-    Submitted = 2,
+    NotSubmitted,
+    PartiallySubmitted,
+    Submitted,
+    Unknown(u8),
 }
 impl SubmissionStatus {
-    pub fn show(self) -> &'static str {
+    pub fn show(self) -> Cow<'static, str> {
         match self {
-            SubmissionStatus::NotSubmitted => "X",
-            SubmissionStatus::PartiallySubmitted => "/",
-            SubmissionStatus::Submitted => "✓",
+            SubmissionStatus::NotSubmitted => Cow::from("X"),
+            SubmissionStatus::PartiallySubmitted => Cow::from("/"),
+            SubmissionStatus::Submitted => Cow::from("✓"),
+            SubmissionStatus::Unknown(x) => Cow::from(format!("{}", x)),
         }
     }
 
@@ -19,7 +22,7 @@ impl SubmissionStatus {
             0 => SubmissionStatus::NotSubmitted,
             1 => SubmissionStatus::PartiallySubmitted,
             2 => SubmissionStatus::Submitted,
-            _ => panic!(),
+            _ => SubmissionStatus::Unknown(x),
         }
     }
 }
