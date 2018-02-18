@@ -44,9 +44,9 @@ fn should_insert_started_server_into_db() {
         alias: TEST_ALIAS.to_owned(),
         state: GameServerState::StartedState(
             StartedState {
-              last_seen_turn: TEST_GAMEDATA.turn,
-              address: TEST_ADDRESS.to_owned(),
-          },
+                last_seen_turn: TEST_GAMEDATA.turn,
+                address: TEST_ADDRESS.to_owned(),
+            },
             None,
         ),
     };

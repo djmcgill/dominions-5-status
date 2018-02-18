@@ -1,11 +1,11 @@
-use byteorder::{LittleEndian, WriteBytesExt, ReadBytesExt};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use hex_slice::AsHex;
 use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
 use model::{GameData, Nation, RawGameData};
-use model::enums::{Nations, SubmissionStatus, NationStatus};
+use model::enums::{NationStatus, Nations, SubmissionStatus};
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
@@ -95,39 +95,75 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     let game_name_len = data.len() - 26 - 750;
 
     let mut cursor = Cursor::new(data);
-    let mut a = [0u8; 6]; 
+    let mut a = [0u8; 6];
     cursor.read(&mut a)?;
-    debug!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     debug!("parsing name");
     // TODO: properly read until null terminator instead of this hack
     let mut game_name_buff = vec![0u8; game_name_len];
     let _ = cursor.read_exact(&mut game_name_buff)?;
-    let game_name = String::from_utf8_lossy(&game_name_buff[0..game_name_len-1]).to_string();
+    let game_name = String::from_utf8_lossy(&game_name_buff[0..game_name_len - 1]).to_string();
     debug!("game name: {}", game_name);
-    debug!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
 
 
-    debug!("cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     let mut c = [0u8; 6];
     cursor.read(&mut c)?;
-    debug!("reading timer");    
+    debug!("reading timer");
     let d = cursor.read_i32::<LittleEndian>()?;
     debug!("timer value: {}", d);
 
     // let e = cursor.read_u8()?;
 
-    debug!("f cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "f cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     let mut f = vec![0u8; 750];
     cursor.read_exact(&mut f)?;
-    debug!("g cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "g cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     let g = cursor.read_u8()?;
-    debug!("h cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "h cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     let h = cursor.read_u32::<LittleEndian>()?;
-    debug!("i cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "i cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     let i = cursor.read_u32::<LittleEndian>()?;
-    debug!("j cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "j cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
     let j = cursor.read_u8()?;
-    debug!("finish cursor position: {}, cursor len: {}", cursor.position(), cursor.get_ref().len());
+    debug!(
+        "finish cursor position: {}, cursor len: {}",
+        cursor.position(),
+        cursor.get_ref().len()
+    );
 
     Ok(RawGameData {
         a: a,

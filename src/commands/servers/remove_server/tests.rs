@@ -8,16 +8,18 @@ use serenity::model::*;
 fn should_remove_started_server() {
     let ref db_conn = DbConnection::test();
     let alias = "foo".to_owned();
-    db_conn.insert_game_server(&GameServer {
-        alias: alias.clone(),
-        state: GameServerState::StartedState(
-            StartedState {
-                address: "foo.bar:3000".to_owned(),
-                last_seen_turn: 23,
-            },
-            None
-        )
-    }).unwrap();
+    db_conn
+        .insert_game_server(&GameServer {
+            alias: alias.clone(),
+            state: GameServerState::StartedState(
+                StartedState {
+                    address: "foo.bar:3000".to_owned(),
+                    last_seen_turn: 23,
+                },
+                None,
+            ),
+        })
+        .unwrap();
 
     assert_eq!(db_conn.count_servers(), 1);
     assert_eq!(db_conn.count_started_server_state(), 1);
@@ -38,16 +40,16 @@ fn should_remove_started_server() {
 fn should_remove_lobby() {
     let ref db_conn = DbConnection::test();
     let alias = "foo".to_owned();
-    db_conn.insert_game_server(&GameServer {
-        alias: alias.clone(),
-        state: GameServerState::Lobby(
-            LobbyState {
+    db_conn
+        .insert_game_server(&GameServer {
+            alias: alias.clone(),
+            state: GameServerState::Lobby(LobbyState {
                 owner: UserId(1),
                 era: Era::Early,
                 player_count: 8,
-            }
-        )
-    }).unwrap();
+            }),
+        })
+        .unwrap();
 
 
     assert_eq!(db_conn.count_servers(), 1);
@@ -69,22 +71,22 @@ fn should_remove_lobby() {
 fn should_remove_started_server_with_lobby() {
     let ref db_conn = DbConnection::test();
     let alias = "foo".to_owned();
-    db_conn.insert_game_server(&GameServer {
-        alias: alias.clone(),
-        state: GameServerState::StartedState(
-            StartedState {
-                address: "foo.bar:3000".to_owned(),
-                last_seen_turn: 23,
-            },
-            Some(
-                LobbyState {
+    db_conn
+        .insert_game_server(&GameServer {
+            alias: alias.clone(),
+            state: GameServerState::StartedState(
+                StartedState {
+                    address: "foo.bar:3000".to_owned(),
+                    last_seen_turn: 23,
+                },
+                Some(LobbyState {
                     owner: UserId(1),
                     era: Era::Early,
                     player_count: 8,
-                }
-            )
-        )
-    }).unwrap();
+                }),
+            ),
+        })
+        .unwrap();
 
     assert_eq!(db_conn.count_servers(), 1);
     assert_eq!(db_conn.count_started_server_state(), 1);
@@ -100,4 +102,3 @@ fn should_remove_started_server_with_lobby() {
     let get_result_err = db_conn.game_for_alias(&alias);
     assert!(get_result_err.is_err());
 }
-

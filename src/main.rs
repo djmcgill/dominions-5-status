@@ -1,19 +1,22 @@
-
 extern crate byteorder;
+#[macro_use]
+extern crate enum_primitive_derive;
 extern crate failure;
 extern crate flate2;
 extern crate hex_slice;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate log;
-extern crate r2d2_sqlite;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate log;
+extern crate num_traits;
 extern crate r2d2;
+extern crate r2d2_sqlite;
 extern crate rusqlite;
-#[macro_use] extern crate serenity;
+#[macro_use]
+extern crate serenity;
 extern crate simplelog;
 extern crate typemap;
 extern crate url;
-#[macro_use] extern crate enum_primitive_derive;
-extern crate num_traits;
 
 #[cfg_attr(test, macro_use)]
 mod db;
@@ -70,32 +73,33 @@ fn do_main() -> Result<(), Box<Error>> {
 
     use commands::WithSearchCommands;
     use commands::servers::WithServersCommands;
-    discord_client.with_framework(StandardFramework::new()
-        .configure(|c| c.prefix("!"))
-        .simple_bucket("simple", 1)
-        .with_search_commands("simple")
-        .with_servers_commands::<RealServerConnection>("simple")
-        .command("help", |c| c
-            .bucket("simple")
-            .exec(commands::help))
-        .before(|_, msg, _| {
-            info!("received message {:?}", msg);
-            true
-        })
-        .after(|_ctx, msg, _cmd_name, result| {
-            if let Err(err) = result {
-                print!("command error: ");
-                let text = format!("ERROR: {}", err.0);
-                info!("replying with {}", text);
-                let _ = msg.reply(&text);
-            }
-        })
+    discord_client.with_framework(
+        StandardFramework::new()
+            .configure(|c| c.prefix("!"))
+            .simple_bucket("simple", 1)
+            .with_search_commands("simple")
+            .with_servers_commands::<RealServerConnection>("simple")
+            .command("help", |c| c.bucket("simple").exec(commands::help))
+            .before(|_, msg, _| {
+                info!("received message {:?}", msg);
+                true
+            })
+            .after(|_ctx, msg, _cmd_name, result| {
+                if let Err(err) = result {
+                    print!("command error: ");
+                    let text = format!("ERROR: {}", err.0);
+                    info!("replying with {}", text);
+                    let _ = msg.reply(&text);
+                }
+            }),
     );
     info!("Configured discord client");
 
     let data_clone = discord_client.data.clone();
     thread::spawn(move || {
-        commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(data_clone.as_ref());
+        commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(
+            data_clone.as_ref(),
+        );
     });
     // start listening for events by starting a single shard
 

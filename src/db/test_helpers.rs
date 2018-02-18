@@ -43,16 +43,19 @@ impl DbConnection {
 
     pub fn count_servers(&self) -> i32 {
         let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM game_servers", &[], |r| r.get(0)).unwrap()
+        conn.query_row("SELECT COUNT(*) FROM game_servers", &[], |r| r.get(0))
+            .unwrap()
     }
 
     pub fn count_started_server_state(&self) -> i32 {
         let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM started_servers", &[], |r| r.get(0)).unwrap()
+        conn.query_row("SELECT COUNT(*) FROM started_servers", &[], |r| r.get(0))
+            .unwrap()
     }
 
     pub fn count_lobby_state(&self) -> i32 {
         let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM lobbies", &[], |r| r.get(0)).unwrap()
+        conn.query_row("SELECT COUNT(*) FROM lobbies", &[], |r| r.get(0))
+            .unwrap()
     }
 }

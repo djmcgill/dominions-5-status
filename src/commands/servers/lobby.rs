@@ -6,7 +6,13 @@ use model::{GameServer, GameServerState, LobbyState};
 use model::enums::Era;
 use db::*;
 
-fn lobby_helper(db_conn: &DbConnection, era: Era, player_count: i32, alias: &String, author_id: UserId) -> Result<(), CommandError> {
+fn lobby_helper(
+    db_conn: &DbConnection,
+    era: Era,
+    player_count: i32,
+    alias: &String,
+    author_id: UserId,
+) -> Result<(), CommandError> {
     db_conn.insert_game_server(&GameServer {
         alias: alias.clone(),
         state: GameServerState::Lobby(LobbyState {
@@ -22,12 +28,18 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
     let era_str = args.single_quoted::<String>()?;
     let era = Era::from_string(&era_str).ok_or("unknown era")?;
     let player_count = args.single_quoted::<i32>()?;
-    let alias = args.single_quoted::<String>().or_else(|_| {
-        message.channel_id.name().ok_or(format!("Could not find channel name for channel {}", message.channel_id))
-    })?.to_lowercase();
-    
+    let alias = args.single_quoted::<String>()
+        .or_else(|_| {
+            message.channel_id.name().ok_or(format!(
+                "Could not find channel name for channel {}",
+                message.channel_id
+            ))
+        })?
+        .to_lowercase();
+
     let data = context.data.lock();
-    let db_connection = data.get::<DbConnectionKey>().ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let db_connection = data.get::<DbConnectionKey>()
+        .ok_or("No DbConnection was created on startup. This is a bug.")?;
 
     lobby_helper(db_connection, era, player_count, &alias, message.author.id)?;
 

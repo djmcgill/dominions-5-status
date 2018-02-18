@@ -26,24 +26,17 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
 
     let embed = CreateEmbed::default()
         .title(embed_title)
-        .field( |f| f
-            .name("Alias")
-            .value(server_aliases)
-        )
-        .field ( |f| f
-            .name("Address")
-            .value(server_addresses)
-        );
+        .field(|f| f.name("Alias").value(server_aliases))
+        .field(|f| f.name("Address").value(server_addresses));
 
     Ok(embed)
 }
 
 pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| CommandError("No db connection".to_string()))?;
+    let db_conn = data.get::<DbConnectionKey>()
+        .ok_or_else(|| CommandError("No db connection".to_string()))?;
     let embed = list_servers_helper(db_conn)?;
-    message.channel_id.send_message(|m| m
-        .embed(|_| embed)
-    )?;
+    message.channel_id.send_message(|m| m.embed(|_| embed))?;
     Ok(())
 }

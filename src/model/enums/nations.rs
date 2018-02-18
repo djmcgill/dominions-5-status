@@ -4,12 +4,10 @@ use model::enums::Era;
 pub struct Nations;
 impl Nations {
     pub fn get_nation_desc(n: usize) -> &'static NationEnum {
-        NATIONS_BY_ID.get(&(n as u32)).unwrap_or_else(
-            || {
-                info!("unknown nation {}", n);
-                &("unknown nation", Era::Early) // FIXME
-            }
-        )
+        NATIONS_BY_ID.get(&(n as u32)).unwrap_or_else(|| {
+            info!("unknown nation {}", n);
+            &("unknown nation", Era::Early) // FIXME
+        })
     }
 }
 
@@ -17,7 +15,7 @@ type NationEnum = (&'static str, Era);
 
 // TODO: actually make an enum
 lazy_static ! { // TODO: replace with PHF crate?
-    pub static ref NATIONS_BY_ID: HashMap<u32, NationEnum> = { 
+    pub static ref NATIONS_BY_ID: HashMap<u32, NationEnum> = {
         let mut m = HashMap::new();
         m.insert(5u32, ("Arcoscephale", Era::Early));
         m.insert(6u32, ("Ermor", Era::Early));

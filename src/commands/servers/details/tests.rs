@@ -17,20 +17,29 @@ fn should_return_error_on_no_connection() {
 fn should_return_lobby_details() {
     let ref db_conn = DbConnection::test();
 
-    db_conn.insert_game_server(
-        &GameServer {
+    lazy_static! {
+        static ref TEST_GAMEDATA: GameData = GameData {
+            game_name: TEST_ALIAS.to_owned(),
+            nations: Vec::new(),
+            turn: 32,
+            turn_timer: 3 * 360,
+        };
+    }
+
+    db_conn
+        .insert_game_server(&GameServer {
             alias: "foo".to_owned(),
-            state: GameServerState::Lobby(LobbyState{
+            state: GameServerState::Lobby(LobbyState {
                 owner: UserId(1),
                 era: Era::Early,
                 player_count: 24,
-            })
-        }
-    ).unwrap();
+            }),
+        })
+        .unwrap();
 
     mock_conditional_server_connection!(Mock, |server_address| {
         if server_address == "foo" {
-            Ok(panic!())
+            Ok(TEST_GAMEDATA)
         } else {
             Err(io::Error::from_raw_os_error(-1))
         }
@@ -38,19 +47,26 @@ fn should_return_lobby_details() {
 
     let res = details_helper::<Mock>(db_conn, "foo");
     assert!(res.is_ok());
+
+    let embed = res.unwrap();
+    match embed.get(&"fields").unwrap() {
+        Array(ref arr) => assert!(arr.is_empty()),
+        _ => panic!(),
+    }
 }
 
-#[test]
-fn should_return_started_server_details() {}
-
-#[test]
-fn should_return_started_lobby_details() {}
-
-#[test]
-fn should_return_started_game_details() {}
-
-#[test]
-fn should_return_lobby_players() {}
-
-#[test]
-fn should_return_server_players() {}
+// FIXME: add these tests
+//#[test]
+//fn should_return_started_server_details() {}
+//
+//#[test]
+//fn should_return_started_lobby_details() {}
+//
+//#[test]
+//fn should_return_started_game_details() {}
+//
+//#[test]
+//fn should_return_lobby_players() {}
+//
+//#[test]
+//fn should_return_server_players() {}

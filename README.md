@@ -31,6 +31,7 @@ TODO:
 * permissions for commands
 * more embeds
 * modded nations for each game and/or show nation number (and sign up for it?)
+* show registered nation during upload
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
