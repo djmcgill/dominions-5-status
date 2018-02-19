@@ -144,6 +144,17 @@ impl DbConnection {
         Ok(())
     }
 
+    pub fn insert_nap(&self, nap: &Nap) -> Result<(), Error> {
+        // insert players
+        // insert nap
+        // insert nap_type
+        Err(err_msg("db::insert_nap not implemented yet"))
+    }
+
+    pub fn select_naps(&self, player: UserId) -> Result<Vec<Nap>, Error> {
+        Err(err_msg("db::select_naps not implemented yet"))
+    }
+
     pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
         info!("db::retrieve_all_servers");
         let conn = &*self.0.clone().get()?;
