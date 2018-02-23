@@ -2,7 +2,7 @@ use server::ServerConnection;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
-use serenity::model::Message;
+use serenity::model::channel::Message;
 
 use model::*;
 use db::*;

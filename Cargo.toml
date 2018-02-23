@@ -13,9 +13,10 @@ log = "0.4.*"
 r2d2 = "0.8.2"
 r2d2_sqlite = "0.5.0"
 rusqlite = {version = "0.13.*", features = ["bundled", "trace"]}
-serenity = "0.4.6"
+serenity = "0.5.1"
 simplelog = "^0.4.4"
 typemap = "0.3"
 url = "1.6.*"
 enum-primitive-derive = "^0.1"
 num-traits = "^0.1"
+cached = { version = "0.5.0", git = "https://github.com/djmcgill/cached" }

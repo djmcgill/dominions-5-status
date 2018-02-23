@@ -76,6 +76,9 @@ pub trait WithServersCommands: Sized {
             .command("nap", |c| {
                 c.bucket(bucket).exec(|cx, m, a| nap(cx, m, a))
             })
+            .command("naps", |c| {
+                c.bucket(bucket).exec(|cx, m, _| naps(cx, m))
+            })
     }
 }
 

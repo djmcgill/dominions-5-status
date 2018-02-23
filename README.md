@@ -41,6 +41,7 @@ MAYBE:
 * edit pinned post instead of new
 * channel alerts of new turns, who went AI, who stalled
 * have docker volume/cache the crate registry (speed up builds)
+* bot create game channels
 
 how I run it
 

@@ -1,6 +1,6 @@
 use serenity::framework::standard::CommandError;
 use serenity::prelude::Context;
-use serenity::model::Message;
+use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
 
 use db::*;
@@ -26,8 +26,8 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
 
     let embed = CreateEmbed::default()
         .title(embed_title)
-        .field(|f| f.name("Alias").value(server_aliases))
-        .field(|f| f.name("Address").value(server_addresses));
+        .field("Alias", server_aliases, true)
+        .field("Address", server_addresses, true);
 
     Ok(embed)
 }

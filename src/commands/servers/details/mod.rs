@@ -2,7 +2,7 @@ use server::ServerConnection;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
-use serenity::model::Message;
+use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
 
 use model::{GameServerState, LobbyState, StartedState};
@@ -86,11 +86,9 @@ fn lobby_details(
     let owner = lobby_state.owner.get()?;
     let e = CreateEmbed::default()
         .title(embed_title)
-        .field(|f| f.name("Nation").value(nation_names))
-        .field(|f| f.name("Player").value(player_names))
-        .field(|f| {
-            f.name("Owner").inline(false).value(format!("{}", owner))
-        });
+        .field("Nation", nation_names, true)
+        .field("Player", player_names, true)
+        .field("Owner", format!("{}", owner), false);
     Ok(e)
 }
 
@@ -179,12 +177,10 @@ fn started_from_lobby_details<C: ServerConnection>(
     let owner = lobby_state.owner.get()?;
     let e = CreateEmbed::default()
         .title(embed_title)
-        .field(|f| f.name("Nation").value(nation_names))
-        .field(|f| f.name("Player").value(player_names))
-        .field(|f| f.name("Submitted").value(submitted_status))
-        .field(|f| {
-            f.name("Owner").inline(false).value(format!("{}", owner))
-        });
+        .field("Nation", nation_names, true)
+        .field("Player", player_names, true)
+        .field("Submitted", submitted_status, true)
+        .field("Owner", format!("{}", owner), false);
     Ok(e)
 }
 
@@ -253,8 +249,8 @@ fn started_details<C: ServerConnection>(
 
     let e = CreateEmbed::default()
         .title(embed_title)
-        .field(|f| f.name("Nation").value(nation_names))
-        .field(|f| f.name("Player").value(player_names))
-        .field(|f| f.name("Submitted").value(submitted_status));
+        .field("Nation", nation_names, true)
+        .field("Player", player_names, true)
+        .field("Submitted", submitted_status, true);
     Ok(e)
 }

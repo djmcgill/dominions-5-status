@@ -1,4 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use cached::TimedCache;
 use hex_slice::AsHex;
 use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
@@ -11,37 +12,53 @@ pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
 }
 
-pub struct RealServerConnection;
-impl ServerConnection for RealServerConnection {
-    fn get_game_data(server_address: &str) -> io::Result<GameData> {
-        let raw_data = get_raw_game_data(server_address)?;
-        let mut game_data = GameData {
-            game_name: raw_data.game_name,
-            nations: vec![],
-            turn: raw_data.h as i32,
-            turn_timer: raw_data.d,
-        };
-        for i in 0..250 {
-            let status_num = raw_data.f[i];
-            if status_num != 0 && status_num != 3 {
-                let submitted = raw_data.f[i + 250];
-                let connected = raw_data.f[i + 500];
-                let nation_id = i - 1; // why -1? No fucking idea
-                let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-                let nation = Nation {
-                    id: nation_id,
-                    status: NationStatus::from_int(status_num),
-                    submitted: SubmissionStatus::from_int(submitted),
-                    connected: connected == 1,
-                    name: nation_name.to_owned(),
-                    era: format!("{}", era),
-                };
-                game_data.nations.push(nation);
-            }
-        }
-        Ok(game_data)
+
+cached_key_result! {
+    ONE_MIN_GAME_DATA: TimedCache<String, GameData> = TimedCache::with_lifespan(59);
+    Key = { server_address.to_owned() };
+    fn get_game_data_fn(server_address: &str) -> io::Result<GameData> = {
+        get_game_data_cache(server_address)
     }
 }
+
+fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
+    let raw_data = get_raw_game_data(server_address)?;
+    let mut game_data = GameData {
+        game_name: raw_data.game_name,
+        nations: vec![],
+        turn: raw_data.h as i32,
+        turn_timer: raw_data.d,
+    };
+    for i in 0..250 {
+        let status_num = raw_data.f[i];
+        if status_num != 0 && status_num != 3 {
+            let submitted = raw_data.f[i + 250];
+            let connected = raw_data.f[i + 500];
+            let nation_id = i - 1; // why -1? No fucking idea
+            let &(nation_name, era) = Nations::get_nation_desc(nation_id);
+            let nation = Nation {
+                id: nation_id,
+                status: NationStatus::from_int(status_num),
+                submitted: SubmissionStatus::from_int(submitted),
+                connected: connected == 1,
+                name: nation_name.to_owned(),
+                era: format!("{}", era),
+            };
+            game_data.nations.push(nation);
+        }
+    }
+    Ok(game_data)
+}
+
+
+pub struct RealServerConnection;
+
+impl ServerConnection for RealServerConnection {
+    fn get_game_data(server_address: &str) -> io::Result<GameData> {
+        get_game_data_fn(server_address)
+    }
+}
+
 fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
     let buffer = call_server_for_info(server_address)?;
     let decompressed = decompress_server_info(&buffer)?;

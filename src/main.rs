@@ -1,4 +1,9 @@
+#![feature(log_syntax, trace_macros)]
+
+
 extern crate byteorder;
+#[macro_use]
+extern crate cached;
 #[macro_use]
 extern crate enum_primitive_derive;
 extern crate failure;
@@ -12,7 +17,6 @@ extern crate num_traits;
 extern crate r2d2;
 extern crate r2d2_sqlite;
 extern crate rusqlite;
-#[macro_use]
 extern crate serenity;
 extern crate simplelog;
 extern crate typemap;
@@ -25,7 +29,6 @@ mod model;
 mod server;
 
 use serenity::framework::standard::StandardFramework;
-use serenity::model::*;
 use serenity::prelude::*;
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 
@@ -38,11 +41,7 @@ use db::*;
 use server::RealServerConnection;
 
 struct Handler;
-impl EventHandler for Handler {
-    fn on_ready(&self, _: Context, ready: Ready) {
-        info!("{} is connected!", ready.user.name);
-    }
-}
+impl EventHandler for Handler {}
 
 fn main() {
     if let Err(e) = do_main() {
@@ -64,7 +63,7 @@ fn do_main() -> Result<(), Box<Error>> {
     let db_conn = DbConnection::new(&"resources/dom5bot.db".to_string())?;
     info!("Opened database connection");
 
-    let mut discord_client = Client::new(&token, Handler);
+    let mut discord_client = Client::new(&token, Handler)?;
     info!("Created discord client");
     {
         let mut data = discord_client.data.lock();
@@ -79,7 +78,7 @@ fn do_main() -> Result<(), Box<Error>> {
             .simple_bucket("simple", 1)
             .with_search_commands("simple")
             .with_servers_commands::<RealServerConnection>("simple")
-            .command("help", |c| c.bucket("simple").exec(commands::help))
+            .command("help", |c| c.bucket("simple").exec(|_, msg, _|commands::help(msg)))
             .before(|_, msg, _| {
                 info!("received message {:?}", msg);
                 true

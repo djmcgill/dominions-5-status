@@ -1,6 +1,7 @@
 use serenity::framework::standard::CommandError;
 use serenity::prelude::Context;
-use serenity::model::{Message, UserId};
+use serenity::model::channel::Message;
+use serenity::model::id::UserId;
 
 use server::ServerConnection;
 use db::*;

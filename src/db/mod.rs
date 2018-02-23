@@ -1,7 +1,7 @@
 use failure::{err_msg, Error};
 use r2d2_sqlite::SqliteConnectionManager;
 use r2d2::Pool;
-use serenity::model::UserId;
+use serenity::model::id::UserId;
 use typemap::Key;
 use num_traits::{FromPrimitive, ToPrimitive};
 

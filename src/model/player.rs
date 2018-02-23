@@ -1,4 +1,4 @@
-use serenity::model::UserId;
+use serenity::model::id::UserId;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Player {

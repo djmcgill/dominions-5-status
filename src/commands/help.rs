@@ -1,4 +1,7 @@
-command!(help(_context, message) {
+use serenity::model::channel::Message;
+use serenity::framework::standard::CommandError;
+
+pub fn help(message: &Message) -> Result<(), CommandError> {
     let _ = message.reply(
         "Commands (server alias is optional, defaults to channel name): \n\
         - !add <address:port> [<alias>]: save the dom5 server address\n\
@@ -14,4 +17,5 @@ command!(help(_context, message) {
         - !{item, spell, unit, site, merc, event} <text>: get dom5inspector search url\n\
         - !help: display this text"
     );
-});
+    Ok(())
+}
