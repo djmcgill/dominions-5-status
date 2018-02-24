@@ -7,6 +7,7 @@ use server::ServerConnection;
 use model::{GameServerState, Player};
 use model::enums::*;
 use db::{DbConnection, DbConnectionKey};
+use super::alias_from_arg_or_channel_name;
 
 fn register_player_helper<C: ServerConnection>(
     user_id: UserId,
@@ -121,21 +122,15 @@ fn register_player_helper<C: ServerConnection>(
 pub fn register_player<C: ServerConnection>(
     context: &mut Context,
     message: &Message,
-    args: Args,
+    mut args: Args,
 ) -> Result<(), CommandError> {
-    let args = args.multiple_quoted::<String>()?;
-    if args.len() > 2 {
+    let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
+    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    if args.len() != 0 {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
-
-    let arg_nation_name = args[0].to_lowercase();
-    let alias = args.get(1)
-        .cloned()
-        .or_else(|| message.channel_id.name())
-        .ok_or(&"Could not retrieve channel name")?
-        .to_lowercase();
 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;

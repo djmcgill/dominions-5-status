@@ -6,6 +6,7 @@ use serenity::model::channel::Message;
 
 use model::*;
 use db::*;
+use super::alias_from_arg_or_channel_name;
 
 fn start_helper<C: ServerConnection>(
     db_conn: &DbConnection,
@@ -45,14 +46,7 @@ pub fn start<C: ServerConnection>(
     let db_conn = data.get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
     let address = args.single_quoted::<String>()?;
-    let alias = args.single_quoted::<String>()
-        .or_else(|_| {
-            message.channel_id.name().ok_or(format!(
-                "Could not find channel name for channel {}",
-                message.channel_id
-            ))
-        })?
-        .to_lowercase();
+    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",

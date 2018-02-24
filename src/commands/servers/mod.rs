@@ -34,8 +34,10 @@ pub use self::turn_check::*;
 mod nap;
 pub use self::nap::*;
 
-use serenity::framework::standard::StandardFramework;
+use serenity::framework::standard::{Args, StandardFramework};
+use serenity::model::channel::Message;
 use server::ServerConnection;
+
 pub trait WithServersCommands: Sized {
     fn get_standard_framework(self) -> StandardFramework;
     fn with_servers_commands<C: ServerConnection>(self, bucket: &str) -> StandardFramework {
@@ -86,4 +88,15 @@ impl WithServersCommands for StandardFramework {
     fn get_standard_framework(self) -> StandardFramework {
         self
     }
+}
+
+fn alias_from_arg_or_channel_name(args: &mut Args, message: &Message) -> Result<String, &'static str> {
+    let result_alias = if args.len() > 0 {
+        args.single_quoted::<String>().ok()
+    } else {
+        message.channel_id.name()
+    };
+    result_alias
+        .map(|a| a.to_lowercase())
+        .ok_or("Could not game alias from command argument or channel name")
 }

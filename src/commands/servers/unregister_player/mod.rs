@@ -3,6 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 
+use super::alias_from_arg_or_channel_name;
 use db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(
@@ -21,14 +22,7 @@ pub fn unregister_player(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let alias = args.single_quoted::<String>()
-        .or_else(|_| {
-            message.channel_id.name().ok_or(format!(
-                "Could not find channel name for channel {}",
-                message.channel_id
-            ))
-        })?
-        .to_lowercase();
+    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
     unregister_player_helper(message.author.id, &alias, db_conn)?;

@@ -5,6 +5,7 @@ use serenity::model::channel::Message;
 use server::ServerConnection;
 use model::{GameServer, GameServerState, StartedState};
 use db::{DbConnection, DbConnectionKey};
+use super::alias_from_arg_or_channel_name;
 
 #[cfg(test)]
 mod tests;
@@ -38,14 +39,7 @@ pub fn add_server<C: ServerConnection>(
 ) -> Result<(), CommandError> {
     let server_address = args.single_quoted::<String>()?;
 
-    let alias = args.single_quoted::<String>()
-        .or_else(|_| {
-            message.channel_id.name().ok_or(format!(
-                "Could not find channel name for channel {}",
-                message.channel_id
-            ))
-        })?
-        .to_lowercase();
+    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
     if !args.is_empty() {
         return Err(CommandError::from(
