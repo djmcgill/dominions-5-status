@@ -126,11 +126,12 @@ pub fn register_player<C: ServerConnection>(
 ) -> Result<(), CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
-    if args.len() != 0 {
-        return Err(CommandError::from(
-            "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
-        ));
-    }
+// FIXME: no idea why this isn't working
+//    if args.len() != 0 {
+//        return Err(CommandError::from(
+//            "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
+//        ));
+//    }
 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
