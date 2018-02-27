@@ -35,6 +35,11 @@ TODO:
 * NAP helper
 * cache gamedata (for 1 min between checks?)
 * db queries contain named arguments
+* check invalid data???
+    ```
+    14:02:55 [DEBUG] dom5status::server: game name: ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^
+    ```
+
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc

@@ -96,6 +96,7 @@ fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
 }
 
 fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
+    debug!("HEADER {:?}", &raw[0..10]);
     if raw[1] == b'J' {
         info!("decompressing");
         let mut decoder = ZlibDecoder::new(&raw[10..]);
