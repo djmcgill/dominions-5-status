@@ -34,6 +34,9 @@ pub use self::turn_check::*;
 mod nap;
 pub use self::nap::*;
 
+mod lobbies;
+pub use self::lobbies::*;
+
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
 use server::ServerConnection;
@@ -80,6 +83,9 @@ pub trait WithServersCommands: Sized {
             })
             .command("naps", |c| {
                 c.bucket(bucket).exec(|cx, m, _| naps(cx, m))
+            })
+            .command("lobbies", |c| {
+                c.bucket(bucket).exec(|cx, m, _| lobbies(cx, m))
             })
     }
 }

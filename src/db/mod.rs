@@ -344,6 +344,30 @@ impl DbConnection {
         )?;
         Ok(())
     }
+
+    pub fn select_lobbies(&self) -> Result<Vec<(GameServer, i32)>, Error> {
+        info!("select_lobbies");
+        let conn = &*self.0.clone().get()?;
+        let mut stmt = conn.prepare(include_str!("sql/select_lobbies.sql"))?;
+        let foo = stmt.query_map(&[], |ref row| {
+            let alias: String = row.get(0);
+            let maybe_owner: Option<i64> = row.get(1);
+            let maybe_era: Option<i32> = row.get(2);
+            let maybe_player_count: Option<i32> = row.get(3);
+            let registered_player_count: i32 = row.get(4);
+            let server = make_game_server(
+                alias,
+                None,
+                None,
+                maybe_owner,
+                maybe_era,
+                maybe_player_count,
+            ).unwrap();
+            (server, registered_player_count)
+        })?;
+        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        Ok(vec)
+    }
 }
 
 fn make_game_server(
