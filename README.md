@@ -18,7 +18,8 @@ Commands (server alias is optional, defaults to channel name):
 * !unregister \[\<alias\>\]: unregister yourself in a game
 * !turns: show all of the games you're in and their turn status
 * !notifications \{true, false\}: enable/disable turn notifications
-* !lobby \{EA/MA/LA\} \<num\_players\> \[\<alias\>\]: open a game lobby
+* !lobby \{EA/MA/LA\} \<num\_players\> \[\<alias\>\]: create a lobby with no server
+* !lobbies: list available lobbies
 * !\{item, spell, unit, site, merc, event\} \<text\>: get dom5inspector search url
 * !start \<address:port\> \[\<alias\>\]: register a started server for a lobby game
 * !help: display this text
@@ -33,9 +34,7 @@ TODO:
 * modded nations for each game and/or show nation number (and sign up for it?)
 * show registered nation during upload
 * NAP helper
-* cache gamedata (for 1 min between checks?)
 * db queries contain named arguments
-* lobbies command
 * check invalid data???
     ```
     14:02:55 [DEBUG] dom5status::server: game name: ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^

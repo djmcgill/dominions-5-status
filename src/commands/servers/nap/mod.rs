@@ -10,6 +10,7 @@ use model::enums::NapType;
 use db::{DbConnection, DbConnectionKey};
 
 pub fn nap(context: &mut Context, message: &Message, mut args: Args) -> Result<(), CommandError> {
+    return Err(CommandError::from("NAP commands not implemented yet"));
     // TODO: error if not over pm
 
     let user_name = args.single_quoted::<String>()?;
@@ -64,6 +65,7 @@ fn nap_helper(
 }
 
 pub fn naps(context: &mut Context, message: &Message) -> Result<(), CommandError> {
+    return Err(CommandError::from("NAP commands not implemented yet"));
     let data = context.data.lock();
     let db_connection = data.get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
