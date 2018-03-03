@@ -93,7 +93,7 @@ fn create_discord_client() -> Result<Client, Error> {
             .simple_bucket("simple", 1)
             .with_search_commands("simple")
             .with_servers_commands::<RealServerConnection>("simple")
-            .command("help", |c| c.bucket("simple").exec(|_, msg, _|commands::help(msg)))
+            .help(|_, msg, _, _, _| commands::help(msg))
             .before(|_, msg, _| {
                 info!("received message {:?}", msg);
                 true
