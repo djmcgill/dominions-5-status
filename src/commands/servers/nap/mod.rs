@@ -1,3 +1,6 @@
+#![allow(unreachable_code)]
+#![allow(unused_variables)]
+
 use serenity::builder::CreateEmbed;
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;

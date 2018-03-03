@@ -7,6 +7,11 @@ use num_traits::{FromPrimitive, ToPrimitive};
 
 use model::*;
 use model::enums::*;
+use std::path::Path;
+
+use failure::SyncFailure;
+
+use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration};
 
 #[cfg(test)]
 pub mod test_helpers;
@@ -18,18 +23,41 @@ impl Key for DbConnectionKey {
 
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
-    pub fn new(path: &String) -> Result<Self, Error> {
-        let manager = SqliteConnectionManager::file(path);
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+        let manager = SqliteConnectionManager::file(&path);
         let pool = Pool::new(manager)?;
         let db_conn = DbConnection(pool);
-        db_conn.initialise()?;
+        db_conn.initialise(&path)?;
         Ok(db_conn)
     }
 
-    fn initialise(&self) -> Result<(), Error> {
+    fn initialise<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
         info!("db::initialise");
-        let conn = &*self.0.clone().get()?;
-        conn.execute_batch(include_str!("sql/create_tables.sql"))?;
+        let settings = Settings::configure_sqlite()
+            .database_path(path)
+            .map_err(|e| SyncFailure::new(e))?
+            .build()
+            .map_err(|e| SyncFailure::new(e))?;
+        let mut config = Config::with_settings(&settings);
+        config.setup().map_err(|e| SyncFailure::new(e))?;
+
+        config.use_migrations(&[
+            EmbeddedMigration::with_tag("001-baseline")
+                .up(include_str!("sql/migrations/001_baseline.sql"))
+                .boxed()
+        ]).map_err(|e| SyncFailure::new(e))?;
+
+        let config = config.reload().map_err(|e| SyncFailure::new(e))?;
+
+        Migrator::with_config(&config)
+            .all(true)
+            .show_output(false)
+            .swallow_completion(true)
+            .apply().map_err(|e| SyncFailure::new(e))?;
+
+        let config = config.reload().map_err(|e| SyncFailure::new(e))?;
+        list(&config).map_err(|e| SyncFailure::new(e))?;
+
         Ok(())
     }
 
@@ -144,6 +172,7 @@ impl DbConnection {
         Ok(())
     }
 
+    #[allow(unused_variables)]
     pub fn insert_nap(&self, nap: &Nap) -> Result<(), Error> {
         // insert players
         // insert nap
@@ -151,6 +180,7 @@ impl DbConnection {
         Err(err_msg("db::insert_nap not implemented yet"))
     }
 
+    #[allow(unused_variables)]
     pub fn select_naps(&self, player: UserId) -> Result<Vec<Nap>, Error> {
         Err(err_msg("db::select_naps not implemented yet"))
     }

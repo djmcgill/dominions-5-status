@@ -21,6 +21,7 @@ extern crate serenity;
 extern crate simplelog;
 extern crate typemap;
 extern crate url;
+extern crate migrant_lib;
 
 #[cfg_attr(test, macro_use)]
 mod db;
@@ -33,9 +34,10 @@ use serenity::prelude::*;
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 
 use std::thread;
-use std::error::Error;
+use failure::{SyncFailure, Error};
 use std::fs::File;
 use std::io::Read;
+use std::env;
 
 use db::*;
 use server::RealServerConnection;
@@ -49,21 +51,34 @@ fn main() {
     }
 }
 
-fn do_main() -> Result<(), Box<Error>> {
+fn do_main() -> Result<(), Error> {
     SimpleLogger::init(LogLevelFilter::Debug, Config::default())?;
     info!("Logger initialised");
-    let token = {
-        let mut token_file = File::open("resources/token")?;
-        let mut temp_token = String::new();
-        token_file.read_to_string(&mut temp_token)?;
-        info!("Read discord bot token");
-        temp_token
-    };
 
-    let db_conn = DbConnection::new(&"resources/dom5bot.db".to_string())?;
+    let mut discord_client = create_discord_client()?;
+    if let Err(why) = discord_client.start() {
+        error!("Client error: {:?}", why);
+    }
+    Ok(())
+}
+
+fn read_token() -> Result<String, Error> {
+    let mut token_file = File::open("resources/token")?;
+    let mut temp_token = String::new();
+    token_file.read_to_string(&mut temp_token)?;
+    info!("Read discord bot token");
+    Ok(temp_token)
+}
+
+fn create_discord_client() -> Result<Client, Error> {
+    let token = read_token()?;
+
+    let path = env::current_dir()?;
+    let path = path.join("resources/dom5bot.db");
+    let db_conn = DbConnection::new(&path)?;
     info!("Opened database connection");
 
-    let mut discord_client = Client::new(&token, Handler)?;
+    let mut discord_client = Client::new(&token, Handler).map_err(|e| SyncFailure::new(e))?;
     info!("Created discord client");
     {
         let mut data = discord_client.data.lock();
@@ -101,9 +116,5 @@ fn do_main() -> Result<(), Box<Error>> {
         );
     });
     // start listening for events by starting a single shard
-
-    if let Err(why) = discord_client.start() {
-        error!("Client error: {:?}", why);
-    }
-    Ok(())
+    Ok(discord_client)
 }
