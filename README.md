@@ -22,6 +22,7 @@ Commands (server alias is optional, defaults to channel name):
 * !lobbies: list available lobbies
 * !\{item, spell, unit, site, merc, event\} \<text\>: get dom5inspector search url
 * !start \<address:port\> \[\<alias\>\]: register a started server for a lobby game
+* !describe \"text\" \[\<alias\>\]: add a description to a lobby
 * !help: display this text
 
 TODO:
@@ -41,6 +42,7 @@ TODO:
 * BUG: !add still creates started_server even when it later fails to create game_server
 * BUG: if a lobby with 0 players exists, !lobbies is broken
 * BUGS: errors if no lobbies or games since discord doesn't like empty fields
+* only host can edit lobby description
 
 
 MAYBE:

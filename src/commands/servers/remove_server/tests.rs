@@ -3,6 +3,7 @@ use super::*;
 use model::*;
 use model::enums::*;
 use serenity::model::*;
+use serenity::model::id::UserId;
 
 #[test]
 fn should_remove_started_server() {
@@ -47,6 +48,7 @@ fn should_remove_lobby() {
                 owner: UserId(1),
                 era: Era::Early,
                 player_count: 8,
+                description: None,
             }),
         })
         .unwrap();
@@ -83,6 +85,7 @@ fn should_remove_started_server_with_lobby() {
                     owner: UserId(1),
                     era: Era::Early,
                     player_count: 8,
+                    description: None,
                 }),
             ),
         })

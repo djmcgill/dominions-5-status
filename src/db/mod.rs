@@ -81,16 +81,17 @@ impl DbConnection {
 
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         info!("db::insert_game_server: {:?}", game_server);
-        let conn = &*self.0.clone().get()?;
+        let conn = &mut *self.0.clone().get()?;
         match game_server.state {
             GameServerState::Lobby(ref lobby_state) => {
-                // TODO: transaction
-                conn.execute(
+                let tx = conn.transaction()?;
+
+                tx.execute(
                     include_str!("sql/insert_game_server_lobby_state.sql"),
                     &[&(lobby_state.owner.0 as i64)],
                 )?;
 
-                conn.execute(
+                tx.execute(
                     include_str!("sql/insert_lobby.sql"),
                     &[
                         &lobby_state.era.to_i32(),
@@ -99,7 +100,7 @@ impl DbConnection {
                         &lobby_state.description,
                     ],
                 )?;
-                conn.execute(
+                tx.execute(
                     include_str!("sql/insert_game_server_from_lobby.sql"),
                     &[
                         &game_server.alias,
@@ -108,26 +109,30 @@ impl DbConnection {
                         &lobby_state.player_count,
                     ],
                 )?;
+                tx.commit()?;
                 Ok(())
             }
             GameServerState::StartedState(ref started_state, None) => {
-                conn.execute(
+                let tx = conn.transaction()?;
+                tx.execute(
                     include_str!("sql/insert_started_server.sql"),
                     &[&started_state.address, &started_state.last_seen_turn],
                 )?;
-                conn.execute(
+                tx.execute(
                     include_str!("sql/insert_started_game_server.sql"),
                     &[&game_server.alias, &started_state.address],
                 )?;
+                tx.commit()?;
                 Ok(())
             }
             GameServerState::StartedState(ref started_state, Some(ref lobby_state)) => {
-                conn.execute(
+                let tx = conn.transaction()?;
+                tx.execute(
                     include_str!("sql/insert_game_server_lobby_state.sql"),
                     &[&(lobby_state.owner.0 as i64)],
                 )?;
 
-                conn.execute(
+                tx.execute(
                     include_str!("sql/insert_lobby.sql"),
                     &[
                         &lobby_state.era.to_i32(),
@@ -135,7 +140,7 @@ impl DbConnection {
                         &lobby_state.player_count,
                     ],
                 )?;
-                conn.execute(
+                tx.execute(
                     include_str!("sql/insert_game_server_from_lobby.sql"),
                     &[
                         &game_server.alias,
@@ -144,12 +149,12 @@ impl DbConnection {
                         &lobby_state.player_count,
                     ],
                 )?;
-                conn.execute(
+                tx.execute(
                     include_str!("sql/insert_started_state.sql"),
                     &[&started_state.address, &started_state.last_seen_turn],
                 )?;
 
-                conn.execute(
+                tx.execute(
                     include_str!("sql/update_game_with_started_state.sql"),
                     &[
                         &started_state.address,
@@ -157,7 +162,7 @@ impl DbConnection {
                         &game_server.alias,
                     ],
                 )?;
-
+                tx.commit()?;
                 Ok(())
             }
         }
@@ -302,15 +307,17 @@ impl DbConnection {
 
     pub fn remove_server(&self, game_alias: &str) -> Result<(), Error> {
         info!("db::remove_server");
-        let conn = &*self.0.clone().get()?;
-        conn.execute(
+        let conn = &mut *self.0.clone().get()?;
+        let tx = conn.transaction()?;
+        tx.execute(
             include_str!("sql/delete_server_players.sql"),
             &[&game_alias],
         )?;
-        let rows_modified = conn.execute(include_str!("sql/delete_game_server.sql"), &[&game_alias])?;
-        conn.execute(include_str!("sql/delete_started_server.sql"), &[])?;
-        conn.execute(include_str!("sql/delete_lobby.sql"), &[])?;
+        let rows_modified = tx.execute(include_str!("sql/delete_game_server.sql"), &[&game_alias])?;
+        tx.execute(include_str!("sql/delete_started_server.sql"), &[])?;
+        tx.execute(include_str!("sql/delete_lobby.sql"), &[])?;
         if rows_modified != 0 {
+            tx.commit()?;
             Ok(())
         } else {
             Err(err_msg(format!("Could not find server with name {}", game_alias)))
@@ -372,13 +379,14 @@ impl DbConnection {
         started_state: &StartedState,
     ) -> Result<(), Error> {
         info!("insert_started_state");
-        let conn = &*self.0.clone().get()?;
-        conn.execute(
+        let conn = &mut *self.0.clone().get()?;
+        let tx = conn.transaction()?;
+        tx.execute(
             include_str!("sql/insert_started_state.sql"),
             &[&started_state.address, &started_state.last_seen_turn],
         )?;
 
-        conn.execute(
+        tx.execute(
             include_str!("sql/update_game_with_started_state.sql"),
             &[
                 &started_state.address,
@@ -386,6 +394,7 @@ impl DbConnection {
                 &alias,
             ],
         )?;
+        tx.commit()?;
         Ok(())
     }
 

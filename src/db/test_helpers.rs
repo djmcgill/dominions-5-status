@@ -31,7 +31,9 @@ impl DbConnection {
         let manager = SqliteConnectionManager::memory();
         let pool = Pool::builder().max_size(1).build(manager).unwrap();
         let db_conn = DbConnection(pool);
-        db_conn.initialise().unwrap();
+        let result = db_conn.initialise(":memory:");
+        println!("TEST DB INITIALISATION: {:?}", result);
+        result.unwrap();
         db_conn
     }
 
