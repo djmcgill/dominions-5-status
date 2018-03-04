@@ -24,4 +24,5 @@ pub struct LobbyState {
     pub owner: UserId,
     pub era: Era,
     pub player_count: i32,
+    pub description: Option<String>,
 }

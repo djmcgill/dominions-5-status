@@ -78,11 +78,16 @@ fn lobby_details(
         nation_names.push_str(&"OPEN\n");
     }
     let owner = lobby_state.owner.get()?;
-    let e = CreateEmbed::default()
+    let e_temp = CreateEmbed::default()
         .title(embed_title)
         .field("Nation", nation_names, true)
         .field("Player", player_names, true)
         .field("Owner", format!("{}", owner), false);
+    let e = match lobby_state.description {
+        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
+        _ => e_temp,
+    };
+
     Ok(e)
 }
 
@@ -169,12 +174,16 @@ fn started_from_lobby_details<C: ServerConnection>(
     );
 
     let owner = lobby_state.owner.get()?;
-    let e = CreateEmbed::default()
+    let e_temp = CreateEmbed::default()
         .title(embed_title)
         .field("Nation", nation_names, true)
         .field("Player", player_names, true)
         .field("Submitted", submitted_status, true)
         .field("Owner", format!("{}", owner), false);
+    let e = match lobby_state.description {
+        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
+        _ => e_temp,
+    };
     Ok(e)
 }
 

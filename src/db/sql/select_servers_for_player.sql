@@ -1,4 +1,4 @@
- SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner_id, l.era, l.player_count
+ SELECT s.address, g.alias, s.last_seen_turn, sp.nation_id, l.owner_id, l.era, l.player_count, l.description
 FROM players p
 JOIN server_players sp on sp.player_id = p.id
 JOIN game_servers g on g.id = sp.server_id

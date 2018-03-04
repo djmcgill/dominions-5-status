@@ -37,6 +37,9 @@ pub use self::nap::*;
 mod lobbies;
 pub use self::lobbies::*;
 
+mod describe;
+pub use self::describe::*;
+
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
 use server::ServerConnection;
@@ -87,6 +90,10 @@ pub trait WithServersCommands: Sized {
             .command("lobbies", |c| {
                 c.bucket(bucket).exec(|cx, m, _| lobbies(cx, m))
             })
+            .command("describe", |c| {
+                c.bucket(bucket).exec(|cx, m, a| describe(cx, m, a))
+            }
+            )
     }
 }
 

@@ -21,6 +21,7 @@ fn lobby_helper(
             era,
             owner: author_id,
             player_count,
+            description: None,
         }),
     })?;
     Ok(())

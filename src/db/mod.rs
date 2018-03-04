@@ -44,7 +44,10 @@ impl DbConnection {
         config.use_migrations(&[
             EmbeddedMigration::with_tag("001-baseline")
                 .up(include_str!("sql/migrations/001_baseline.sql"))
-                .boxed()
+                .boxed(),
+            EmbeddedMigration::with_tag("002-lobby-description")
+                .up(include_str!("sql/migrations/002_lobby_description.sql"))
+                .boxed(),
         ]).map_err(|e| SyncFailure::new(e))?;
 
         let config = config.reload().map_err(|e| SyncFailure::new(e))?;
@@ -93,6 +96,7 @@ impl DbConnection {
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
                         &lobby_state.player_count,
+                        &lobby_state.description,
                     ],
                 )?;
                 conn.execute(
@@ -196,6 +200,7 @@ impl DbConnection {
             let maybe_owner: Option<i64> = row.get(3);
             let maybe_era: Option<i32> = row.get(4);
             let maybe_player_count: Option<i32> = row.get(5);
+            let description: Option<String> = row.get(6);
             let server = make_game_server(
                 alias,
                 maybe_address,
@@ -203,6 +208,7 @@ impl DbConnection {
                 maybe_owner,
                 maybe_era,
                 maybe_player_count,
+                description,
             ).unwrap();
             server
         })?;
@@ -240,6 +246,7 @@ impl DbConnection {
             let maybe_owner: Option<i64> = row.get(2);
             let maybe_era: Option<i32> = row.get(3);
             let maybe_player_count: Option<i32> = row.get(4);
+            let description: Option<String> = row.get(5);
             let server = make_game_server(
                 game_alias.to_owned(),
                 maybe_address,
@@ -247,6 +254,7 @@ impl DbConnection {
                 maybe_owner,
                 maybe_era,
                 maybe_player_count,
+                description,
             ).unwrap();
             server
         })?;
@@ -299,10 +307,14 @@ impl DbConnection {
             include_str!("sql/delete_server_players.sql"),
             &[&game_alias],
         )?;
-        conn.execute(include_str!("sql/delete_game_server.sql"), &[&game_alias])?;
+        let rows_modified = conn.execute(include_str!("sql/delete_game_server.sql"), &[&game_alias])?;
         conn.execute(include_str!("sql/delete_started_server.sql"), &[])?;
         conn.execute(include_str!("sql/delete_lobby.sql"), &[])?;
-        Ok(())
+        if rows_modified != 0 {
+            Ok(())
+        } else {
+            Err(err_msg(format!("Could not find server with name {}", game_alias)))
+        }
     }
 
     pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
@@ -317,6 +329,7 @@ impl DbConnection {
             let maybe_owner: Option<i64> = row.get(4);
             let maybe_era: Option<i32> = row.get(5);
             let maybe_player_count: Option<i32> = row.get(6);
+            let description: Option<String> = row.get(7);
             let server = make_game_server(
                 alias,
                 maybe_address,
@@ -324,6 +337,7 @@ impl DbConnection {
                 maybe_owner,
                 maybe_era,
                 maybe_player_count,
+                description,
             ).unwrap();
 
             let nation_id = row.get(3);
@@ -385,6 +399,7 @@ impl DbConnection {
             let maybe_era: Option<i32> = row.get(2);
             let maybe_player_count: Option<i32> = row.get(3);
             let registered_player_count: i32 = row.get(4);
+            let description: Option<String> = row.get(5);
             let server = make_game_server(
                 alias,
                 None,
@@ -392,11 +407,26 @@ impl DbConnection {
                 maybe_owner,
                 maybe_era,
                 maybe_player_count,
+                description,
             ).unwrap();
             (server, registered_player_count)
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
+    }
+
+    pub fn update_lobby_with_description(&self, alias: &str, description: &str) -> Result<(), Error> {
+        info!("update_lobby_with_description");
+        let conn = &*self.0.clone().get()?;
+        let rows_modified = conn.execute(
+            include_str!("sql/update_lobby_with_description.sql"),
+            &[&alias, &description],
+        )?;
+        if rows_modified != 0 {
+            Ok(())
+        } else {
+            Err(err_msg(format!("Could not find lobby with name {}", alias)))
+        }
     }
 }
 
@@ -407,6 +437,7 @@ fn make_game_server(
     maybe_owner: Option<i64>,
     maybe_era: Option<i32>,
     maybe_player_count: Option<i32>,
+    description: Option<String>,
 ) -> Result<GameServer, Error> {
     let state = match (
         maybe_address,
@@ -432,6 +463,7 @@ fn make_game_server(
                     owner: UserId(owner as u64),
                     era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
                     player_count: player_count,
+                    description: description,
                 }),
             )
         }
@@ -440,6 +472,7 @@ fn make_game_server(
                 owner: UserId(owner as u64),
                 era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
                 player_count: player_count,
+                description: description,
             })
         }
         _ => return Err(err_msg(format!("invalid db state for {}", alias))),

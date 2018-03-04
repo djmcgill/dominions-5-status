@@ -28,7 +28,6 @@ TODO:
 * more unit tests
 * add more detail to turn notifications (who went AI, who maybe stalled)
 * turn submitted colour coded?
-* description for lobbies (enforced banned nations?)
 * permissions for commands
 * more embed responses
 * modded nations for each game and/or show nation number (and sign up for it?)
@@ -39,6 +38,9 @@ TODO:
     ```
     14:02:55 [DEBUG] dom5status::server: game name: ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^
     ```
+* BUG: !add still creates started_server even when it later fails to create game_server
+* BUG: if a lobby with 0 players exists, !lobbies is broken
+* BUGS: errors if no lobbies or games since discord doesn't like empty fields
 
 
 MAYBE:
