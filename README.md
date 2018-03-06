@@ -40,10 +40,10 @@ TODO:
     14:02:55 [DEBUG] dom5status::server: game name: ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^
     ```
 * BUG: !add still creates started_server even when it later fails to create game_server
-* BUG: if a lobby with 0 players exists, !lobbies is broken
 * BUGS: errors if no lobbies or games since discord doesn't like empty fields
 * only host can edit lobby description
 * BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
+* record last seen player state in the db, so can work out stalls and new AI/defeats 
 
 
 MAYBE:

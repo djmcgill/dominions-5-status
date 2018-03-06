@@ -21,7 +21,7 @@ pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareM
 fn message_players_if_new_turn<C: ServerConnection>(
     mutex: &Mutex<ShareMap>,
 ) -> Result<(), Error> {
-    let data = mutex.try_lock().ok_or_else(|| err_msg("Could not obtain data mutex"))?;
+        let data = mutex.try_lock().ok_or_else(|| err_msg("Could not obtain data mutex"))?;
     let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| err_msg("no db connection"))?;
     // TODO: transactions
     let servers = db_conn.retrieve_all_servers()?;
