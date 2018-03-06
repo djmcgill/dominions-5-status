@@ -78,7 +78,7 @@ fn create_discord_client() -> Result<Client, Error> {
     let db_conn = DbConnection::new(&path)?;
     info!("Opened database connection");
 
-    let mut discord_client = Client::new(&token, Handler).map_err(|e| SyncFailure::new(e))?;
+    let mut discord_client = Client::new(&token, Handler).map_err(SyncFailure::new)?;
     info!("Created discord client");
     {
         let mut data = discord_client.data.lock();

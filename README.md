@@ -43,6 +43,7 @@ TODO:
 * BUG: if a lobby with 0 players exists, !lobbies is broken
 * BUGS: errors if no lobbies or games since discord doesn't like empty fields
 * only host can edit lobby description
+* BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
 
 
 MAYBE:

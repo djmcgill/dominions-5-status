@@ -11,7 +11,7 @@ use std::path::Path;
 
 use failure::SyncFailure;
 
-use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration};
+use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration, Migratable};
 
 #[cfg(test)]
 pub mod test_helpers;
@@ -19,6 +19,21 @@ pub mod test_helpers;
 pub struct DbConnectionKey;
 impl Key for DbConnectionKey {
     type Value = DbConnection;
+}
+
+lazy_static! {
+    static ref MIGRATIONS: [Box<EmbeddedMigration>; 2] = [
+        Box::new(EmbeddedMigration {
+            tag: "001-baseline".to_owned(),
+            up: Some(include_str!("sql/migrations/001_baseline.sql")),
+            down: None,
+        }),
+        Box::new(EmbeddedMigration {
+            tag: "002-lobby-description".to_owned(),
+            up: Some(include_str!("sql/migrations/002_lobby_description.sql")),
+            down: None,
+        }),
+    ];
 }
 
 pub struct DbConnection(Pool<SqliteConnectionManager>);
@@ -35,31 +50,32 @@ impl DbConnection {
         info!("db::initialise");
         let settings = Settings::configure_sqlite()
             .database_path(path)
-            .map_err(|e| SyncFailure::new(e))?
+            .map_err(SyncFailure::new)?
             .build()
-            .map_err(|e| SyncFailure::new(e))?;
+            .map_err(SyncFailure::new)?;
         let mut config = Config::with_settings(&settings);
-        config.setup().map_err(|e| SyncFailure::new(e))?;
+        config.setup().map_err(SyncFailure::new)?;
 
-        config.use_migrations(&[
-            EmbeddedMigration::with_tag("001-baseline")
-                .up(include_str!("sql/migrations/001_baseline.sql"))
-                .boxed(),
-            EmbeddedMigration::with_tag("002-lobby-description")
-                .up(include_str!("sql/migrations/002_lobby_description.sql"))
-                .boxed(),
-        ]).map_err(|e| SyncFailure::new(e))?;
+        let migrations: Vec<Box<Migratable>> =
+            MIGRATIONS
+                .iter()
+                .cloned()
+                .map(|x| x as Box<Migratable>) // TODO: do NOT map cast
+                .collect::<Vec<_>>();
+        config.use_migrations(
+            &migrations
+        ).map_err(SyncFailure::new)?;
 
-        let config = config.reload().map_err(|e| SyncFailure::new(e))?;
+        let config = config.reload().map_err(SyncFailure::new)?;
 
         Migrator::with_config(&config)
             .all(true)
             .show_output(false)
             .swallow_completion(true)
-            .apply().map_err(|e| SyncFailure::new(e))?;
+            .apply().map_err(SyncFailure::new)?;
 
-        let config = config.reload().map_err(|e| SyncFailure::new(e))?;
-        list(&config).map_err(|e| SyncFailure::new(e))?;
+        let config = config.reload().map_err(SyncFailure::new)?;
+        list(&config).map_err(SyncFailure::new)?;
 
         Ok(())
     }

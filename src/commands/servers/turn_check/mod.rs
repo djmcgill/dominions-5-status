@@ -5,7 +5,7 @@ use model::{GameServer, GameServerState, Player};
 use model::enums::{NationStatus, SubmissionStatus};
 use std::{thread, time};
 use serenity::prelude::Mutex;
-use std::error::Error;
+use failure::{err_msg, Error, SyncFailure};
 use server::ServerConnection;
 
 pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareMap>) {
@@ -20,9 +20,9 @@ pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareM
 
 fn message_players_if_new_turn<C: ServerConnection>(
     mutex: &Mutex<ShareMap>,
-) -> Result<(), Box<Error>> {
-    let data = mutex.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
+) -> Result<(), Error> {
+    let data = mutex.try_lock().ok_or_else(|| err_msg("Could not obtain data mutex"))?;
+    let db_conn = data.get::<DbConnectionKey>().ok_or_else(|| err_msg("no db connection"))?;
     // TODO: transactions
     let servers = db_conn.retrieve_all_servers()?;
     for server in servers {
@@ -37,7 +37,7 @@ fn message_players_if_new_turn<C: ServerConnection>(
 fn check_server_for_new_turn_helper<C: ServerConnection>(
     server: GameServer,
     db_conn: &DbConnection,
-) -> Result<Vec<(Player, String)>, Box<Error>> {
+) -> Result<Vec<(Player, String)>, Error> {
     let mut ret = Vec::new();
     if let GameServerState::StartedState(started_state, _) = server.state {
         info!("checking {} for new turn", server.alias);
@@ -82,11 +82,11 @@ fn check_server_for_new_turn_helper<C: ServerConnection>(
 fn check_server_for_new_turn<C: ServerConnection>(
     server: GameServer,
     db_conn: &DbConnection,
-) -> Result<(), Box<Error>> {
+) -> Result<(), Error> {
     // TODO: group players
     for (player, text) in check_server_for_new_turn_helper::<C>(server, db_conn)? {
-        let private_channel = player.discord_user_id.create_dm_channel()?;
-        private_channel.say(&text)?;
+        let private_channel = player.discord_user_id.create_dm_channel().map_err(SyncFailure::new)?;
+        private_channel.say(&text).map_err(SyncFailure::new)?;
     }
     Ok(())
 }
