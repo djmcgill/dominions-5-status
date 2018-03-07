@@ -1,6 +1,3 @@
-#![feature(log_syntax, trace_macros)]
-
-
 extern crate byteorder;
 #[macro_use]
 extern crate cached;
