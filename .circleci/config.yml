@@ -5,4 +5,13 @@ jobs:
       - image: rust:latest
     steps:
       - checkout
+      - restore_cache:
+          key: cargo-cache
       - run: cargo build --release
+      - save_cache:
+          key: cargo-cache
+          paths:
+            - "~/.cargo"
+            - "./target"
+
+# todo: test and coverage: https://abronan.com/building-a-rust-project-on-circleci/
