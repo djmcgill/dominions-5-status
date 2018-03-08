@@ -154,6 +154,7 @@ impl DbConnection {
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
                         &lobby_state.player_count,
+                        &lobby_state.description,
                     ],
                 )?;
                 tx.execute(

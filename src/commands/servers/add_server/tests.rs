@@ -35,6 +35,7 @@ fn should_insert_started_server_into_db() {
 
     let db_conn = DbConnection::test();
     let insert_result = add_server_helper::<Mock>(&TEST_ADDRESS, &TEST_ALIAS, &db_conn);
+    println!("RESULT {:?}", insert_result);
     assert!(insert_result.is_ok());
 
     let fetch_result = db_conn.game_for_alias(&TEST_ALIAS);
