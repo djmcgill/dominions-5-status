@@ -22,7 +22,7 @@ jobs:
     steps:
       - run:
           name: Add known host
-          command: echo "$KNOWN_HOST" >> ~/.ssh/known_hosts
+          command: echo "$KNOWN_HOST" > ~/.ssh/known_hosts
       - run:
           name: SSH to server and deploy
           command: |
