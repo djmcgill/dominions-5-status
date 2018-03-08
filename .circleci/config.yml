@@ -20,9 +20,10 @@ jobs:
     docker:
       - image: fedora:latest
     steps:
-      - run:
-          name: Add known host
-          command: echo "$KNOWN_HOST" > ~/.ssh/known_hosts
+      - run: yum -y install openssh-clients
+      - add_ssh_keys:
+          fingerprints:
+            - $KNOWN_HOST
       - run:
           name: SSH to server and deploy
           command: |
