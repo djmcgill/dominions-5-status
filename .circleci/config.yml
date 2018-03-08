@@ -9,10 +9,35 @@ jobs:
           key: cargo-cache
       - run: cargo build
       - run: cargo test
+      # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
       - save_cache:
           key: cargo-cache
           paths:
             - "~/.cargo"
             - "./target"
 
-# todo: test and coverage: https://abronan.com/building-a-rust-project-on-circleci/
+  deploy:
+    docker:
+      - image: fedora:latest
+    steps:
+      - run:
+          name: Add known host
+          command: echo "$KNOWN_HOST" >> ~/.ssh/known_hosts
+      - run:
+          name: SSH to server and deploy
+          command: |
+            ssh "$SSH_ADDRESS" <<-ENDSSH
+              docker exec "$CONTAINER_ID" 'git pull; cargo install --force'
+            ENDSSH
+
+workflows:
+  version: 2
+  build_and_deploy:
+    jobs:
+      - build
+      - deploy:
+          requires:
+            - build
+          filters:
+            branches:
+              only: master
