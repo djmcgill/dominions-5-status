@@ -27,6 +27,7 @@ jobs:
       - run:
           name: SSH to server and deploy
           command: |
+            ssh -o "StrictHostKeyChecking=no" $SSH_ADDRESS
             ssh "$SSH_ADDRESS" <<-ENDSSH
               docker exec "$CONTAINER_ID" 'git pull; cargo install --force'
             ENDSSH
