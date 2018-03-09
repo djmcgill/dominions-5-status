@@ -19,8 +19,8 @@ jobs:
   deploy:
     docker:
       - image: fedora:latest
+      - image: build-image:latest
     steps:
-      - run: yum -y install openssh-clients
       - add_ssh_keys
       - run:
           name: SSH to server and deploy
