@@ -7,13 +7,13 @@ jobs:
       - checkout
       - restore_cache:
           keys:
-            - cargo-cache-{{ checksum "cargo.toml" }}
+            - cargo-cache-{{ checksum "Cargo.toml" }}
             - cargo-cache-
       - run: cargo build
       - run: cargo test
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
       - save_cache:
-          key: cargo-cache-{{ checksum "cargo.toml" }}
+          key: cargo-cache-{{ checksum "Cargo.toml" }}
           paths:
             - "~/.cargo"
             - "./target"
