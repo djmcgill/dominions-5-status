@@ -15,6 +15,7 @@ jobs:
           paths:
             - "~/.cargo"
             - "./target"
+            - "/usr/local/cargo"
 
   deploy:
     docker:
