@@ -27,7 +27,7 @@ jobs:
       - run:
           name: SSH to server and deploy
           command: |
-            ssh -o "StrictHostKeyChecking=no" "$SSH_ADDRESS" "docker exec \"$CONTAINER_ID\" bash -ec 'git pull; cargo install --force; docker restart \"$CONTAINER_ID\"'"
+            ssh -o "StrictHostKeyChecking=no" "$SSH_ADDRESS" "docker exec \"$CONTAINER_ID\" bash -ec 'git pull; cargo install --force'; docker restart \"$CONTAINER_ID\""
 
 workflows:
   version: 2
