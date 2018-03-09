@@ -23,7 +23,7 @@ jobs:
       - run: yum -y install openssh-clients
       - add_ssh_keys:
           fingerprints:
-            - "1e:e9:40:25:3a:70:3d:6c:5f:04:51:6d:81:ed:2a:32"
+            - ${SSH_FINGERPRINT}
       - run:
           name: SSH to server and deploy
           command: |
