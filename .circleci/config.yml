@@ -18,8 +18,7 @@ jobs:
 
   deploy:
     docker:
-      - image: fedora:latest
-      - image: build-image:latest
+      - image: circleci/python # just something small that includes ssh
     steps:
       - add_ssh_keys
       - run:
