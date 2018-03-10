@@ -229,6 +229,11 @@ fn started_details<C: ServerConnection>(
             submitted_status.push_str(&".\n");
         }
     }
+    if game_data.nations.is_empty() {
+        nation_names.push_str(&"-");
+        player_names.push_str(&"-");
+        submitted_status.push_str(&"-");
+    }
     info!("Server details string created, now sending.");
     let total_mins_remaining = game_data.turn_timer / (1000 * 60);
     let hours_remaining = total_mins_remaining / 60;
