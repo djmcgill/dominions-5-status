@@ -5,8 +5,9 @@ use model::{GameServer, GameServerState, Player};
 use model::enums::{NationStatus, SubmissionStatus};
 use std::{thread, time};
 use serenity::prelude::Mutex;
-use failure::{err_msg, Error, SyncFailure};
+use failure::{err_msg, Error};
 use server::ServerConnection;
+use std::error::Error as TraitError;
 
 pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareMap>) {
     loop {
@@ -18,7 +19,7 @@ pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareM
     }
 }
 
-fn message_players_if_new_turn<C: ServerConnection>(
+pub(crate) fn message_players_if_new_turn<C: ServerConnection>(
     mutex: &Mutex<ShareMap>,
 ) -> Result<(), Error> {
         let data = mutex.try_lock().ok_or_else(|| err_msg("Could not obtain data mutex"))?;
@@ -85,8 +86,8 @@ fn check_server_for_new_turn<C: ServerConnection>(
 ) -> Result<(), Error> {
     // TODO: group players
     for (player, text) in check_server_for_new_turn_helper::<C>(server, db_conn)? {
-        let private_channel = player.discord_user_id.create_dm_channel().map_err(SyncFailure::new)?;
-        private_channel.say(&text).map_err(SyncFailure::new)?;
+        let private_channel = player.discord_user_id.create_dm_channel().map_err(|e| err_msg(e.description().to_owned()))?;
+        private_channel.say(&text).map_err(|e| err_msg(e.description().to_owned()))?;
     }
     Ok(())
 }

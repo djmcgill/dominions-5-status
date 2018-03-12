@@ -14,7 +14,7 @@ mod unregister_player;
 use self::unregister_player::*;
 
 mod details;
-use self::details::*;
+pub use self::details::*;
 
 mod turns;
 use self::turns::*;
