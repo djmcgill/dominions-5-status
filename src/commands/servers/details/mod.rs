@@ -61,7 +61,7 @@ fn lobby_details(
 ) -> Result<CreateEmbed, CommandError> {
     debug!("OWNER {}", lobby_state.owner);
     debug!("OWNER_GET {:?}", lobby_state.owner.get());
-    let embed_title = format!("{} (Lobby)", alias);
+    let embed_title = format!("{} ({} Lobby)", alias, lobby_state.era);
     let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let registered_player_count = players_nations.len() as i32;
 
