@@ -7,7 +7,7 @@ use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
 
 use model::{GameServerState, LobbyState, StartedState};
-use model::enums::{NationStatus, Nations};
+use model::enums::{NationStatus, Nations, SubmissionStatus};
 use db::{DbConnection, DbConnectionKey};
 
 #[cfg(test)]
@@ -131,7 +131,7 @@ fn started_from_lobby_details<C: ServerConnection>(
         if let NationStatus::Human = nation.status {
             submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
         } else {
-            submitted_status.push_str(&".\n");
+            submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
         }
     }
 
@@ -145,10 +145,11 @@ fn started_from_lobby_details<C: ServerConnection>(
             .is_none()
     });
 
-    for &(ref player, _) in &not_uploaded_players {
-        nation_names.push_str(&"NOT UPLOADED\n");
+    for &(ref player, nation_id) in &not_uploaded_players {
+        let &(nation_name, era) = Nations::get_nation_desc(nation_id);
+        nation_names.push_str(&format!("{} {}\n", era, nation_name));
         player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
-        submitted_status.push_str(&".\n");
+        submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
     }
 
     info!("Server details string created, now sending.");
@@ -158,8 +159,9 @@ fn started_from_lobby_details<C: ServerConnection>(
 
     info!("getting owner name");
     let embed_title = format!(
-        "{}: turn {}, {}h {}m remaining",
+        "{} ({}): turn {}, {}h {}m remaining",
         game_data.game_name,
+        started_state.address,
         game_data.turn,
         hours_remaining,
         mins_remaining
@@ -240,8 +242,9 @@ fn started_details<C: ServerConnection>(
     let mins_remaining = total_mins_remaining - hours_remaining * 60;
 
     let embed_title = format!(
-        "{}: turn {}, {}h {}m remaining",
+        "{} ({}): turn {}, {}h {}m remaining",
         game_data.game_name,
+        started_state.address,
         game_data.turn,
         hours_remaining,
         mins_remaining

@@ -1,8 +1,9 @@
-FROM rustlang/rust:nightly
-
+FROM rustlang/rust:nightly as dev
 WORKDIR /usr/src/myapp
 COPY . .
+RUN cargo build --release
 
-RUN cargo install
-
-CMD ["dom5status"]
+FROM alpine:latest
+WORKDIR /usr/src/myapp
+COPY --from=dev /usr/src/myapp/target/release/dom5status .
+CMD ["./dom5status"]

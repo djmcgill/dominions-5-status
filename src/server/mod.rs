@@ -1,5 +1,5 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use cached::TimedCache;
+use cached::{Cached, TimedCache};
 use hex_slice::AsHex;
 use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
@@ -12,13 +12,17 @@ pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
 }
 
-
 cached_key_result! {
     ONE_MIN_GAME_DATA: TimedCache<String, GameData> = TimedCache::with_lifespan(59);
     Key = { server_address.to_owned() };
     fn get_game_data_fn(server_address: &str) -> io::Result<GameData> = {
         get_game_data_cache(server_address)
     }
+}
+
+pub fn cache_get(k: &String) -> Option<GameData> { // FIXME possible timing issues
+    let mut cache = ONE_MIN_GAME_DATA.lock().unwrap();
+    cache.cache_get(k).map(|x| x.clone())
 }
 
 fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {

@@ -9,7 +9,7 @@ To run:
 * Then run with "cargo run --release". You need to install Rust to do this: https://www.rust-lang.org/en-US/ .
 * The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
-Commands (server alias is optional, defaults to channel name): 
+Commands (server alias is optional, defaults to channel name):
 * !add \<address:port\> \[\<alias\>\]: save the dom5 server address
 * !list: return a list of the saved server addresses and aliases
 * !delete \[\<alias\>\]: remove the server address from the list
@@ -27,26 +27,24 @@ Commands (server alias is optional, defaults to channel name):
 
 TODO:
 * more unit tests
-* add more detail to turn notifications (who went AI, who maybe stalled)
-* turn submitted colour coded?
 * permissions for commands
 * more embed responses
-* modded nations for each game and/or show nation number (and sign up for it?)
-* show registered nation during upload
+* modded nations
 * NAP helper
 * db queries contain named arguments
-* check invalid data???
+* check invalid data??? compressed
     ```
     14:02:55 [DEBUG] dom5status::server: game name: ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^
     ```
 * BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
 * record last seen player state in the db, so can work out stalls and new AI/defeats
 * BUG: can't create two lobbies with the same ownerS
+* would be interesting if the bot saved the match information after the game is over showing what turn people lost at and who won
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
 * edit pinned post instead of new
-* channel alerts of new turns, who went AI, who stalled
+* register channel for notifications
 * have docker volume/cache the crate registry (speed up builds)
 * bot create game channels
 
