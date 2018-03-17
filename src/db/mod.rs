@@ -35,7 +35,7 @@ lazy_static! {
         }),
     ];
 }
-
+fn trace(s: &str) { println!("TRACE {}", s);}
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
@@ -98,13 +98,15 @@ impl DbConnection {
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         info!("db::insert_game_server: {:?}", game_server);
         let conn = &mut *self.0.clone().get()?;
+        conn.trace(Some(trace));
+
         match game_server.state {
             GameServerState::Lobby(ref lobby_state) => {
                 let tx = conn.transaction()?;
 
                 tx.execute(
-                    include_str!("sql/insert_game_server_lobby_state.sql"),
-                    &[&(lobby_state.owner.0 as i64)],
+                    include_str!("sql/insert_player.sql"),
+                    &[&(lobby_state.owner.0 as i64), &true],
                 )?;
 
                 tx.execute(
@@ -144,8 +146,8 @@ impl DbConnection {
             GameServerState::StartedState(ref started_state, Some(ref lobby_state)) => {
                 let tx = conn.transaction()?;
                 tx.execute(
-                    include_str!("sql/insert_game_server_lobby_state.sql"),
-                    &[&(lobby_state.owner.0 as i64)],
+                    include_str!("sql/insert_player.sql"),
+                    &[&(lobby_state.owner.0 as i64), &true],
                 )?;
 
                 tx.execute(

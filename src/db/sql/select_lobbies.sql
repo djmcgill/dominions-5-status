@@ -3,4 +3,4 @@ FROM game_servers g
 JOIN lobbies l ON l.id = g.lobby_id
 LEFT JOIN server_players sp on sp.server_id = g.id
 WHERE g.started_server_id IS NULL
-GROUP BY sp.server_id
+GROUP BY g.id

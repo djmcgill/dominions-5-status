@@ -41,6 +41,7 @@ TODO:
     ```
 * BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
 * record last seen player state in the db, so can work out stalls and new AI/defeats
+* BUG: can't create two lobbies with the same ownerS
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
