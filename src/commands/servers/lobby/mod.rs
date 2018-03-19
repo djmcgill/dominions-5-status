@@ -8,19 +8,15 @@ use model::enums::Era;
 use db::*;
 use super::alias_from_arg_or_channel_name;
 
-
-#[cfg(test)]
-mod tests;
-
 fn lobby_helper(
     db_conn: &DbConnection,
     era: Era,
     player_count: i32,
-    alias: &str,
+    alias: &String,
     author_id: UserId,
 ) -> Result<(), CommandError> {
     db_conn.insert_game_server(&GameServer {
-        alias: alias.to_owned(),
+        alias: alias.clone(),
         state: GameServerState::Lobby(LobbyState {
             era,
             owner: author_id,

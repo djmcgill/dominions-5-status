@@ -1,4 +1,3 @@
-#![allow(dead_code)]
 // hyssop snek.earth:30097
 
 use std::{env, fs};
