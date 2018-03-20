@@ -39,6 +39,7 @@ TODO:
 * BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
 * record last seen player state in the db, so can work out stalls and new AI/defeats
 * BUG: can't create two lobbies with the same ownerS
+* would be interesting if the bot saved the match information after the game is over showing what turn people lost at and who won
 
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
