@@ -71,7 +71,7 @@ fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
 }
 
 fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
-    info!("starting");
+    info!("starting to connect to {}", server_address);
     let mut stream = net::TcpStream::connect(server_address)?;
     info!("connected");
     let mut wtr = vec![];

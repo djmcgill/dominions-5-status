@@ -58,7 +58,7 @@ fn check_server_for_new_turn_helper<C: ServerConnection>(
     if let GameServerState::StartedState(ref started_state, _) = server.state {
         info!("checking {} for new turn", server.alias);
         let option_old_data: Option<GameData> = cache_get(&server.alias);
-        let new_data = C::get_game_data(&server.alias)?;
+        let new_data = C::get_game_data(&started_state.address)?;
         let new_turn = started_state.last_seen_turn != new_data.turn;
         if new_turn {
             let new_turn_no = new_data.turn;
