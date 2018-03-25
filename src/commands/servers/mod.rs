@@ -31,9 +31,6 @@ use self::notifications::*;
 mod turn_check;
 pub use self::turn_check::*;
 
-mod nap;
-pub use self::nap::*;
-
 mod lobbies;
 pub use self::lobbies::*;
 
@@ -80,12 +77,6 @@ pub trait WithServersCommands: Sized {
             })
             .command("start", |c| {
                 c.bucket(bucket).exec(|cx, m, a| start::<C>(cx, m, a))
-            })
-            .command("nap", |c| {
-                c.bucket(bucket).exec(|cx, m, a| nap(cx, m, a))
-            })
-            .command("naps", |c| {
-                c.bucket(bucket).exec(|cx, m, _| naps(cx, m))
             })
             .command("lobbies", |c| {
                 c.bucket(bucket).exec(|cx, m, _| lobbies(cx, m))

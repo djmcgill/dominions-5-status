@@ -6,5 +6,3 @@ mod submission_status;
 pub use self::submission_status::*;
 mod era;
 pub use self::era::*;
-mod nap_type;
-pub use self::nap_type::*;

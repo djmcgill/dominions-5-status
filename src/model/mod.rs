@@ -14,6 +14,3 @@ pub use self::player::*;
 
 mod game_server;
 pub use self::game_server::*;
-
-mod nap;
-pub use self::nap::*;

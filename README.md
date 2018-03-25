@@ -30,17 +30,15 @@ TODO:
 * permissions for commands
 * more embed responses
 * modded nations
-* NAP helper
 * db queries contain named arguments
 * check invalid data??? compressed
     ```
     14:02:55 [DEBUG] dom5status::server: game name: ^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^@^
     ```
 * BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
-* record last seen player state in the db, so can work out stalls and new AI/defeats
 * BUG: can't create two lobbies with the same ownerS
 * would be interesting if the bot saved the match information after the game is over showing what turn people lost at and who won
-
+dom5pb3dom5pb3BOTsamog: @gonadic io: ERROR: Could not game alias from command argument or channel name ""
 MAYBE:
 * easier nation selection - acronyms, nicknames, etc
 * edit pinned post instead of new

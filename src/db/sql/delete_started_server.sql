@@ -1,3 +1,3 @@
 DELETE FROM started_servers
 WHERE id NOT IN
-    (select started_server_id from game_servers);
+    (SELECT started_server_id FROM game_servers WHERE started_server_id IS NOT NULL);

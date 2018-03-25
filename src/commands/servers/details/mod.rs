@@ -9,6 +9,7 @@ use serenity::builder::CreateEmbed;
 use model::{GameServerState, LobbyState, StartedState};
 use model::enums::{NationStatus, Nations, SubmissionStatus};
 use db::{DbConnection, DbConnectionKey};
+use std::collections::HashMap;
 
 #[cfg(test)]
 mod tests;
@@ -26,7 +27,11 @@ pub fn details_helper<C: ServerConnection>(
             started_details::<C>(db_conn, started_state, &alias)?
         }
         GameServerState::StartedState(started_state, Some(lobby_state)) => {
-            started_from_lobby_details::<C>(db_conn, started_state, lobby_state, &alias)?
+            if started_state.last_seen_turn == -1 {
+                uploading_from_lobby_details::<C>(db_conn, started_state, lobby_state, &alias)?
+            } else {
+                started_from_lobby_details::<C>(db_conn, started_state, lobby_state, &alias)?
+            }
         }
     };
     Ok(embed_response)
@@ -59,8 +64,6 @@ fn lobby_details(
     lobby_state: LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
-    debug!("OWNER {}", lobby_state.owner);
-    debug!("OWNER_GET {:?}", lobby_state.owner.get());
     let embed_title = format!("{} ({} Lobby)", alias, lobby_state.era);
     let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let registered_player_count = players_nations.len() as i32;
@@ -88,6 +91,73 @@ fn lobby_details(
         _ => e_temp,
     };
 
+    Ok(e)
+}
+
+fn uploading_from_lobby_details<C: ServerConnection>(
+    db_conn: &DbConnection,
+    started_state: StartedState,
+    lobby_state: LobbyState,
+    alias: &str,
+) -> Result<CreateEmbed, CommandError> {
+    let ref server_address = started_state.address;
+    let game_data = C::get_game_data(&server_address)?;
+
+    let players_uploaded_by_nation_id = {
+        let mut hash_map = HashMap::with_capacity(game_data.nations.len());
+        for nation in &game_data.nations {
+            let _ = hash_map.insert(nation.id, nation.clone());
+        }
+        hash_map
+    };
+
+    let id_player_registered_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+    let players_not_uploaded = id_player_registered_nations
+        .iter()
+        .filter(|&&(_, nation_id)|
+            !players_uploaded_by_nation_id.contains_key(&nation_id)
+        );
+
+    let mut nation_names = String::new();
+    let mut player_names = String::new();
+    let mut submitted_status = String::new();
+
+    for (&nation_id, _) in players_uploaded_by_nation_id.iter() {
+        let player_name = id_player_registered_nations.iter()
+            .find(|&&(_, found_nation_id)| nation_id == found_nation_id)
+            .map(|&(ref p, _)|
+                     format!("**{}**\n", p.discord_user_id.get().unwrap()))
+            .unwrap_or_else(|| format!("{}\n", NationStatus::Human.show()));
+        let &(nation_name, era) = Nations::get_nation_desc(nation_id);
+        nation_names.push_str(&format!("{} {}\n", era, nation_name));
+        player_names.push_str(&player_name);
+        submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
+    }
+
+    for &(ref player, nation_id) in players_not_uploaded {
+        let &(nation_name, era) = Nations::get_nation_desc(nation_id);
+        nation_names.push_str(&format!("{} {}\n", era, nation_name));
+        player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
+        submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
+    }
+
+    let embed_title = format!(
+        "{} ({}): Pretender uploading",
+        game_data.game_name,
+        started_state.address,
+    );
+
+    let owner = lobby_state.owner.get()?;
+    let e_temp = CreateEmbed::default()
+        .title(embed_title)
+        .field("Nation", nation_names, true)
+        .field("Player", player_names, true)
+        .field("Uploaded", submitted_status, true)
+        .field("Owner", format!("{}", owner), false);
+    let e = match lobby_state.description {
+        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
+        _ => e_temp,
+    };
     Ok(e)
 }
 
