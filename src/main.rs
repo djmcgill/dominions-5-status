@@ -109,12 +109,12 @@ fn create_discord_client() -> Result<Client, Error> {
     );
     info!("Configured discord client");
 
-    let data_clone = discord_client.data.clone();
-    thread::spawn(move || {
-        commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(
-            data_clone.as_ref(),
-        );
-    });
+    // let data_clone = discord_client.data.clone();
+    // thread::spawn(move || {
+       // commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(
+       //     data_clone.as_ref(),
+      //  );
+    // });
     // start listening for events by starting a single shard
     Ok(discord_client)
 }
