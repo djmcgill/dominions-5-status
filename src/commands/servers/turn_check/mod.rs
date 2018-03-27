@@ -59,11 +59,11 @@ fn check_server_for_new_turn_helper<C: ServerConnection>(
         info!("checking {} for new turn", server.alias);
         let option_old_data: Option<GameData> = cache_get(&server.alias);
         let new_data = C::get_game_data(&started_state.address)?;
-        let new_turn = started_state.last_seen_turn != new_data.turn;
+        let new_turn = started_state.last_seen_turn < new_data.turn;
         if new_turn {
             let new_turn_no = new_data.turn;
-            // TODO: check ret value
-            let _ = db_conn.update_game_with_possibly_new_turn(&server.alias, new_turn_no)?;
+            let db_found_new_turn = db_conn.update_game_with_possibly_new_turn(&server.alias, new_turn_no)?;
+            if !db_found_new_turn { return Err(err_msg(format!("cache and db disagree game {}", server.alias))); }
             let players_nations = db_conn.players_with_nations_for_game_alias(&server.alias)?;
             if let Some(old_data) = option_old_data {
                 Ok(Some(
