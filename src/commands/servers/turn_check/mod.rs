@@ -1,13 +1,14 @@
 use typemap::ShareMap;
 
 use db::{DbConnection, DbConnectionKey};
-use model::{GameServer, GameServerState, Player};
+use model::{GameServer, GameServerState, Player, Nation};
 use model::enums::{NationStatus, SubmissionStatus, Nations};
 use std::{thread, time};
 use serenity::prelude::Mutex;
 use failure::{err_msg, Error};
 use server::ServerConnection;
 use std::error::Error as TraitError;
+use std::collections::HashMap;
 
 pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareMap>) {
     loop {
@@ -51,6 +52,10 @@ struct NewTurnResult {
     possible_stalls: Vec<usize>,
 }
 
+// For a given `GameServer`, if it's started then get game state, and compare it to
+// 1) previous cache call (if it exists)
+// 2) db last_seen_turn
+// if the turn number has increased, notify players with the new information (and the old if possible)
 fn check_server_for_new_turn_helper<C: ServerConnection>(
     server: &GameServer,
     db_conn: &DbConnection,
@@ -60,23 +65,19 @@ fn check_server_for_new_turn_helper<C: ServerConnection>(
         let option_old_data: Option<GameData> = cache_get(&server.alias);
         let new_data = C::get_game_data(&started_state.address)?;
         let new_turn = started_state.last_seen_turn < new_data.turn;
-        if new_turn {
-            let new_turn_no = new_data.turn;
-            let db_found_new_turn = db_conn.update_game_with_possibly_new_turn(&server.alias, new_turn_no)?;
-            if !db_found_new_turn { return Err(err_msg(format!("cache and db disagree game {}", server.alias))); }
-            let players_nations = db_conn.players_with_nations_for_game_alias(&server.alias)?;
-            if let Some(old_data) = option_old_data {
-                Ok(Some(
-                    new_turn_from_old(old_data, &players_nations, new_data)
-                ))
-            } else {
-                Ok(Some(
-                    new_turn_from(&players_nations, new_data)
-                ))
-            }
+        if !new_turn { return Ok(None) }
+        let new_turn_no = new_data.turn;
+        let db_found_new_turn = db_conn.update_game_with_possibly_new_turn(&server.alias, new_turn_no)?;
+        if !db_found_new_turn { return Err(err_msg(format!("cache and db disagree game {}", server.alias))); }
+        let players_nations = db_conn.players_with_nations_for_game_alias(&server.alias)?;
+        if let Some(old_data) = option_old_data {
+            Ok(Some(
+                new_turn_from_old(old_data, &players_nations, new_data)
+            ))
         } else {
-            Ok(None)
-
+            Ok(Some(
+                new_turn_from(&players_nations, new_data)
+            ))
         }
     } else {
         Ok(None)
@@ -105,29 +106,34 @@ fn new_turn_from_old(old: GameData, players_nations: &Vec<(Player, usize)>,  new
 
 fn new_turn_from(players_nations: &Vec<(Player, usize)>,  game_data: GameData) -> NewTurnResult {
     let mut ret = Vec::new();
+    let new_turn_number = game_data.turn;
+
+    let game_data_nations_by_id: HashMap<usize, Nation> = {
+        let mut hm = HashMap::new();
+        for nation in game_data.nations {
+            if (nation.status == NationStatus::Human
+                && nation.submitted == SubmissionStatus::NotSubmitted)
+                || nation.status == NationStatus::DefeatedThisTurn
+                {
+                    hm.insert(nation.id, nation);
+                }
+        }
+        hm
+    };
     for &(ref player, nation_id) in players_nations {
         if player.turn_notifications {
-            // TODO: quadratic is bad. At least sort it..
-            if let Some(nation) = game_data
-                .nations
-                .iter()
-                .find(|&nation| nation.id == nation_id)
+            if let Some(nation) = game_data_nations_by_id.get(&nation_id)
                 {
-                    if (nation.status == NationStatus::Human
-                        && nation.submitted == SubmissionStatus::NotSubmitted)
-                    || nation.status == NationStatus::DefeatedThisTurn
-                        {
-                            ret.push(NewTurnNation{
-                                player: player.clone(),
-                                nation_id: nation_id,
-                            });
-                        }
+                    ret.push(NewTurnNation{
+                        player: player.clone(),
+                        nation_id: nation_id,
+                    });
                 }
         }
     }
     NewTurnResult {
         nations_to_notify: ret,
-        new_turn_number: game_data.turn,
+        new_turn_number: new_turn_number,
         ai_this_turn: Vec::new(),
         defeated_this_turn: Vec::new(), // FIXME
         possible_stalls: Vec::new(),
