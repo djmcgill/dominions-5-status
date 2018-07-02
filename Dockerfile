@@ -2,7 +2,7 @@ FROM rustlang/rust:nightly as dev
 WORKDIR /usr/src/myapp
 COPY . .
 RUN rustup target add x86_64-unknown-linux-musl
-RUN apt-get update && apt-get install musl-tools
+RUN apt-get update && apt-get install -y musl-tools
 RUN PKG_CONFIG_ALLOW_CROSS=1 cargo build --release --target x86_64-unknown-linux-musl
 
 FROM alpine:latest
