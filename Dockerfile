@@ -1,5 +1,6 @@
 FROM rustlang/rust:nightly as dev
 WORKDIR /usr/src/myapp
+RUN rustup toolchain install nightly-2018-05-25 && rustup default nightly-2018-05-25
 COPY . .
 RUN cargo build
 RUN apt-get update && apt-get install libtcmalloc-minimal4 google-perftools
