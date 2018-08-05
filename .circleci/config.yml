@@ -12,6 +12,8 @@ jobs:
       - run: cargo build
       - run: cargo test
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
+      - run: docker build -t dom-5-status .
+
       - save_cache:
           key: cargo-cache-{{ checksum "Cargo.toml" }}
           paths:
@@ -36,9 +38,14 @@ workflows:
   build_and_deploy:
     jobs:
       - build
+      - deploy_approval:
+          type: approval
+          requires:
+           - build
       - deploy:
           requires:
             - build
+            - deploy_approval
           filters:
             branches:
               only: master
