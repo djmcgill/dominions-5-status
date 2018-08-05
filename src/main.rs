@@ -1,3 +1,6 @@
+#![feature(alloc_system)]
+extern crate alloc_system; // used with libtcmalloc
+
 extern crate byteorder;
 #[macro_use]
 extern crate cached;
