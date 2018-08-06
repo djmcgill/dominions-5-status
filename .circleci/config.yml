@@ -16,6 +16,7 @@ jobs:
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
       - run: docker build -t dom-5-status .
+      - run: docker push eu.gcr.io/dom-5-status
 
       # - save_cache:
       #     key: cargo-cache-{{ checksum "Cargo.toml" }}
@@ -26,7 +27,7 @@ jobs:
 
   deploy:
     docker:
-      - image: circleci/python # just something small that includes ssh
+      - image: google/cloud-sdk
     steps:
       - add_ssh_keys
       - run:
@@ -34,7 +35,13 @@ jobs:
           command: |
             ssh -o "StrictHostKeyChecking=no" \
                    "$SSH_ADDRESS" \
-                   "docker exec \"$CONTAINER_ID\" bash -ec 'git pull; cargo install --force'; docker restart \"$CONTAINER_ID\""
+                   "cat json.key | docker login -u _json_key --password-stdin https://eu.gcr.io; \
+                    docker pull eu.gcr.io/dom-5-status; \
+                    docker stop \$(docker ps -q); \
+                    docker run -it -d \
+                      --restart unless-stopped \
+                      --volume /home/ec2-user/dominions-5-status/resources:/usr/src/myapp/resources \
+                      dom-5-status"
 
 workflows:
   version: 2
