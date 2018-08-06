@@ -15,7 +15,7 @@ jobs:
       - setup_remote_docker
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
-      - run: docker build -t eu.gcr.io/dom-5-status .
+      - run: docker build -t eu.gcr.io/uk.co.djmcgill/dom-5-status/ .
 
       # - save_cache:
       #     key: cargo-cache-{{ checksum "Cargo.toml" }}
@@ -30,8 +30,8 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - run: docker build -t eu.gcr.io/dom-5-status .
-      - run: docker push eu.gcr.io/dom-5-status 
+      - run: docker build -t eu.gcr.io/uk.co.djmcgill/dom-5-status .
+      - run: docker push eu.gcr.io/uk.co.djmcgill/dom-5-status 
       
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       - add_ssh_keys
@@ -41,7 +41,7 @@ jobs:
             ssh -o "StrictHostKeyChecking=no" \
                    "$SSH_ADDRESS" \
                    "cat json.key | docker login -u _json_key --password-stdin https://eu.gcr.io; \
-                    docker pull eu.gcr.io/dom-5-status; \
+                    docker pull eu.gcr.io/uk.co.djmcgill/dom-5-status; \
                     docker stop \$(docker ps -q); \
                     docker run -it -d \
                       --restart unless-stopped \
