@@ -2,24 +2,26 @@ version: 2
 jobs:
   build:
     docker:
-      - image: rust:latest
+      - image: google/cloud-sdk
     steps:
       - checkout
-      - restore_cache:
-          keys:
-            - cargo-cache-{{ checksum "Cargo.toml" }}
-            - cargo-cache-
-      - run: cargo build
-      - run: cargo test
+      # - restore_cache:
+      #     keys:
+      #       - cargo-cache-{{ checksum "Cargo.toml" }}
+      #       - cargo-cache-
+      # - run: cargo build
+      # - run: cargo test
+      # EU_GCR_API_KEY_JSON
+      - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
       - run: docker build -t dom-5-status .
 
-      - save_cache:
-          key: cargo-cache-{{ checksum "Cargo.toml" }}
-          paths:
-            - "~/.cargo"
-            - "./target"
-            - "/usr/local/cargo"
+      # - save_cache:
+      #     key: cargo-cache-{{ checksum "Cargo.toml" }}
+      #     paths:
+      #       - "~/.cargo"
+      #       - "./target"
+      #       - "/usr/local/cargo"
 
   deploy:
     docker:
