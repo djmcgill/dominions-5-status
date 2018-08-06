@@ -4,4 +4,4 @@ RUN rustup toolchain install nightly-2018-05-25 && rustup default nightly-2018-0
 COPY . .
 RUN apt-get update && apt-get install -y libgoogle-perftools-dev
 RUN cargo build
-CMD ["sh", "-c", "LD_PRELOAD=/usr/lib/libtcmalloc.so HEAPPROFILE=/tmp/profile ./target/debug/dom5status"]
+CMD ["sh", "-c", "HEAPPROFILE=/tmp/profile ./target/debug/dom5status"]
