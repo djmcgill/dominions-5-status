@@ -15,7 +15,7 @@ jobs:
       - setup_remote_docker
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
-      - run: docker build -t dom-5-status .
+      - run: docker build -t eu.gcr.io/dom-5-status .
 
       # - save_cache:
       #     key: cargo-cache-{{ checksum "Cargo.toml" }}
@@ -30,7 +30,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
-      - run: docker build -t dom-5-status .
+      - run: docker build -t eu.gcr.io/dom-5-status .
       - run: docker push eu.gcr.io/dom-5-status 
       
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
