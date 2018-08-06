@@ -12,6 +12,7 @@ jobs:
       # - run: cargo build
       # - run: cargo test
       # EU_GCR_API_KEY_JSON
+      - setup_remote_docker
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
       - run: docker build -t dom-5-status .
