@@ -30,6 +30,7 @@ jobs:
     steps:
       - checkout
       - setup_remote_docker
+      - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       - run: docker build -t eu.gcr.io/dom-5-status/dom-5-status .
       - run: docker push eu.gcr.io/dom-5-status/dom-5-status 
       
