@@ -43,7 +43,10 @@ jobs:
                    "$SSH_ADDRESS" \
                    "cat json.key | docker login -u _json_key --password-stdin https://eu.gcr.io; \
                     docker pull eu.gcr.io/dom-5-status/dom-5-status; \
-                    docker stop \$(docker ps -q); \
+                    RUNNING_CONTAINERS=docker ps -q; \
+                    if [ ! -z $RUNNING_CONTAINERS ]; \
+                      then docker stop $RUNNING_CONTAINERS; \
+                    fi; \
                     docker run -it -d \
                       --restart unless-stopped \
                       --volume /home/ec2-user/dominions-5-status/resources:/usr/src/myapp/resources \
