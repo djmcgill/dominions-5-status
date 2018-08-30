@@ -10,6 +10,7 @@ pub fn help(message: &Message) -> Result<(), CommandError> {
         - !delete <alias>: remove the server address from the list\n\
         - !details <alias>: return a list of the nations and their statuses in the game\n\
         - !register nation_prefix <alias>: register yourself as a nation in a game\n\
+        - !register-id nation_id <alias>: register yourself as a nation in a game using the id\n\
         - !unregister <alias>: unregister yourself in a game\n\
         - !turns: show all of the games you're in and their turn status\n\
         - !notifications {true, false}: enable/disable turn notifications\n\

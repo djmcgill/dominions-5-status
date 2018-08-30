@@ -74,7 +74,7 @@ fn lobby_details(
     for (player, nation_id) in players_nations {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
         player_names.push_str(&format!("{}\n", player.discord_user_id.get()?));
-        nation_names.push_str(&format!("{} {}\n", era, nation_name));
+        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
     }
     for _ in 0..(lobby_state.player_count - registered_player_count) {
         player_names.push_str(&".\n");

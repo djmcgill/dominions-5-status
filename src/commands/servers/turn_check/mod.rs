@@ -150,9 +150,10 @@ fn check_server_for_new_turn<C: ServerConnection>(
             let player = new_turn_nation.player;
             let &(name, era) = Nations::get_nation_desc(nation_id);
             let mut text = format!(
-                "your nation {} {} has a new turn ({}) in {}",
+                "your nation {} {} ({}) has a new turn ({}) in {}",
                 era,
                 name,
+                nation_id,
                 new_turn_result.new_turn_number,
                 server.alias
             );
@@ -190,12 +191,12 @@ fn nation_ids_to_comma_name_list(ids: &[usize]) -> String {
     } else {
         let mut text = {
             let &(name, era) = Nations::get_nation_desc(ids[0]);
-            format!("{} {}", era, name)
+            format!("{} {} ({})", era, name, ids[0])
         };
 
         for &nation_id in &ids[1..] {
             let &(name, era) = Nations::get_nation_desc(nation_id);
-            text.push_str(&format!(", {} {}", era, name));
+            text.push_str(&format!(", {} {} ({})", era, name, nation_id));
         }
         text
     }
