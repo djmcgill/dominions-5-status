@@ -145,9 +145,10 @@ fn register_player_helper<C: ServerConnection>(
                 .insert_server_player(&server.alias, &user_id, nation.id)
                 .map_err(CommandError::from)?;
             message.reply(&format!(
-                "registering {} {} for {}",
+                "registering {} {} ({}) for {}",
                 nation.era,
                 nation.name,
+                nation.id,
                 user_id.get()?
             ))?;
             Ok(())
@@ -173,8 +174,9 @@ fn register_player_helper<C: ServerConnection>(
                 .insert_server_player(&server.alias, &user_id, nation.id as u32)
                 .map_err(CommandError::from)?;
             let text = format!(
-                "registering nation {} for user {}",
+                "registering nation {} ({}) for user {}",
                 nation.name,
+                nation.id,
                 message.author
             );
             let _ = message.reply(&text);
