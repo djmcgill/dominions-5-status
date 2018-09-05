@@ -1,10 +1,10 @@
-#![feature(global_allocator)]
-extern crate tcmalloc;
-
-use tcmalloc::TCMalloc;
-
-#[global_allocator]
-static GLOBAL: TCMalloc = TCMalloc;
+//#![feature(global_allocator)]
+//extern crate tcmalloc;
+//
+//use tcmalloc::TCMalloc;
+//
+//#[global_allocator]
+//static GLOBAL: TCMalloc = TCMalloc;
 
 
 extern crate byteorder;

@@ -15,6 +15,7 @@ Commands (server alias is optional, defaults to channel name):
 * !delete \[\<alias\>\]: remove the server address from the list
 * !details \[\<alias\>\]: return a list of the nations and their statuses in the game
 * !register nation_prefix \[\<alias\>\]: register yourself as a nation in a game
+* !register-id nation_id \[<alias\>\]: register yourself as a nation in a game using the id
 * !unregister \[\<alias\>\]: unregister yourself in a game
 * !turns: show all of the games you're in and their turn status
 * !notifications \{true, false\}: enable/disable turn notifications

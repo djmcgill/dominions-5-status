@@ -9,8 +9,35 @@ impl Nations {
             &("unknown nation", Era::Early) // FIXME
         })
     }
+
+    pub fn from_id(id: u32) -> Option<Nation> {
+        NATIONS_BY_ID.get(&id).map ({ |&(name, era)|
+            Nation { id, name: name.to_owned(), era }
+        })
+    }
+
+    pub fn from_name_prefix(name_prefix: &str, era_filter: Option<Era>) -> Vec<Nation> {
+        NATIONS_BY_ID
+            .iter()
+            .filter(|&(&_id, &(name, era))| {
+                let era_correct = match era_filter {
+                    Some(some_era_filter) => some_era_filter == era,
+                    None => true,
+                };
+                era_correct && (name.to_owned().to_lowercase()).starts_with(name_prefix)
+            }).map ({ |(&id, &(name, era))|
+                Nation { id, name: name.to_owned(), era }
+            })
+            .collect::<Vec<_>>()
+    }
 }
 
+#[derive(Clone)]
+pub struct Nation {
+    pub id: u32,
+    pub name: String, // Can be 'static str with refactoring
+    pub era: Era,
+}
 type NationEnum = (&'static str, Era);
 
 // TODO: actually make an enum

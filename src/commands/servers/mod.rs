@@ -61,6 +61,10 @@ pub trait WithServersCommands: Sized {
                 c.bucket(bucket)
                     .exec(|cx, m, a| register_player::<C>(cx, m, a))
             })
+            .command("register-id", |c| {
+                c.bucket(bucket)
+                    .exec(|cx, m, a| register_player_id::<C>(cx, m, a))
+            })
             .command("unregister", |c| {
                 c.bucket(bucket)
                     .exec(|cx, m, a| unregister_player(cx, m, a))

@@ -98,7 +98,6 @@ impl DbConnection {
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
         info!("db::insert_game_server: {:?}", game_server);
         let conn = &mut *self.0.clone().get()?;
-        conn.trace(Some(trace));
 
         match game_server.state {
             GameServerState::Lobby(ref lobby_state) => {
@@ -292,7 +291,6 @@ impl DbConnection {
 
         info!("db::update_game_with_possibly_new_turn");
         let conn = &mut *self.0.clone().get()?;
-        conn.trace(Some(trace_fn));
         let rows = conn.execute(
             include_str!("sql/update_game_with_turn.sql"),
             &[&current_turn, &game_alias],

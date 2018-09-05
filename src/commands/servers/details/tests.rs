@@ -4,7 +4,6 @@ use std::io;
 use model::*;
 use model::enums::*;
 use serenity::model::*;
-use serenity::model::id::UserId;
 
 #[test]
 fn should_return_error_on_no_connection() {

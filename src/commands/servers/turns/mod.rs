@@ -30,12 +30,13 @@ fn turns_helper<C: ServerConnection>(
                         let human_count = human_nations(&game_data.nations);
                         let submitted_count = submitted_nations(&game_data.nations);
                         let turn_str = format!(
-                            "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
+                            "{} turn {} ({}h {}m): {} ({}) (submitted: {}, {}/{})\n",
                             server.alias,
                             game_data.turn,
                             hours_remaining,
                             mins_remaining,
                             nation.name,
+                            nation_id,
                             nation.submitted.show(),
                             submitted_count,
                             human_count,

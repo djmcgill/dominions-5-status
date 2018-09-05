@@ -74,7 +74,7 @@ fn lobby_details(
     for (player, nation_id) in players_nations {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
         player_names.push_str(&format!("{}\n", player.discord_user_id.get()?));
-        nation_names.push_str(&format!("{} {}\n", era, nation_name));
+        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
     }
     for _ in 0..(lobby_state.player_count - registered_player_count) {
         player_names.push_str(&".\n");
@@ -129,7 +129,7 @@ fn uploading_from_lobby_details<C: ServerConnection>(
                      format!("**{}**\n", p.discord_user_id.get().unwrap()))
             .unwrap_or_else(|| format!("{}\n", NationStatus::Human.show()));
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        nation_names.push_str(&format!("{} {}\n", era, nation_name));
+        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
         player_names.push_str(&player_name);
         submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
     }
@@ -181,7 +181,7 @@ fn started_from_lobby_details<C: ServerConnection>(
 
     for nation in &game_data.nations {
         debug!("Creating format for nation {} {}", nation.era, nation.name);
-        nation_names.push_str(&format!("{} {}\n", nation.era, nation.name));
+        nation_names.push_str(&format!("{} {} ({})\n", nation.era, nation.name, nation.id));
 
         let nation_string = if let NationStatus::Human = nation.status {
             if let Some(&(ref player, _)) = id_player_nations
@@ -217,7 +217,7 @@ fn started_from_lobby_details<C: ServerConnection>(
 
     for &(ref player, nation_id) in &not_uploaded_players {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        nation_names.push_str(&format!("{} {}\n", era, nation_name));
+        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
         player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
         submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
     }
@@ -278,7 +278,7 @@ fn started_details<C: ServerConnection>(
 
     for nation in &game_data.nations {
         debug!("Creating format for nation {} {}", nation.era, nation.name);
-        nation_names.push_str(&format!("{} {}\n", nation.era, nation.name));
+        nation_names.push_str(&format!("{} {} ({})\n", nation.era, nation.name, nation.id));
 
         let nation_string = if let NationStatus::Human = nation.status {
             if let Some(&(ref player, _)) = id_player_nations
