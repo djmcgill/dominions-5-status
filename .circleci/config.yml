@@ -44,7 +44,10 @@ jobs:
                    "cat json.key | docker login -u _json_key --password-stdin https://eu.gcr.io; \
                     docker pull eu.gcr.io/dom-5-status/dom-5-status; \
                     RUNNING_CONTAINERS=docker ps -q; \
-                    if [ ! -z $RUNNING_CONTAINERS ]; then docker stop $RUNNING_CONTAINERS; fi; \
+                    if [ ! -z $RUNNING_CONTAINERS ]; then \
+                      echo "Stopping: $RUNNING_CONTAINERS" \
+                      docker stop $RUNNING_CONTAINERS \
+                    fi; \
                     docker run -it -d \
                       --restart unless-stopped \
                       --volume /app/resources:/usr/src/myapp/resources  \

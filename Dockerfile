@@ -1,7 +1,7 @@
 FROM rustlang/rust:nightly as dev
 WORKDIR /usr/src/myapp
 COPY . .
-RUN cargo build --release
+RUN cargo build --release --target x86_64-unknown-linux-gnu
 #RUN cargo build
 
 FROM alpine:latest
