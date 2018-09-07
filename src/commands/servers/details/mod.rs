@@ -73,14 +73,14 @@ fn lobby_details(
 
     for (player, nation_id) in players_nations {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        player_names.push_str(&format!("{}\n", player.discord_user_id.get()?));
+        player_names.push_str(&format!("{} \n", player.discord_user_id.to_user()?));
         nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
     }
     for _ in 0..(lobby_state.player_count - registered_player_count) {
         player_names.push_str(&".\n");
         nation_names.push_str(&"OPEN\n");
     }
-    let owner = lobby_state.owner.get()?;
+    let owner = lobby_state.owner.to_user()?;
     let e_temp = CreateEmbed::default()
         .title(embed_title)
         .field("Nation", nation_names, true)
@@ -126,7 +126,7 @@ fn uploading_from_lobby_details<C: ServerConnection>(
         let player_name = id_player_registered_nations.iter()
             .find(|&&(_, found_nation_id)| nation_id == found_nation_id)
             .map(|&(ref p, _)|
-                     format!("**{}**\n", p.discord_user_id.get().unwrap()))
+                     format!("**{}**\n", p.discord_user_id.to_user().unwrap()))
             .unwrap_or_else(|| format!("{}\n", NationStatus::Human.show()));
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
         nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
@@ -137,7 +137,7 @@ fn uploading_from_lobby_details<C: ServerConnection>(
     for &(ref player, nation_id) in players_not_uploaded {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
         nation_names.push_str(&format!("{} {}\n", era, nation_name));
-        player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
+        player_names.push_str(&format!("**{}**\n", player.discord_user_id.to_user()?));
         submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
     }
 
@@ -147,7 +147,7 @@ fn uploading_from_lobby_details<C: ServerConnection>(
         started_state.address,
     );
 
-    let owner = lobby_state.owner.get()?;
+    let owner = lobby_state.owner.to_user()?;
     let e_temp = CreateEmbed::default()
         .title(embed_title)
         .field("Nation", nation_names, true)
@@ -188,7 +188,7 @@ fn started_from_lobby_details<C: ServerConnection>(
                 .iter()
                 .find(|&&(_, nation_id)| nation_id == nation.id)
             {
-                format!("**{}**", player.discord_user_id.get()?)
+                format!("**{}**", player.discord_user_id.to_user()?)
             } else {
                 nation.status.show().to_string()
             }
@@ -218,7 +218,7 @@ fn started_from_lobby_details<C: ServerConnection>(
     for &(ref player, nation_id) in &not_uploaded_players {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
         nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
-        player_names.push_str(&format!("**{}**\n", player.discord_user_id.get()?));
+        player_names.push_str(&format!("**{}**\n", player.discord_user_id.to_user()?));
         submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
     }
 
@@ -245,7 +245,7 @@ fn started_from_lobby_details<C: ServerConnection>(
         submitted_status
     );
 
-    let owner = lobby_state.owner.get()?;
+    let owner = lobby_state.owner.to_user()?;
     let e_temp = CreateEmbed::default()
         .title(embed_title)
         .field("Nation", nation_names, true)
@@ -285,7 +285,7 @@ fn started_details<C: ServerConnection>(
                 .iter()
                 .find(|&&(_, nation_id)| nation_id == nation.id)
             {
-                format!("**{}**", player.discord_user_id.get()?)
+                format!("**{}**", player.discord_user_id.to_user()?)
             } else {
                 nation.status.show().to_string()
             }

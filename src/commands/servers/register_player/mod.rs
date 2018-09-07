@@ -149,7 +149,7 @@ fn register_player_helper<C: ServerConnection>(
                 nation.era,
                 nation.name,
                 nation.id,
-                user_id.get()?
+                user_id.to_user()?
             ))?;
             Ok(())
         }
