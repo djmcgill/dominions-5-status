@@ -28,6 +28,7 @@ extern crate simplelog;
 extern crate typemap;
 extern crate url;
 extern crate migrant_lib;
+extern crate either;
 
 #[cfg_attr(test, macro_use)]
 mod db;

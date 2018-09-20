@@ -122,18 +122,17 @@ fn new_turn_from(players_nations: &Vec<(Player, usize)>,  game_data: GameData) -
     };
     for &(ref player, nation_id) in players_nations {
         if player.turn_notifications {
-            if let Some(nation) = game_data_nations_by_id.get(&nation_id)
-                {
+            if game_data_nations_by_id.get(&nation_id).is_some() {
                     ret.push(NewTurnNation{
                         player: player.clone(),
-                        nation_id: nation_id,
+                        nation_id,
                     });
                 }
         }
     }
     NewTurnResult {
         nations_to_notify: ret,
-        new_turn_number: new_turn_number,
+        new_turn_number,
         ai_this_turn: Vec::new(),
         defeated_this_turn: Vec::new(), // FIXME
         possible_stalls: Vec::new(),

@@ -9,15 +9,15 @@ use model::enums::*;
 use db::{DbConnection, DbConnectionKey};
 use model::Nation as StartedServerNation;
 use super::alias_from_arg_or_channel_name;
+use either::Either;
 
 fn get_nation_for_started_server(
-    option_arg_nation_name: Option<&str>, // should be an either
-    option_arg_nation_id: Option<u32>,
+    arg_nation: Either<&str, u32>,
     game_nations: &[StartedServerNation],
     pre_game: bool
 ) -> Result<Nation, CommandError> {
-    match (option_arg_nation_name, option_arg_nation_id) {
-        (Some(arg_nation_name), None) => {
+    match arg_nation {
+        Either::Left(arg_nation_name) => {
             // TODO: allow for players with registered nation but not ingame (not yet uploaded)
             let nations = game_nations
                 .iter()
@@ -51,7 +51,7 @@ fn get_nation_for_started_server(
             };
             Ok(nations[0].clone())
         }
-        (None, Some(arg_nation_id)) => {
+        Either::Right(arg_nation_id) => {
             game_nations
                 .iter()
                 .find(|&nation| // TODO: more efficient algo
@@ -68,17 +68,15 @@ fn get_nation_for_started_server(
                 })
                 .ok_or(CommandError::from(format!("Could not find a nation with id {}", arg_nation_id)))
         }
-        _ => Err(CommandError::from("Internal server error: get_nation_for_lobby malformed args")),
     }
 }
 
 fn get_nation_for_lobby(
-    option_arg_nation_name: Option<&str>, // should be an either
-    option_arg_nation_id: Option<u32>,
+    arg_nation: Either<&str, u32>,
     era: Era,
 ) -> Result<Nation, CommandError> {
-    match (option_arg_nation_name, option_arg_nation_id) {
-        (Some(arg_nation_name), None) => {
+    match arg_nation {
+        Either::Left(arg_nation_name) => {
             let nations = Nations::from_name_prefix(arg_nation_name, Some(era));
             let nations_len = nations.len();
             if nations_len > 1 {
@@ -92,23 +90,24 @@ fn get_nation_for_lobby(
             };
             Ok(nations[0].clone())
         },
-        (None, Some(arg_nation_id)) => {
-            Nations::from_id(arg_nation_id)
+        Either::Right(arg_nation_id) => {
+            Ok(Nations::from_id(arg_nation_id)
                 .filter(|ref nation| nation.era == era)
-                .ok_or(CommandError::from(
-                    format!("Could not find nation with id: {} and era: {}",
-                        arg_nation_id, era
-                    )
-                ))
+                .unwrap_or(
+                    Nation {
+                        id: arg_nation_id,
+                        name: "Unknown Nation".to_string(),
+                        era,
+                    }
+                )
+            )
         },
-        _ => Err(CommandError::from("Internal server error: get_nation_for_lobby malformed args")),
     }
 }
 
 fn register_player_helper<C: ServerConnection>(
     user_id: UserId,
-    arg_nation_name: Option<&str>,
-    arg_nation_id: Option<u32>,
+    arg_nation: Either<&str, u32>,
     alias: &str,
     db_conn: &DbConnection,
     message: &Message,
@@ -122,7 +121,7 @@ fn register_player_helper<C: ServerConnection>(
                 return Err(CommandError::from("lobby already full"));
             };
 
-            let nation = get_nation_for_lobby(arg_nation_name, arg_nation_id, lobby_state.era)?;
+            let nation = get_nation_for_lobby(arg_nation, lobby_state.era)?;
 
            if players_nations
                 .iter()
@@ -157,8 +156,7 @@ fn register_player_helper<C: ServerConnection>(
             let data = C::get_game_data(&started_state.address)?;
 
             let nation = get_nation_for_started_server(
-                arg_nation_name,
-                arg_nation_id,
+                arg_nation,
                 &data.nations[..],
                 data.turn == -1,
             )?;
@@ -198,8 +196,7 @@ pub fn register_player_id<C: ServerConnection>(
 
     register_player_helper::<C>(
         message.author.id,
-        None,
-        Some(arg_nation_id),
+        Either::Right(arg_nation_id),
         &alias,
         db_conn,
         message,
@@ -226,8 +223,7 @@ pub fn register_player<C: ServerConnection>(
 
     register_player_helper::<C>(
         message.author.id,
-        Some(&arg_nation_name),
-        None,
+        Either::Left(&arg_nation_name),
         &alias,
         db_conn,
         message,

@@ -35,7 +35,6 @@ lazy_static! {
         }),
     ];
 }
-fn trace(s: &str) { println!("TRACE {}", s);}
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
@@ -285,10 +284,6 @@ impl DbConnection {
         game_alias: &str,
         current_turn: i32,
     ) -> Result<bool, Error> {
-        fn trace_fn(s: &str) {
-            info!("TRACE: {}", s);
-        }
-
         info!("db::update_game_with_possibly_new_turn");
         let conn = &mut *self.0.clone().get()?;
         let rows = conn.execute(
