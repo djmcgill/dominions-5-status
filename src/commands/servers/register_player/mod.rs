@@ -51,22 +51,38 @@ fn get_nation_for_started_server(
             };
             Ok(nations[0].clone())
         }
-        Either::Right(arg_nation_id) => {
-            game_nations
-                .iter()
-                .find(|&nation| // TODO: more efficient algo
-                    nation.id as u32 == arg_nation_id)
-                .map ( |game_nation| {
-                    let game_nation_era =
-                    // if we can't parse the db era things are messed up
-                        Era::from_string(&game_nation.era).unwrap();
-                    Nation {
-                        id: game_nation.id as u32,
-                        name: game_nation.name.to_owned(),
-                        era: game_nation_era,
-                    }
-                })
-                .ok_or(CommandError::from(format!("Could not find a nation with id {}", arg_nation_id)))
+        Either::Right(arg_nation_id) =>
+            if pre_game {
+                let era: Era = if game_nations.is_empty() {
+                    None
+                } else {
+                    Era::from_string(&game_nations[0].era)
+                }.unwrap_or(Era::Early);
+                Ok(Nations::from_id(arg_nation_id)
+                    .unwrap_or(
+                        Nation {
+                            id: arg_nation_id,
+                            name: "Unknown Nation".to_string(),
+                            era,
+                        }
+                    )
+                )
+            } else {
+                game_nations
+                    .iter()
+                    .find(|&nation| // TODO: more efficient algo
+                        nation.id as u32 == arg_nation_id)
+                    .map ( |game_nation| {
+                        let game_nation_era =
+                        // if we can't parse the db era things are messed up
+                            Era::from_string(&game_nation.era).unwrap();
+                        Nation {
+                            id: game_nation.id as u32,
+                            name: game_nation.name.to_owned(),
+                            era: game_nation_era,
+                        }
+                    })
+                    .ok_or(CommandError::from(format!("Could not find a nation with id {}", arg_nation_id)))
         }
     }
 }
