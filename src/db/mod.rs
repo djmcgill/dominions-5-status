@@ -210,7 +210,7 @@ impl DbConnection {
             let maybe_era: Option<i32> = row.get(4);
             let maybe_player_count: Option<i32> = row.get(5);
             let description: Option<String> = row.get(6);
-            let server = make_game_server(
+            make_game_server(
                 alias,
                 maybe_address,
                 maybe_last_seen_turn,
