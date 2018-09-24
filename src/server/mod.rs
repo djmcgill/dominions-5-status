@@ -22,7 +22,7 @@ cached_key_result! {
 
 pub fn cache_get(k: &String) -> Option<GameData> { // FIXME possible timing issues
     let mut cache = ONE_MIN_GAME_DATA.lock().unwrap();
-    cache.cache_get(k).map(|x| x.clone())
+    cache.cache_get(k).cloned()
 }
 
 fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
@@ -81,7 +81,7 @@ fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
     wtr.write_u8(3)?;
 
     info!("Sending {:x}", wtr.as_slice().as_hex());
-    let _ = stream.write(&mut wtr)?;
+    let _ = stream.write(&wtr)?;
     info!("sent");
     let mut buffer = [0; 2048];
     info!("trying to receive");
@@ -93,7 +93,7 @@ fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
     wtr2.write_u32::<LittleEndian>(1)?;
     wtr2.write_u8(11)?;
     info!("Sending {:x}", wtr2.as_slice().as_hex());
-    let _ = stream.write(&mut wtr2)?;
+    let _ = stream.write(&wtr2)?;
     info!("sent");
 
     Ok(buffer.to_vec())
@@ -118,7 +118,7 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
 
     let mut cursor = Cursor::new(data);
     let mut a = [0u8; 6];
-    cursor.read(&mut a)?;
+    cursor.read_exact(&mut a)?;
     debug!(
         "cursor position: {}, cursor len: {}",
         cursor.position(),
@@ -127,7 +127,7 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     debug!("parsing name");
     // TODO: properly read until null terminator instead of this hack
     let mut game_name_buff = vec![0u8; game_name_len];
-    let _ = cursor.read_exact(&mut game_name_buff)?;
+    cursor.read_exact(&mut game_name_buff)?;
     let game_name = String::from_utf8_lossy(&game_name_buff[0..game_name_len - 1]).to_string();
     debug!("game name: {}", game_name);
     debug!(
@@ -143,7 +143,7 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
         cursor.get_ref().len()
     );
     let mut c = [0u8; 6];
-    cursor.read(&mut c)?;
+    cursor.read_exact(&mut c)?;
     debug!("reading timer");
     let d = cursor.read_i32::<LittleEndian>()?;
     debug!("timer value: {}", d);
@@ -188,15 +188,15 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     );
 
     Ok(RawGameData {
-        a: a,
-        game_name: game_name,
-        c: c,
-        d: d,
+        a,
+        game_name,
+        c,
+        d,
         // e: e,
-        f: f,
-        g: g,
-        h: h,
-        i: i,
-        j: j,
+        f,
+        g,
+        h,
+        i,
+        j,
     })
 }

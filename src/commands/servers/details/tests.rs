@@ -15,7 +15,7 @@ fn should_return_error_on_no_connection() {
 
 //#[test]
 //fn should_return_lobby_details() {
-//    let ref db_conn = DbConnection::test();
+//    let db_conn = &DbConnection::test();
 //    static TEST_ALIAS: &'static str = "foo";
 //
 //    lazy_static! {

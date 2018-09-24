@@ -69,7 +69,7 @@ pub fn turns<C: ServerConnection>(
     Ok(())
 }
 
-fn human_nations(nations: &Vec<Nation>) -> i32 {
+fn human_nations(nations: &[Nation]) -> i32 {
     nations.iter().fold(0, |t, i| {
         if i.status == NationStatus::Human {
             t + 1
@@ -79,7 +79,7 @@ fn human_nations(nations: &Vec<Nation>) -> i32 {
     })
 }
 
-fn submitted_nations(nations: &Vec<Nation>) -> i32 {
+fn submitted_nations(nations: &[Nation]) -> i32 {
     nations.iter().fold(0, |t, i| {
         if i.submitted == SubmissionStatus::Submitted && i.status == NationStatus::Human {
             t + 1

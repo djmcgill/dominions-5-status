@@ -11,8 +11,8 @@ use super::alias_from_arg_or_channel_name;
 
 fn start_helper<C: ServerConnection>(
     db_conn: &DbConnection,
-    address: &String,
-    alias: &String,
+    address: &str,
+    alias: &str,
 ) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
@@ -27,7 +27,7 @@ fn start_helper<C: ServerConnection>(
             }
 
             let started_state = StartedState {
-                address: address.clone(),
+                address: address.to_string(),
                 last_seen_turn: game_data.turn,
             };
 

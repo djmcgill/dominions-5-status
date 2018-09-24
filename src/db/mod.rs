@@ -82,7 +82,7 @@ impl DbConnection {
     pub fn insert_server_player(
         &self,
         server_alias: &str,
-        player_user_id: &UserId,
+        player_user_id: UserId,
         nation_id: u32,
     ) -> Result<(), Error> {
         info!("db::insert_server_player");
@@ -218,8 +218,7 @@ impl DbConnection {
                 maybe_era,
                 maybe_player_count,
                 description,
-            ).unwrap();
-            server
+            ).unwrap()
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
@@ -256,7 +255,7 @@ impl DbConnection {
             let maybe_era: Option<i32> = row.get(3);
             let maybe_player_count: Option<i32> = row.get(4);
             let description: Option<String> = row.get(5);
-            let server = make_game_server(
+            make_game_server(
                 game_alias.to_owned(),
                 maybe_address,
                 maybe_last_seen_turn,
@@ -264,8 +263,7 @@ impl DbConnection {
                 maybe_era,
                 maybe_player_count,
                 description,
-            ).unwrap();
-            server
+            ).unwrap()
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         if vec.len() == 1 {
@@ -456,22 +454,22 @@ fn make_game_server(
     ) {
         (Some(address), Some(last_seen_turn), None, None, None) => GameServerState::StartedState(
             StartedState {
-                address: address,
-                last_seen_turn: last_seen_turn,
+                address,
+                last_seen_turn,
             },
             None,
         ),
         (Some(address), Some(last_seen_turn), Some(owner), Some(era), Some(player_count)) => {
             GameServerState::StartedState(
                 StartedState {
-                    address: address,
-                    last_seen_turn: last_seen_turn,
+                    address,
+                    last_seen_turn,
                 },
                 Some(LobbyState {
                     owner: UserId(owner as u64),
                     era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
-                    player_count: player_count,
-                    description: description,
+                    player_count,
+                    description,
                 }),
             )
         }
@@ -479,16 +477,16 @@ fn make_game_server(
             GameServerState::Lobby(LobbyState {
                 owner: UserId(owner as u64),
                 era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
-                player_count: player_count,
-                description: description,
+                player_count,
+                description,
             })
         }
         _ => return Err(err_msg(format!("invalid db state for {}", alias))),
     };
 
     let server = GameServer {
-        alias: alias,
-        state: state,
+        alias,
+        state,
     };
     Ok(server)
 }

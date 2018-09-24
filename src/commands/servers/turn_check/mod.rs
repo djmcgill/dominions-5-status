@@ -72,7 +72,7 @@ fn check_server_for_new_turn_helper<C: ServerConnection>(
         let players_nations = db_conn.players_with_nations_for_game_alias(&server.alias)?;
         if let Some(old_data) = option_old_data {
             Ok(Some(
-                new_turn_from_old(old_data, &players_nations, new_data)
+                new_turn_from_old(&old_data, &players_nations, new_data)
             ))
         } else {
             Ok(Some(
@@ -84,7 +84,7 @@ fn check_server_for_new_turn_helper<C: ServerConnection>(
     }
 }
 
-fn new_turn_from_old(old: GameData, players_nations: &Vec<(Player, usize)>,  new: GameData) -> NewTurnResult {
+fn new_turn_from_old(old: &GameData, players_nations: &[(Player, usize)],  new: GameData) -> NewTurnResult {
     let old_ai_nation_ids = old.nations.iter().filter(|&n| n.status == NationStatus::AI).map(|ref n| n.id).collect::<Vec<usize>>();
     let mut new_ai_nation_ids = new.nations.iter().filter(|&n| n.status == NationStatus::AI).map(|ref n| n.id).collect::<Vec<usize>>();
     new_ai_nation_ids.retain(|ref n| old_ai_nation_ids.contains(n));
@@ -104,7 +104,7 @@ fn new_turn_from_old(old: GameData, players_nations: &Vec<(Player, usize)>,  new
     new_turn_nations
 }
 
-fn new_turn_from(players_nations: &Vec<(Player, usize)>,  game_data: GameData) -> NewTurnResult {
+fn new_turn_from(players_nations: &[(Player, usize)],  game_data: GameData) -> NewTurnResult {
     let mut ret = Vec::new();
     let new_turn_number = game_data.turn;
 
@@ -121,13 +121,12 @@ fn new_turn_from(players_nations: &Vec<(Player, usize)>,  game_data: GameData) -
         hm
     };
     for &(ref player, nation_id) in players_nations {
-        if player.turn_notifications {
-            if game_data_nations_by_id.get(&nation_id).is_some() {
-                    ret.push(NewTurnNation{
-                        player: player.clone(),
-                        nation_id,
-                    });
-                }
+        if player.turn_notifications && game_data_nations_by_id.get(&nation_id).is_some() {
+            ret.push(NewTurnNation{
+                player: player.clone(),
+                nation_id,
+            });
+
         }
     }
     NewTurnResult {

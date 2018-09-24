@@ -141,10 +141,9 @@ fn register_player_helper<C: ServerConnection>(
 
            if players_nations
                 .iter()
-                .find(|&&(_, player_nation_id)| {
+                .any(|&(_, player_nation_id)| {
                     player_nation_id == nation.id as usize
                 })
-                .is_some()
             {
                 return Err(CommandError::from(
                     format!("Nation {} already exists in lobby", nation.name),
@@ -157,7 +156,7 @@ fn register_player_helper<C: ServerConnection>(
             // TODO: transaction
             db_conn.insert_player(&player).map_err(CommandError::from)?;
             db_conn
-                .insert_server_player(&server.alias, &user_id, nation.id)
+                .insert_server_player(&server.alias, user_id, nation.id)
                 .map_err(CommandError::from)?;
             message.reply(&format!(
                 "registering {} {} ({}) for {}",
@@ -185,7 +184,7 @@ fn register_player_helper<C: ServerConnection>(
             db_conn.insert_player(&player).map_err(CommandError::from)?;
             info!("{} {} {}", server.alias, user_id, nation.id as u32);
             db_conn
-                .insert_server_player(&server.alias, &user_id, nation.id as u32)
+                .insert_server_player(&server.alias, user_id, nation.id as u32)
                 .map_err(CommandError::from)?;
             let text = format!(
                 "registering nation {} ({}) for user {}",

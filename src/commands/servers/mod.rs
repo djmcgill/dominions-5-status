@@ -99,7 +99,7 @@ impl WithServersCommands for StandardFramework {
 }
 
 fn alias_from_arg_or_channel_name(args: &mut Args, message: &Message) -> Result<String, String> {
-    let result_alias = if args.len() > 0 {
+    let result_alias = if !args.is_empty() {
         args.single_quoted::<String>().ok()
     } else {
         message.channel_id.name()
@@ -107,10 +107,10 @@ fn alias_from_arg_or_channel_name(args: &mut Args, message: &Message) -> Result<
     result_alias
         .clone()
         .map(|s| s.to_lowercase())
-        .map_or(None, |s| if !s.is_empty() {Some(s)} else {None})
+        .and_then(|s| if !s.is_empty() {Some(s)} else {None})
         .ok_or_else(||
             format!(
                 "Could not game alias from command argument or channel name \"{}\"",
-                result_alias.unwrap_or(String::new()))
+                result_alias.unwrap_or_default())
         )
 }

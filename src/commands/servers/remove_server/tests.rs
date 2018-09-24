@@ -7,7 +7,7 @@ use serenity::model::id::UserId;
 
 #[test]
 fn should_remove_started_server() {
-    let ref db_conn = DbConnection::test();
+    let db_conn = &DbConnection::test();
     let alias = "foo".to_owned();
     db_conn
         .insert_game_server(&GameServer {
@@ -39,7 +39,7 @@ fn should_remove_started_server() {
 
 #[test]
 fn should_remove_lobby() {
-    let ref db_conn = DbConnection::test();
+    let db_conn = &DbConnection::test();
     let alias = "foo".to_owned();
     db_conn
         .insert_game_server(&GameServer {
@@ -71,7 +71,7 @@ fn should_remove_lobby() {
 
 #[test]
 fn should_remove_started_server_with_lobby() {
-    let ref db_conn = DbConnection::test();
+    let db_conn = &DbConnection::test();
     let alias = "foo".to_owned();
     db_conn
         .insert_game_server(&GameServer {

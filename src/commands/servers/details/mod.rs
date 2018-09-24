@@ -22,15 +22,15 @@ pub fn details_helper<C: ServerConnection>(
     info!("got server details");
 
     let embed_response = match server.state {
-        GameServerState::Lobby(lobby_state) => lobby_details(db_conn, lobby_state, &alias)?,
+        GameServerState::Lobby(lobby_state) => lobby_details(db_conn, &lobby_state, &alias)?,
         GameServerState::StartedState(started_state, None) => {
-            started_details::<C>(db_conn, started_state, &alias)?
+            started_details::<C>(db_conn, &started_state, &alias)?
         }
         GameServerState::StartedState(started_state, Some(lobby_state)) => {
             if started_state.last_seen_turn == -1 {
-                uploading_from_lobby_details::<C>(db_conn, started_state, lobby_state, &alias)?
+                uploading_from_lobby_details::<C>(db_conn, &started_state, &lobby_state, &alias)?
             } else {
-                started_from_lobby_details::<C>(db_conn, started_state, lobby_state, &alias)?
+                started_from_lobby_details::<C>(db_conn, &started_state, &lobby_state, &alias)?
             }
         }
     };
@@ -61,7 +61,7 @@ pub fn details<C: ServerConnection>(
 
 fn lobby_details(
     db_conn: &DbConnection,
-    lobby_state: LobbyState,
+    lobby_state: &LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
     let embed_title = format!("{} ({} Lobby)", alias, lobby_state.era);
@@ -96,11 +96,11 @@ fn lobby_details(
 
 fn uploading_from_lobby_details<C: ServerConnection>(
     db_conn: &DbConnection,
-    started_state: StartedState,
-    lobby_state: LobbyState,
+    started_state: &StartedState,
+    lobby_state: &LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
-    let ref server_address = started_state.address;
+    let server_address = &started_state.address;
     let game_data = C::get_game_data(&server_address)?;
 
     let players_uploaded_by_nation_id = {
@@ -163,11 +163,11 @@ fn uploading_from_lobby_details<C: ServerConnection>(
 
 fn started_from_lobby_details<C: ServerConnection>(
     db_conn: &DbConnection,
-    started_state: StartedState,
-    lobby_state: LobbyState,
+    started_state: &StartedState,
+    lobby_state: &LobbyState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
-    let ref server_address = started_state.address;
+    let server_address = &started_state.address;
     let mut game_data = C::get_game_data(&server_address)?;
     game_data
         .nations
@@ -261,10 +261,10 @@ fn started_from_lobby_details<C: ServerConnection>(
 
 fn started_details<C: ServerConnection>(
     db_conn: &DbConnection,
-    started_state: StartedState,
+    started_state: &StartedState,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
-    let ref server_address = started_state.address;
+    let server_address = &started_state.address;
     let mut game_data = C::get_game_data(&server_address)?;
     game_data
         .nations
