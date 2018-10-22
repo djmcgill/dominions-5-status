@@ -21,7 +21,7 @@ pub fn details_helper<C: ServerConnection>(
     let server = db_conn.game_for_alias(&alias)?;
     info!("got server details");
 
-    let embed_response = match server.state {
+    let details: Details = match server.state {
         GameServerState::Lobby(lobby_state) => lobby_details(db_conn, &lobby_state, &alias)?,
         GameServerState::StartedState(started_state, None) => {
             started_details::<C>(db_conn, &started_state, &alias)?
@@ -34,6 +34,34 @@ pub fn details_helper<C: ServerConnection>(
             }
         }
     };
+
+    let mut nations = String::new();
+    let mut players = String::new();
+    let mut submitted = String::new();
+    for details_line in details.lines {
+        nations.push_str(&details_line.nation);
+        players.push_str(&details_line.player);
+        for submitted_line in details_line.submitted {
+            submitted.push_str(&submitted_line);
+        }
+    }
+    let mut embed_response: CreateEmbed = CreateEmbed::default()
+        .title(details.title);
+
+    if !submitted.is_empty() {
+        embed_response = embed_response
+            .field("?", submitted, true);
+    }
+
+    embed_response = embed_response
+        .field("Nation", nations, true)
+        .field("Player", players, true);
+    for owner in details.owner {
+        embed_response = embed_response.field("Owner", owner, false);
+    }
+    for description in details.description {
+        embed_response = embed_response.field("Description", description, false);
+    }
     Ok(embed_response)
 }
 
@@ -63,35 +91,40 @@ fn lobby_details(
     db_conn: &DbConnection,
     lobby_state: &LobbyState,
     alias: &str,
-) -> Result<CreateEmbed, CommandError> {
+) -> Result<Details, CommandError> {
     let embed_title = format!("{} ({} Lobby)", alias, lobby_state.era);
     let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let registered_player_count = players_nations.len() as i32;
 
-    let mut player_names = String::new();
-    let mut nation_names = String::new();
+    let mut details_lines: Vec<DetailsLine> = vec![];
 
     for (player, nation_id) in players_nations {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        player_names.push_str(&format!("{} \n", player.discord_user_id.to_user()?));
-        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
+        let line = DetailsLine {
+            player: format!("{} \n", player.discord_user_id.to_user()?),
+            submitted: None,
+            nation: format!("{} {} ({})\n", era, nation_name, nation_id),
+        };
+        details_lines.push(line);
     }
     for _ in 0..(lobby_state.player_count - registered_player_count) {
-        player_names.push_str(&".\n");
-        nation_names.push_str(&"OPEN\n");
+        let line = DetailsLine {
+            player: ".\n".to_string(),
+            nation: "OPEN\n".to_string(),
+            submitted: None,
+        };
+        details_lines.push(line);
     }
     let owner = lobby_state.owner.to_user()?;
-    let e_temp = CreateEmbed::default()
-        .title(embed_title)
-        .field("Nation", nation_names, true)
-        .field("Player", player_names, true)
-        .field("Owner", format!("{}", owner), false);
-    let e = match lobby_state.description {
-        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
-        _ => e_temp,
+
+    let details = Details {
+        title: embed_title,
+        lines: details_lines,
+        owner: Some(owner.to_string()),
+        description: lobby_state.description.clone(),
     };
 
-    Ok(e)
+    Ok(details)
 }
 
 fn uploading_from_lobby_details<C: ServerConnection>(
@@ -99,9 +132,10 @@ fn uploading_from_lobby_details<C: ServerConnection>(
     started_state: &StartedState,
     lobby_state: &LobbyState,
     alias: &str,
-) -> Result<CreateEmbed, CommandError> {
+) -> Result<Details, CommandError> {
     let server_address = &started_state.address;
     let game_data = C::get_game_data(&server_address)?;
+    let mut details_lines: Vec<DetailsLine> = vec![];
 
     let players_uploaded_by_nation_id = {
         let mut hash_map = HashMap::with_capacity(game_data.nations.len());
@@ -118,10 +152,6 @@ fn uploading_from_lobby_details<C: ServerConnection>(
             !players_uploaded_by_nation_id.contains_key(&nation_id)
         );
 
-    let mut nation_names = String::new();
-    let mut player_names = String::new();
-    let mut submitted_status = String::new();
-
     for (&nation_id, _) in players_uploaded_by_nation_id.iter() {
         let player_name = id_player_registered_nations.iter()
             .find(|&&(_, found_nation_id)| nation_id == found_nation_id)
@@ -129,16 +159,23 @@ fn uploading_from_lobby_details<C: ServerConnection>(
                      format!("**{}**\n", p.discord_user_id.to_user().unwrap()))
             .unwrap_or_else(|| format!("{}\n", NationStatus::Human.show()));
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
-        player_names.push_str(&player_name);
-        submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
+
+        let line = DetailsLine {
+            player: player_name,
+            submitted: Some(format!("{}\n", SubmissionStatus::Submitted.show())),
+            nation: format!("{} {} ({})\n", era, nation_name, nation_id),
+        };
+        details_lines.push(line);
     }
 
     for &(ref player, nation_id) in players_not_uploaded {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        nation_names.push_str(&format!("{} {}\n", era, nation_name));
-        player_names.push_str(&format!("**{}**\n", player.discord_user_id.to_user()?));
-        submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
+        let line = DetailsLine {
+            player: format!("**{}**\n", player.discord_user_id.to_user()?),
+            nation: format!("{} {}\n", era, nation_name),
+            submitted: Some(format!("{}\n", SubmissionStatus::NotSubmitted.show())),
+        };
+        details_lines.push(line);
     }
 
     let embed_title = format!(
@@ -147,18 +184,13 @@ fn uploading_from_lobby_details<C: ServerConnection>(
         started_state.address,
     );
 
-    let owner = lobby_state.owner.to_user()?;
-    let e_temp = CreateEmbed::default()
-        .title(embed_title)
-        .field("Nation", nation_names, true)
-        .field("Player", player_names, true)
-        .field("Uploaded", submitted_status, true)
-        .field("Owner", format!("{}", owner), false);
-    let e = match lobby_state.description {
-        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
-        _ => e_temp,
+    let details = Details {
+        title: embed_title,
+        lines: details_lines,
+        owner: Some(lobby_state.owner.to_user()?.to_string()),
+        description: lobby_state.description.clone(),
     };
-    Ok(e)
+    Ok(details)
 }
 
 fn started_from_lobby_details<C: ServerConnection>(
@@ -166,22 +198,18 @@ fn started_from_lobby_details<C: ServerConnection>(
     started_state: &StartedState,
     lobby_state: &LobbyState,
     alias: &str,
-) -> Result<CreateEmbed, CommandError> {
+) -> Result<Details, CommandError> {
     let server_address = &started_state.address;
     let mut game_data = C::get_game_data(&server_address)?;
+    let mut details_lines: Vec<DetailsLine> = vec![];
     game_data
         .nations
         .sort_unstable_by(|a, b| a.name.cmp(&b.name));
-
-    let mut nation_names = String::new();
-    let mut player_names = String::new();
-    let mut submitted_status = String::new();
 
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
 
     for nation in &game_data.nations {
         debug!("Creating format for nation {} {}", nation.era, nation.name);
-        nation_names.push_str(&format!("{} {} ({})\n", nation.era, nation.name, nation.id));
 
         let nation_string = if let NationStatus::Human = nation.status {
             if let Some(&(ref player, _)) = id_player_nations
@@ -196,13 +224,18 @@ fn started_from_lobby_details<C: ServerConnection>(
             nation.status.show().to_string()
         };
 
-        player_names.push_str(&format!("{}\n", nation_string));
+        let submitted_line = if let NationStatus::Human = nation.status {
+            format!("{}\n", nation.submitted.show())
 
-        if let NationStatus::Human = nation.status {
-            submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
         } else {
-            submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
-        }
+            format!("{}\n", SubmissionStatus::Submitted.show())
+        };
+        let line = DetailsLine {
+            nation: format!("{} {} ({})\n", nation.era, nation.name, nation.id),
+            player: nation_string,
+            submitted: Some(submitted_line)
+        };
+        details_lines.push(line);
     }
 
     // TODO: yet again, not quadratic please
@@ -217,9 +250,12 @@ fn started_from_lobby_details<C: ServerConnection>(
 
     for &(ref player, nation_id) in &not_uploaded_players {
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
-        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
-        player_names.push_str(&format!("**{}**\n", player.discord_user_id.to_user()?));
-        submitted_status.push_str(&format!("{}\n", SubmissionStatus::NotSubmitted.show()));
+        let line = DetailsLine {
+            nation: format!("{} {} ({})\n", era, nation_name, nation_id),
+            player: format!("**{}**\n", player.discord_user_id.to_user()?),
+            submitted: Some(format!("{}\n", SubmissionStatus::NotSubmitted.show())),
+        };
+        details_lines.push(line);
     }
 
     info!("Server details string created, now sending.");
@@ -237,48 +273,33 @@ fn started_from_lobby_details<C: ServerConnection>(
         mins_remaining
     );
 
-    info!(
-        "replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
-        embed_title,
-        nation_names,
-        player_names,
-        submitted_status
-    );
-
     let owner = lobby_state.owner.to_user()?;
-    let e_temp = CreateEmbed::default()
-        .title(embed_title)
-        .field("Nation", nation_names, true)
-        .field("Player", player_names, true)
-        .field("Submitted", submitted_status, true)
-        .field("Owner", format!("{}", owner), false);
-    let e = match lobby_state.description {
-        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
-        _ => e_temp,
+
+    let details = Details {
+        title: embed_title,
+        lines: details_lines,
+        owner: Some(format!("{}", owner)),
+        description: lobby_state.description.clone(),
     };
-    Ok(e)
+    Ok(details)
 }
 
 fn started_details<C: ServerConnection>(
     db_conn: &DbConnection,
     started_state: &StartedState,
     alias: &str,
-) -> Result<CreateEmbed, CommandError> {
+) -> Result<Details, CommandError> {
     let server_address = &started_state.address;
     let mut game_data = C::get_game_data(&server_address)?;
     game_data
         .nations
         .sort_unstable_by(|a, b| a.name.cmp(&b.name));
 
-    let mut nation_names = String::new();
-    let mut player_names = String::new();
-    let mut submitted_status = String::new();
-
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
 
+    let mut details_lines = vec![];
     for nation in &game_data.nations {
         debug!("Creating format for nation {} {}", nation.era, nation.name);
-        nation_names.push_str(&format!("{} {} ({})\n", nation.era, nation.name, nation.id));
 
         let nation_string = if let NationStatus::Human = nation.status {
             if let Some(&(ref player, _)) = id_player_nations
@@ -293,18 +314,27 @@ fn started_details<C: ServerConnection>(
             nation.status.show().to_string()
         };
 
-        player_names.push_str(&format!("{}\n", nation_string));
 
-        if let NationStatus::Human = nation.status {
-            submitted_status.push_str(&format!("{}\n", nation.submitted.show()));
+        let submitted = if let NationStatus::Human = nation.status {
+            format!("{}\n", nation.submitted.show())
         } else {
-            submitted_status.push_str(&".\n");
-        }
+            ".\n".to_string()
+        };
+        let line = DetailsLine {
+            submitted: Some(submitted),
+            player: format!("{}\n", nation_string),
+            nation: format!("{} {} ({})\n", nation.era, nation.name, nation.id),
+        };
+        details_lines.push(line);
     }
     if game_data.nations.is_empty() {
-        nation_names.push_str(&"-");
-        player_names.push_str(&"-");
-        submitted_status.push_str(&"-");
+        details_lines.push(
+            DetailsLine {
+                submitted: Some("-".to_string()),
+                player: "-".to_string(),
+                nation: "-".to_string(),
+            }
+        );
     }
     info!("Server details string created, now sending.");
     let total_mins_remaining = game_data.turn_timer / (1000 * 60);
@@ -320,18 +350,24 @@ fn started_details<C: ServerConnection>(
         mins_remaining
     );
 
-    info!(
-        "replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
-        embed_title,
-        nation_names,
-        player_names,
-        submitted_status
-    );
-
-    let e = CreateEmbed::default()
-        .title(embed_title)
-        .field("Nation", nation_names, true)
-        .field("Player", player_names, true)
-        .field("Submitted", submitted_status, true);
-    Ok(e)
+    let details = Details {
+        title: embed_title,
+        lines: details_lines,
+        owner: None,
+        description: None,
+    };
+    Ok(details)
+}
+// lobbies don't have submitted
+// lobbies have description
+struct DetailsLine {
+    nation: String,
+    player: String,
+    submitted: Option<String>,
+}
+struct Details {
+    title: String,
+    lines: Vec<DetailsLine>,
+    owner: Option<String>,
+    description: Option<String>,
 }
