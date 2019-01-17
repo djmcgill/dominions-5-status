@@ -11,7 +11,7 @@ use std::path::Path;
 
 use failure::SyncFailure;
 
-use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration, Migratable};
+use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration, Migratable, migration::Statements};
 
 #[cfg(test)]
 pub mod test_helpers;
@@ -25,12 +25,12 @@ lazy_static! {
     static ref MIGRATIONS: [Box<EmbeddedMigration>; 2] = [
         Box::new(EmbeddedMigration {
             tag: "001-baseline".to_owned(),
-            up: Some(include_str!("sql/migrations/001_baseline.sql")),
+            up: Some(Statements::StaticStr(include_str!("sql/migrations/001_baseline.sql"))),
             down: None,
         }),
         Box::new(EmbeddedMigration {
             tag: "002-lobby-description".to_owned(),
-            up: Some(include_str!("sql/migrations/002_lobby_description.sql")),
+            up: Some(Statements::StaticStr(include_str!("sql/migrations/002_lobby_description.sql"))),
             down: None,
         }),
     ];
