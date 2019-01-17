@@ -19,7 +19,8 @@ pub fn help(message: &Message) -> Result<(), CommandError> {
         - !start <address:port> <alias>: register a started server for a lobby game\n\
         - !{item, spell, unit, site, merc, event} <text>: get dom5inspector search url\n\
         - !help: display this text\n\
-        - !describe \"text\" <alias>: add a description to a lobby. Quotes required."
+        - !describe \"text\" <alias>: add a description to a lobby. Quotes required.\n\
+        Source is located at www.github.com/djmcgill/dominions-5-status Contributions welcome!"
     )?;
     Ok(())
 }

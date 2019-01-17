@@ -11,7 +11,6 @@ jobs:
       #       - cargo-cache-
       # - run: cargo build
       # - run: cargo test
-      # EU_GCR_API_KEY_JSON
       - setup_remote_docker
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       # TODO: coverage https://abronan.com/building-a-rust-project-on-circleci/
@@ -33,25 +32,6 @@ jobs:
       - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
       - run: docker build -t eu.gcr.io/dom-5-status/dom-5-status .
       - run: docker push eu.gcr.io/dom-5-status/dom-5-status 
-#
-#      - run: echo $EU_GCR_API_KEY_JSON | docker login -u _json_key --password-stdin https://eu.gcr.io
-#      - add_ssh_keys
-#      - run:
-#          name: SSH to server and deploy
-#          command: |
-#            ssh -o "StrictHostKeyChecking=no" \
-#                   "$SSH_ADDRESS" \
-#                   "cat json.key | docker login -u _json_key --password-stdin https://eu.gcr.io; \
-#                    docker pull eu.gcr.io/dom-5-status/dom-5-status; \
-#                    RUNNING_CONTAINERS=docker ps -q; \
-#                    if [ ! -z $RUNNING_CONTAINERS ]; then \
-#                      echo "Stopping: $RUNNING_CONTAINERS"; \
-#                      docker stop $RUNNING_CONTAINERS; \
-#                    fi; \
-#                    docker run -it -d \
-#                      --restart unless-stopped \
-#                      --volume /app/resources:/usr/src/myapp/resources  \
-#                      eu.gcr.io/dom-5-status/dom-5-status"
 
 workflows:
   version: 2

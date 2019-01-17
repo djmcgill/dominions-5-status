@@ -17,6 +17,7 @@ impl Nations {
     }
 
     pub fn from_name_prefix(name_prefix: &str, era_filter: Option<Era>) -> Vec<Nation> {
+        let sanitised_prefix = name_prefix.to_owned().to_lowercase().replace("'", "").replace(" ", "");
         NATIONS_BY_ID
             .iter()
             .filter(|&(&_id, &(name, era))| {
@@ -24,7 +25,8 @@ impl Nations {
                     Some(some_era_filter) => some_era_filter == era,
                     None => true,
                 };
-                era_correct && (name.to_owned().to_lowercase()).starts_with(name_prefix)
+                let sanitised_name = name.to_owned().to_lowercase().replace("'", "").replace(" ", "");
+                era_correct && sanitised_name.starts_with(&sanitised_prefix)
             }).map ({ |(&id, &(name, era))|
                 Nation { id, name: name.to_owned(), era }
             })

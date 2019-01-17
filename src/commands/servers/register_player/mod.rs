@@ -18,11 +18,15 @@ fn get_nation_for_started_server(
 ) -> Result<Nation, CommandError> {
     match arg_nation {
         Either::Left(arg_nation_name) => {
+            let sanitised_name = arg_nation_name.to_lowercase().replace("'", "").replace(" ", "");
             // TODO: allow for players with registered nation but not ingame (not yet uploaded)
             let nations = game_nations
                 .iter()
-                .filter(|&nation| // TODO: more efficient algo
-                    nation.name.to_lowercase().starts_with(arg_nation_name))
+                .filter(|&nation| { // TODO: more efficient algo
+
+                    let found_nation_name = nation.name.to_lowercase().replace("'", "").replace(" ", "");
+                    found_nation_name.starts_with(&sanitised_name)
+                })
                 .map ( |game_nation| {
                     let game_nation_era =
                         // if we can't parse the db era things are messed up

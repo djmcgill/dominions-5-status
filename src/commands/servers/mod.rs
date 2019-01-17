@@ -57,6 +57,9 @@ pub trait WithServersCommands: Sized {
             .command("details", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
             })
+            .command("deets", |c| {
+                c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
+            })
             .command("register", |c| {
                 c.bucket(bucket)
                     .exec(|cx, m, a| register_player::<C>(cx, m, a))
