@@ -1,5 +1,5 @@
 use std::collections::HashMap;
-use model::enums::Era;
+use crate::model::enums::Era;
 
 pub struct Nations;
 impl Nations {

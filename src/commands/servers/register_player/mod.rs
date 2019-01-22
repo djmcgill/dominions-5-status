@@ -3,11 +3,11 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 
-use server::ServerConnection;
-use model::{GameServerState, Player};
-use model::enums::*;
-use db::{DbConnection, DbConnectionKey};
-use model::Nation as StartedServerNation;
+use crate::server::ServerConnection;
+use crate::model::{GameServerState, Player};
+use crate::model::enums::*;
+use crate::db::{DbConnection, DbConnectionKey};
+use crate::model::Nation as StartedServerNation;
 use super::alias_from_arg_or_channel_name;
 use either::Either;
 

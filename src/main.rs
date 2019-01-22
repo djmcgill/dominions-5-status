@@ -40,8 +40,8 @@ use std::fs::File;
 use std::io::Read;
 use std::env;
 
-use db::*;
-use server::RealServerConnection;
+use crate::db::*;
+use crate::server::RealServerConnection;
 
 struct Handler;
 impl EventHandler for Handler {}
@@ -86,8 +86,8 @@ fn create_discord_client() -> Result<Client, Error> {
         data.insert::<DbConnectionKey>(db_conn);
     }
 
-    use commands::WithSearchCommands;
-    use commands::servers::WithServersCommands;
+    use crate::commands::WithSearchCommands;
+    use crate::commands::servers::WithServersCommands;
     discord_client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("!"))

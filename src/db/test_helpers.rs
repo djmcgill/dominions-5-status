@@ -34,7 +34,7 @@ impl DbConnection {
         conn.trace(Some(trace_fn));
         let tx = conn.transaction()?;
         for ref migration in MIGRATIONS.as_ref() {
-            tx.execute_batch(migration.up.unwrap())?;
+            tx.execute_batch(migration.up.as_ref().unwrap().as_ref())?;
         }
         tx.commit()?;
         Ok(())

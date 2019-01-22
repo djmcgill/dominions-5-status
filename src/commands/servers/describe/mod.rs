@@ -4,7 +4,7 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 
-use db::DbConnectionKey;
+use crate::db::DbConnectionKey;
 
 pub fn describe(
     context: &mut Context,

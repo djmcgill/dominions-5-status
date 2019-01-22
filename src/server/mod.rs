@@ -5,8 +5,8 @@ use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
-use model::{GameData, Nation, RawGameData};
-use model::enums::{NationStatus, Nations, SubmissionStatus};
+use crate::model::{GameData, Nation, RawGameData};
+use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;

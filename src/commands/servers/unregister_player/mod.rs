@@ -4,7 +4,7 @@ use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 
 use super::alias_from_arg_or_channel_name;
-use db::{DbConnection, DbConnectionKey};
+use crate::db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(
     user_id: UserId,

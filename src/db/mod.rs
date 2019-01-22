@@ -5,8 +5,8 @@ use serenity::model::id::UserId;
 use typemap::Key;
 use num_traits::{FromPrimitive, ToPrimitive};
 
-use model::*;
-use model::enums::*;
+use crate::model::*;
+use crate::model::enums::*;
 use std::path::Path;
 
 use failure::SyncFailure;

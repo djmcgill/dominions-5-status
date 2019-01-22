@@ -2,7 +2,7 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 
-use db::*;
+use crate::db::*;
 use super::alias_from_arg_or_channel_name;
 
 #[cfg(test)]

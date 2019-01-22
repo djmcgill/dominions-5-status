@@ -3,7 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 
-use db::*;
+use crate::db::*;
 
 fn notifications_helper(
     db_conn: &DbConnection,

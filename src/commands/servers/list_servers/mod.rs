@@ -3,8 +3,8 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
 
-use db::*;
-use model::GameServerState;
+use crate::db::*;
+use crate::model::GameServerState;
 
 fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandError> {
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;

@@ -3,9 +3,9 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
 
-use db::*;
+use crate::db::*;
 
-use model::{GameServer, GameServerState};
+use crate::model::{GameServer, GameServerState};
 
 pub fn lobbies(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
