@@ -1,12 +1,14 @@
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use cached::{Cached, TimedCache};
+use cached::{Cached, TimedCache, cached_key_result};
 use hex_slice::AsHex;
 use flate2::read::ZlibDecoder;
 use std::io::{Cursor, Read, Write};
 use std::io;
 use std::net;
-use model::{GameData, Nation, RawGameData};
-use model::enums::{NationStatus, Nations, SubmissionStatus};
+use crate::model::{GameData, Nation, RawGameData};
+use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
+use log::*;
+
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;

@@ -1,4 +1,4 @@
-use model::nation::Nation;
+use crate::model::nation::Nation;
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct GameData {

@@ -1,4 +1,4 @@
-use model::enums::Era;
+use crate::model::enums::Era;
 use serenity::model::id::UserId;
 
 #[derive(Debug, Clone, PartialEq)]

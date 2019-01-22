@@ -2,11 +2,12 @@ use serenity::framework::standard::CommandError;
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
+use log::*;
 
-use server::ServerConnection;
-use db::*;
-use model::{GameServerState, Nation};
-use model::enums::*;
+use crate::server::ServerConnection;
+use crate::db::*;
+use crate::model::{GameServerState, Nation};
+use crate::model::enums::*;
 
 fn turns_helper<C: ServerConnection>(
     user_id: UserId,

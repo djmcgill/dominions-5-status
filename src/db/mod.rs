@@ -4,9 +4,11 @@ use r2d2::Pool;
 use serenity::model::id::UserId;
 use typemap::Key;
 use num_traits::{FromPrimitive, ToPrimitive};
+use log::*;
+use lazy_static::lazy_static;
 
-use model::*;
-use model::enums::*;
+use crate::model::*;
+use crate::model::enums::*;
 use std::path::Path;
 
 use failure::SyncFailure;
@@ -55,11 +57,11 @@ impl DbConnection {
         let mut config = Config::with_settings(&settings);
         config.setup().map_err(SyncFailure::new)?;
 
-        let migrations: Vec<Box<Migratable>> =
+        let migrations: Vec<Box<dyn Migratable>> =
             MIGRATIONS
                 .iter()
                 .cloned()
-                .map(|x| x as Box<Migratable>) // TODO: do NOT map cast
+                .map(|x| x as Box<dyn Migratable>) // TODO: do NOT map cast
                 .collect::<Vec<_>>();
         config.use_migrations(
             &migrations

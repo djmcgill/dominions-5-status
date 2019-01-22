@@ -1,4 +1,4 @@
-use server::ServerConnection;
+use crate::server::ServerConnection;
 use super::alias_from_arg_or_channel_name;
 
 use serenity::framework::standard::{Args, CommandError};
@@ -6,10 +6,11 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
 
-use model::{GameServerState, LobbyState, StartedState};
-use model::enums::{NationStatus, Nations, SubmissionStatus};
-use db::{DbConnection, DbConnectionKey};
+use crate::model::{GameServerState, LobbyState, StartedState};
+use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
+use crate::db::{DbConnection, DbConnectionKey};
 use std::collections::HashMap;
+use log::*;
 
 #[cfg(test)]
 mod tests;

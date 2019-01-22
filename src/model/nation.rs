@@ -1,4 +1,4 @@
-use model::enums::{NationStatus, SubmissionStatus};
+use crate::model::enums::{NationStatus, SubmissionStatus};
 
 #[derive(Debug, Clone, PartialEq)]
 pub struct Nation {

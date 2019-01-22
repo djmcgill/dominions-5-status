@@ -1,12 +1,12 @@
-use server::ServerConnection;
+use crate::server::ServerConnection;
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 
-use model::*;
-use model::enums::Nations;
-use db::*;
+use crate::model::*;
+use crate::model::enums::Nations;
+use crate::db::*;
 use super::alias_from_arg_or_channel_name;
 
 fn start_helper<C: ServerConnection>(

@@ -2,10 +2,11 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 
-use server::ServerConnection;
-use model::{GameServer, GameServerState, StartedState};
-use db::{DbConnection, DbConnectionKey};
+use crate::server::ServerConnection;
+use crate::model::{GameServer, GameServerState, StartedState};
+use crate::db::{DbConnection, DbConnectionKey};
 use super::alias_from_arg_or_channel_name;
+use log::*;
 
 #[cfg(test)]
 mod tests;

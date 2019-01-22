@@ -2,9 +2,10 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
+use log::*;
 
 use super::alias_from_arg_or_channel_name;
-use db::{DbConnection, DbConnectionKey};
+use crate::db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(
     user_id: UserId,

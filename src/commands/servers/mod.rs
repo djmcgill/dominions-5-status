@@ -39,7 +39,7 @@ pub use self::describe::*;
 
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
-use server::ServerConnection;
+use crate::server::ServerConnection;
 
 pub trait WithServersCommands: Sized {
     fn get_standard_framework(self) -> StandardFramework;

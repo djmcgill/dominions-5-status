@@ -1,14 +1,15 @@
 use typemap::ShareMap;
 
-use db::{DbConnection, DbConnectionKey};
-use model::{GameServer, GameServerState, Player, Nation};
-use model::enums::{NationStatus, SubmissionStatus, Nations};
+use crate::db::{DbConnection, DbConnectionKey};
+use crate::model::{GameServer, GameServerState, Player, Nation};
+use crate::model::enums::{NationStatus, SubmissionStatus, Nations};
 use std::{thread, time};
 use serenity::prelude::Mutex;
 use failure::{err_msg, Error};
-use server::ServerConnection;
+use crate::server::ServerConnection;
 use std::error::Error as TraitError;
 use std::collections::HashMap;
+use log::*;
 
 pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareMap>) {
     loop {
@@ -41,8 +42,8 @@ struct NewTurnNation {
     nation_id: usize,
 }
 
-use server::cache_get;
-use model::GameData;
+use crate::server::cache_get;
+use crate::model::GameData;
 
 struct NewTurnResult {
     nations_to_notify: Vec<NewTurnNation>,

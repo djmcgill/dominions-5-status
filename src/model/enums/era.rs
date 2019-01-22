@@ -1,4 +1,5 @@
-pub use std::fmt;
+use std::fmt;
+use enum_primitive_derive::Primitive;
 
 #[derive(Clone, Copy, PartialEq, Debug, Primitive)]
 pub enum Era {
@@ -19,7 +20,7 @@ impl Era {
 }
 
 impl fmt::Display for Era {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let text = match *self {
             Era::Early => "EA",
             Era::Middle => "MA",
