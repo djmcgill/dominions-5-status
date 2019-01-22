@@ -9,6 +9,7 @@ use failure::{err_msg, Error};
 use crate::server::ServerConnection;
 use std::error::Error as TraitError;
 use std::collections::HashMap;
+use log::*;
 
 pub fn check_for_new_turns_every_1_min<C: ServerConnection>(mutex: &Mutex<ShareMap>) {
     loop {

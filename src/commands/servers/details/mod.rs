@@ -10,6 +10,7 @@ use crate::model::{GameServerState, LobbyState, StartedState};
 use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
 use crate::db::{DbConnection, DbConnectionKey};
 use std::collections::HashMap;
+use log::*;
 
 #[cfg(test)]
 mod tests;

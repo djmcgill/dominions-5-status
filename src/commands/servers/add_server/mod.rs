@@ -6,6 +6,7 @@ use crate::server::ServerConnection;
 use crate::model::{GameServer, GameServerState, StartedState};
 use crate::db::{DbConnection, DbConnectionKey};
 use super::alias_from_arg_or_channel_name;
+use log::*;
 
 #[cfg(test)]
 mod tests;

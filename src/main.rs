@@ -1,26 +1,3 @@
-extern crate byteorder;
-#[macro_use]
-extern crate cached;
-#[macro_use]
-extern crate enum_primitive_derive;
-extern crate failure;
-extern crate flate2;
-extern crate hex_slice;
-#[macro_use]
-extern crate lazy_static;
-#[macro_use]
-extern crate log;
-extern crate num_traits;
-extern crate r2d2;
-extern crate r2d2_sqlite;
-extern crate rusqlite;
-extern crate serenity;
-extern crate simplelog;
-extern crate typemap;
-extern crate url;
-extern crate migrant_lib;
-extern crate either;
-
 #[cfg_attr(test, macro_use)]
 mod db;
 mod commands;
@@ -39,6 +16,8 @@ use failure::*;
 use std::fs::File;
 use std::io::Read;
 use std::env;
+use log::*;
+
 
 use crate::db::*;
 use crate::server::RealServerConnection;

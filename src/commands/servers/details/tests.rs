@@ -1,8 +1,8 @@
 use super::*;
 
 use std::io;
-use model::*;
-use model::enums::*;
+use crate::model::*;
+use crate::model::enums::*;
 use serenity::model::*;
 
 #[test]

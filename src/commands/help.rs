@@ -1,5 +1,6 @@
 use serenity::model::channel::Message;
 use serenity::framework::standard::CommandError;
+use log::*;
 
 pub fn help(message: &Message) -> Result<(), CommandError> {
     debug!("HELP COMMAND");

@@ -2,11 +2,11 @@
 // hyssop snek.earth:30097
 
 use std::{env, fs};
-use db::*;
-use model::*;
+use crate::db::*;
+use crate::model::*;
 use serenity::prelude::*;
 use super::*;
-use server::ServerConnection;
+use crate::server::ServerConnection;
 use std::path::Path;
 use std::thread;
 

@@ -4,6 +4,8 @@ use r2d2::Pool;
 use serenity::model::id::UserId;
 use typemap::Key;
 use num_traits::{FromPrimitive, ToPrimitive};
+use log::*;
+use lazy_static::lazy_static;
 
 use crate::model::*;
 use crate::model::enums::*;

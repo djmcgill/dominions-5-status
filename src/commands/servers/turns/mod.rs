@@ -2,6 +2,7 @@ use serenity::framework::standard::CommandError;
 use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
+use log::*;
 
 use crate::server::ServerConnection;
 use crate::db::*;
