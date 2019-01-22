@@ -32,7 +32,7 @@ fn run_details_and_turns_simultaneously() {
     let path = path.join(file_loc);
     let db_conn = DbConnection::new(&path).unwrap();
 
-    let mut discord_client = Client::new(&token, Handler).unwrap();
+    let discord_client = Client::new(&token, Handler).unwrap();
     {
         let mut data = discord_client.data.lock();
         data.insert::<DbConnectionKey>(db_conn);

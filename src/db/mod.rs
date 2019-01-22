@@ -57,11 +57,11 @@ impl DbConnection {
         let mut config = Config::with_settings(&settings);
         config.setup().map_err(SyncFailure::new)?;
 
-        let migrations: Vec<Box<Migratable>> =
+        let migrations: Vec<Box<dyn Migratable>> =
             MIGRATIONS
                 .iter()
                 .cloned()
-                .map(|x| x as Box<Migratable>) // TODO: do NOT map cast
+                .map(|x| x as Box<dyn Migratable>) // TODO: do NOT map cast
                 .collect::<Vec<_>>();
         config.use_migrations(
             &migrations

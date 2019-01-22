@@ -29,7 +29,7 @@ macro_rules! mock_conditional_server_connection {
 use std::error::Error;
 fn trace_fn(x: &str) { println!("TRACE: {:?}", x); }
 impl DbConnection {
-    fn test_initialise(&mut self) -> Result<(), Box<Error>> {
+    fn test_initialise(&mut self) -> Result<(), Box<dyn Error>> {
         let conn = &mut *self.0.clone().get()?;
         conn.trace(Some(trace_fn));
         let tx = conn.transaction()?;
