@@ -90,8 +90,10 @@ pub trait WithServersCommands: Sized {
             })
             .command("describe", |c| {
                 c.bucket(bucket).exec(|cx, m, a| describe(cx, m, a))
-            }
-            )
+            })
+            .command("desc", |c| {
+                c.bucket(bucket).exec(|cx, m, a| describe(cx, m, a))
+            })
     }
 }
 
