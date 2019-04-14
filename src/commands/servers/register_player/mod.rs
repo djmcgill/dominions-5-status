@@ -3,6 +3,7 @@ use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use log::*;
+use std::str::FromStr;
 
 use crate::server::ServerConnection;
 use crate::model::{GameServerState, Player};
@@ -105,9 +106,13 @@ fn get_nation_for_lobby(
                     format!("ambiguous nation name: {}", arg_nation_name),
                 ));
             } else if nations_len < 1 {
-                return Err(CommandError::from(
+                // try to parse the name as a number
+                let mk_err = || CommandError::from(
                     format!("could not find nation: {}", arg_nation_name),
-                ));
+                );
+                return u32::from_str(arg_nation_name).map_err(|_| mk_err()).and_then(|arg_nation_id| {
+                    Nations::from_id(arg_nation_id).ok_or_else(mk_err)
+                });
             };
             Ok(nations[0].clone())
         },

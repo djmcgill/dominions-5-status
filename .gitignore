@@ -7,4 +7,4 @@ token
 *.ppk
 *.pem
 
-/.idea/
+.idea/
