@@ -113,7 +113,6 @@ fn get_nation_for_lobby(
         },
         Either::Right(arg_nation_id) => {
             Ok(Nations::from_id(arg_nation_id)
-                .filter(|ref nation| nation.era == era)
                 .unwrap_or(
                     Nation {
                         id: arg_nation_id,
