@@ -11,9 +11,9 @@ flate2 = "1.0"
 hex-slice = "*"
 lazy_static = "*"
 log = "0.4.*"
-r2d2 = "0.8.2"
-r2d2_sqlite = "0.5.0"
-rusqlite = {version = "0.13.*", features = ["bundled", "trace"]}
+r2d2 = "0.8.0"
+r2d2_sqlite = "0.9.0"
+rusqlite = {version = "0.17.*", features = ["bundled", "trace"]}
 serenity = "0.5.11"
 simplelog = "^0.4.4"
 typemap = "0.3"
@@ -21,5 +21,5 @@ url = "1.6.*"
 enum-primitive-derive = "^0.1"
 num-traits = "^0.1"
 cached = "0.8.0"
-migrant_lib = { version = "0.19.4", features = ["d-sqlite"]}
+migrant_lib = { version = "0.24.*", features = ["d-sqlite"]}
 either = "1.4"

@@ -13,8 +13,7 @@ use std::path::Path;
 
 use failure::SyncFailure;
 
-use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration, Migratable, migration::Statements};
-
+use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration, Migratable};
 #[cfg(test)]
 pub mod test_helpers;
 
@@ -25,16 +24,14 @@ impl Key for DbConnectionKey {
 
 lazy_static! {
     static ref MIGRATIONS: [Box<EmbeddedMigration>; 2] = [
-        Box::new(EmbeddedMigration {
-            tag: "001-baseline".to_owned(),
-            up: Some(Statements::StaticStr(include_str!("sql/migrations/001_baseline.sql"))),
-            down: None,
-        }),
-        Box::new(EmbeddedMigration {
-            tag: "002-lobby-description".to_owned(),
-            up: Some(Statements::StaticStr(include_str!("sql/migrations/002_lobby_description.sql"))),
-            down: None,
-        }),
+        Box::new(
+            EmbeddedMigration::with_tag("001-baseline")
+                .up(include_str!("sql/migrations/001_baseline.sql"))
+        ),
+        Box::new(
+            EmbeddedMigration::with_tag("002-lobby-description")
+                .up(include_str!("sql/migrations/002_lobby_description.sql"))
+        ),
     ];
 }
 pub struct DbConnection(Pool<SqliteConnectionManager>);
@@ -205,13 +202,13 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_game_servers.sql"))?;
         let foo = stmt.query_map(&[], |ref row| {
-            let maybe_address: Option<String> = row.get(1);
-            let maybe_last_seen_turn: Option<i32> = row.get(2);
-            let alias: String = row.get(0);
-            let maybe_owner: Option<i64> = row.get(3);
-            let maybe_era: Option<i32> = row.get(4);
-            let maybe_player_count: Option<i32> = row.get(5);
-            let description: Option<String> = row.get(6);
+            let maybe_address: Option<String> = row.get(1).unwrap();
+            let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
+            let alias: String = row.get(0).unwrap();
+            let maybe_owner: Option<i64> = row.get(3).unwrap();
+            let maybe_era: Option<i32> = row.get(4).unwrap();
+            let maybe_player_count: Option<i32> = row.get(5).unwrap();
+            let description: Option<String> = row.get(6).unwrap();
             make_game_server(
                 alias,
                 maybe_address,
@@ -237,9 +234,9 @@ impl DbConnection {
             let discord_user_id: i64 = row.get(0);
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
-                turn_notifications: row.get(2),
+                turn_notifications: row.get(2).unwrap(),
             };
-            let nation: i32 = row.get(1);
+            let nation: i32 = row.get(1).unwrap();
             (player, nation as usize)
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
@@ -251,12 +248,12 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_game_server_for_alias.sql"))?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let maybe_address: Option<String> = row.get(0);
-            let maybe_last_seen_turn: Option<i32> = row.get(1);
-            let maybe_owner: Option<i64> = row.get(2);
-            let maybe_era: Option<i32> = row.get(3);
-            let maybe_player_count: Option<i32> = row.get(4);
-            let description: Option<String> = row.get(5);
+            let maybe_address: Option<String> = row.get(0).unwrap();
+            let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
+            let maybe_owner: Option<i64> = row.get(2).unwrap();
+            let maybe_era: Option<i32> = row.get(3).unwrap();
+            let maybe_player_count: Option<i32> = row.get(4).unwrap();
+            let description: Option<String> = row.get(5).unwrap();
             make_game_server(
                 game_alias.to_owned(),
                 maybe_address,
@@ -329,13 +326,13 @@ impl DbConnection {
         let mut stmt = conn.prepare(include_str!("sql/select_servers_for_player.sql"))?;
 
         let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
-            let alias: String = row.get(1);
-            let maybe_address: Option<String> = row.get(0);
-            let maybe_last_seen_turn: Option<i32> = row.get(2);
-            let maybe_owner: Option<i64> = row.get(4);
-            let maybe_era: Option<i32> = row.get(5);
-            let maybe_player_count: Option<i32> = row.get(6);
-            let description: Option<String> = row.get(7);
+            let alias: String = row.get(1).unwrap();
+            let maybe_address: Option<String> = row.get(0).unwrap();
+            let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
+            let maybe_owner: Option<i64> = row.get(4).unwrap();
+            let maybe_era: Option<i32> = row.get(5).unwrap();
+            let maybe_player_count: Option<i32> = row.get(6).unwrap();
+            let description: Option<String> = row.get(7).unwrap();
             let server = make_game_server(
                 alias,
                 maybe_address,
@@ -346,7 +343,7 @@ impl DbConnection {
                 description,
             ).unwrap();
 
-            let nation_id = row.get(3);
+            let nation_id = row.get(3).unwrap();
             (server, nation_id)
         })?;
 
@@ -402,12 +399,12 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_lobbies.sql"))?;
         let foo = stmt.query_map(&[], |ref row| {
-            let alias: String = row.get(0);
-            let maybe_owner: Option<i64> = row.get(1);
-            let maybe_era: Option<i32> = row.get(2);
-            let maybe_player_count: Option<i32> = row.get(3);
-            let registered_player_count: i32 = row.get(4);
-            let description: Option<String> = row.get(5);
+            let alias: String = row.get(0).unwrap();
+            let maybe_owner: Option<i64> = row.get(1).unwrap();
+            let maybe_era: Option<i32> = row.get(2).unwrap();
+            let maybe_player_count: Option<i32> = row.get(3).unwrap();
+            let registered_player_count: i32 = row.get(4).unwrap();
+            let description: Option<String> = row.get(5).unwrap();
             let server = make_game_server(
                 alias,
                 None,
