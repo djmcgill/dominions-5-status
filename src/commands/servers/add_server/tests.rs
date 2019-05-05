@@ -1,4 +1,3 @@
-#[macro_use]
 use super::*;
 
 use crate::model::GameData;

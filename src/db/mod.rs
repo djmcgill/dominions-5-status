@@ -301,14 +301,13 @@ impl DbConnection {
         Ok(rows > 0)
     }
 
-    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<(), Error> {
+    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<usize, Error> {
         info!("db::remove_player_from_game");
         let conn = &*self.0.clone().get()?;
-        conn.execute(
+        Ok(conn.execute(
             include_str!("sql/delete_player_from_game.sql"),
             params![&game_alias, &(user.0 as i64)],
-        )?;
-        Ok(())
+        )?)
     }
 
     pub fn remove_server(&self, game_alias: &str) -> Result<(), Error> {
@@ -509,6 +508,7 @@ fn make_game_server(
     Ok(server)
 }
 
+#[cfg(test)]
 mod db_test {
     use super::*;
 

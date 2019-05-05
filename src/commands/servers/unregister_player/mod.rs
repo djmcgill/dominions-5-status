@@ -12,10 +12,15 @@ fn unregister_player_helper(
     alias: &str,
     db_conn: &DbConnection,
 ) -> Result<(), CommandError> {
-    db_conn
+    let rows_affected = db_conn
         .remove_player_from_game(&alias, user_id)
         .map_err(CommandError::from)?;
-    Ok(())
+
+    if rows_affected > 0 {
+        Ok(())
+    } else {
+        Err(format!("User is not in game {}", alias))?
+    }
 }
 
 pub fn unregister_player(

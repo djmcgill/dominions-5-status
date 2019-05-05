@@ -1,7 +1,7 @@
 use super::*;
 
 use std::io;
-use crate::{mock_server_connection, mock_conditional_server_connection};
+use crate::mock_server_connection;
 #[test]
 fn should_return_error_on_no_connection() {
     mock_server_connection!(Mock, Err(io::Error::from_raw_os_error(-1)));
