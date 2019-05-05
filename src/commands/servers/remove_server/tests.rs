@@ -1,8 +1,7 @@
 use super::*;
 
-use crate::model::*;
 use crate::model::enums::*;
-use serenity::model::*;
+use crate::model::*;
 use serenity::model::id::UserId;
 
 #[test]
@@ -22,16 +21,19 @@ fn should_remove_started_server() {
         })
         .unwrap();
 
-    assert_eq!(db_conn.count_servers(), 1);
-    assert_eq!(db_conn.count_started_server_state(), 1);
-    assert_eq!(db_conn.count_lobby_state(), 0);
+    let initial_server_count = db_conn.count_servers();
+    let initial_started_server_count = db_conn.count_started_server_state();
+    let initial_lobby_state = db_conn.count_lobby_state();
 
     let result = db_conn.remove_server(&alias);
     assert!(result.is_ok());
 
-    assert_eq!(db_conn.count_servers(), 0);
-    assert_eq!(db_conn.count_started_server_state(), 0);
-    assert_eq!(db_conn.count_lobby_state(), 0);
+    assert_eq!(db_conn.count_servers(), initial_server_count - 1);
+    assert_eq!(
+        db_conn.count_started_server_state(),
+        initial_started_server_count - 1
+    );
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state);
 
     let get_result_err = db_conn.game_for_alias(&alias);
     assert!(get_result_err.is_err());
@@ -53,17 +55,19 @@ fn should_remove_lobby() {
         })
         .unwrap();
 
-
-    assert_eq!(db_conn.count_servers(), 1);
-    assert_eq!(db_conn.count_started_server_state(), 0);
-    assert_eq!(db_conn.count_lobby_state(), 1);
+    let initial_server_count = db_conn.count_servers();
+    let initial_started_server_count = db_conn.count_started_server_state();
+    let initial_lobby_state = db_conn.count_lobby_state();
 
     let result = db_conn.remove_server(&alias);
     assert!(result.is_ok());
 
-    assert_eq!(db_conn.count_servers(), 0);
-    assert_eq!(db_conn.count_started_server_state(), 0);
-    assert_eq!(db_conn.count_lobby_state(), 0);
+    assert_eq!(db_conn.count_servers(), initial_server_count - 1);
+    assert_eq!(
+        db_conn.count_started_server_state(),
+        initial_started_server_count
+    );
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state - 1);
 
     let get_result_err = db_conn.game_for_alias(&alias);
     assert!(get_result_err.is_err());
@@ -91,16 +95,19 @@ fn should_remove_started_server_with_lobby() {
         })
         .unwrap();
 
-    assert_eq!(db_conn.count_servers(), 1);
-    assert_eq!(db_conn.count_started_server_state(), 1);
-    assert_eq!(db_conn.count_lobby_state(), 1);
+    let initial_server_count = db_conn.count_servers();
+    let initial_started_server_count = db_conn.count_started_server_state();
+    let initial_lobby_state = db_conn.count_lobby_state();
 
     let result = db_conn.remove_server(&alias);
     assert!(result.is_ok());
 
-    assert_eq!(db_conn.count_servers(), 0);
-    assert_eq!(db_conn.count_started_server_state(), 0);
-    assert_eq!(db_conn.count_lobby_state(), 0);
+    assert_eq!(db_conn.count_servers(), initial_server_count - 1);
+    assert_eq!(
+        db_conn.count_started_server_state(),
+        initial_started_server_count - 1
+    );
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state - 1);
 
     let get_result_err = db_conn.game_for_alias(&alias);
     assert!(get_result_err.is_err());

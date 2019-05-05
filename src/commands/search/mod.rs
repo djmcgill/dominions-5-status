@@ -1,8 +1,8 @@
 use url::percent_encoding::{utf8_percent_encode, QUERY_ENCODE_SET};
 
+use log::*;
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
-use log::*;
 
 // enum InspectorCategoryV {Item, Spell, Unit, ...}
 

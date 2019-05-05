@@ -1,17 +1,17 @@
 #![macro_use]
 
 use super::*;
-
+use rusqlite::params;
 #[macro_export]
 macro_rules! mock_server_connection {
     ($struct_name:ident, $ret_val:expr) => {
         struct $struct_name;
         impl ServerConnection for $struct_name {
-            fn get_game_data(_: &str) -> io::Result<GameData> {
+            fn get_game_data(_: &str) -> io::Result<crate::model::GameData> {
                 $ret_val
             }
         }
-    }
+    };
 }
 
 #[macro_export]
@@ -23,24 +23,52 @@ macro_rules! mock_conditional_server_connection {
                 $ret_fn(server_address)
             }
         }
-    }
+    };
 }
 
 use std::error::Error;
-fn trace_fn(x: &str) { println!("TRACE: {:?}", x); }
+fn trace_fn(x: &str) {
+    println!("TRACE: {:?}", x);
+}
 impl DbConnection {
     fn test_initialise(&mut self) -> Result<(), Box<dyn Error>> {
-        let conn = &mut *self.0.clone().get()?;
-        conn.trace(Some(trace_fn));
-        let tx = conn.transaction()?;
-        for ref migration in MIGRATIONS.as_ref() {
-            tx.execute_batch(migration.up.as_ref().unwrap().as_ref())?;
+        {
+            let conn = &mut *self.0.clone().get()?;
+            conn.trace(Some(trace_fn));
+            let tx = conn.transaction()?;
+            for ref migration in MIGRATIONS.as_ref() {
+                tx.execute_batch(migration.up.as_ref().unwrap().as_ref())?;
+            }
+            tx.commit()?;
         }
-        tx.commit()?;
+
+        // populate with dummy data
+        for i in 1..5 {
+            self.insert_player(&Player {
+                discord_user_id: UserId(i + 100 as u64),
+                turn_notifications: false,
+            })
+            .unwrap();
+        }
+        for i in 1..10 {
+            self.insert_game_server(&GameServer {
+                alias: format!("test server {}", i),
+                state: GameServerState::StartedState(
+                    StartedState {
+                        address: format!("test.server.address:{}", i),
+                        last_seen_turn: i + 30,
+                    },
+                    None,
+                ),
+            })
+            .unwrap();
+        }
+
         Ok(())
     }
 
     pub fn test() -> Self {
+        color_backtrace::install();
         let manager = SqliteConnectionManager::memory();
         let pool = Pool::builder().max_size(1).build(manager).unwrap();
         let mut db_conn = DbConnection(pool);
@@ -58,19 +86,21 @@ impl DbConnection {
 
     pub fn count_servers(&self) -> i32 {
         let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM game_servers", &[], |r| r.get(0))
+        conn.query_row("SELECT COUNT(*) FROM game_servers", params![], |r| r.get(0))
             .unwrap()
     }
 
     pub fn count_started_server_state(&self) -> i32 {
         let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM started_servers", &[], |r| r.get(0))
-            .unwrap()
+        conn.query_row("SELECT COUNT(*) FROM started_servers", params![], |r| {
+            r.get(0)
+        })
+        .unwrap()
     }
 
     pub fn count_lobby_state(&self) -> i32 {
         let conn = &*self.0.clone().get().unwrap();
-        conn.query_row("SELECT COUNT(*) FROM lobbies", &[], |r| r.get(0))
+        conn.query_row("SELECT COUNT(*) FROM lobbies", params![], |r| r.get(0))
             .unwrap()
     }
 }

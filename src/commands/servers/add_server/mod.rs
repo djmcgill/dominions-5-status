@@ -1,11 +1,11 @@
 use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
 use serenity::model::channel::Message;
+use serenity::prelude::Context;
 
-use crate::server::ServerConnection;
-use crate::model::{GameServer, GameServerState, StartedState};
-use crate::db::{DbConnection, DbConnectionKey};
 use super::alias_from_arg_or_channel_name;
+use crate::db::{DbConnection, DbConnectionKey};
+use crate::model::{GameServer, GameServerState, StartedState};
+use crate::server::ServerConnection;
 use log::*;
 
 #[cfg(test)]
@@ -49,7 +49,8 @@ pub fn add_server<C: ServerConnection>(
     }
 
     let data = context.data.lock();
-    let db_connection = data.get::<DbConnectionKey>()
+    let db_connection = data
+        .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
     add_server_helper::<C>(&server_address, &alias, db_connection)?;
     let text = format!("Successfully inserted with alias {}", alias);

@@ -1,7 +1,7 @@
 use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
+use serenity::prelude::Context;
 
 use crate::db::*;
 

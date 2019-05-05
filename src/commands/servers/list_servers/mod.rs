@@ -1,7 +1,7 @@
-use serenity::framework::standard::CommandError;
-use serenity::prelude::Context;
-use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
+use serenity::framework::standard::CommandError;
+use serenity::model::channel::Message;
+use serenity::prelude::Context;
 
 use crate::db::*;
 use crate::model::GameServerState;
@@ -34,7 +34,8 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
 
 pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), CommandError> {
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>()
+    let db_conn = data
+        .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
     let embed = list_servers_helper(db_conn)?;
     message.channel_id.send_message(|m| m.embed(|_| embed))?;

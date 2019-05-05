@@ -1,8 +1,10 @@
+#[macro_use]
 use super::*;
 
-use std::io;
 use crate::model::GameData;
+use crate::{mock_server_connection, mock_conditional_server_connection};
 use lazy_static::lazy_static;
+use std::io;
 
 #[test]
 fn should_return_error_on_no_connection() {

@@ -1,5 +1,5 @@
-use std::fmt;
 use enum_primitive_derive::Primitive;
+use std::fmt;
 
 #[derive(Clone, Copy, PartialEq, Debug, Primitive)]
 pub enum Era {

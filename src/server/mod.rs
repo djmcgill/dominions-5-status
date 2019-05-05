@@ -1,14 +1,13 @@
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use cached::{Cached, TimedCache, cached_key_result};
-use hex_slice::AsHex;
-use flate2::read::ZlibDecoder;
-use std::io::{Cursor, Read, Write};
-use std::io;
-use std::net;
-use crate::model::{GameData, Nation, RawGameData};
 use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
+use crate::model::{GameData, Nation, RawGameData};
+use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use cached::{cached_key_result, Cached, TimedCache};
+use flate2::read::ZlibDecoder;
+use hex_slice::AsHex;
 use log::*;
-
+use std::io;
+use std::io::{Cursor, Read, Write};
+use std::net;
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
@@ -22,7 +21,8 @@ cached_key_result! {
     }
 }
 
-pub fn cache_get(k: &String) -> Option<GameData> { // FIXME possible timing issues
+pub fn cache_get(k: &String) -> Option<GameData> {
+    // FIXME possible timing issues
     let mut cache = ONE_MIN_GAME_DATA.lock().unwrap();
     cache.cache_get(k).cloned()
 }
@@ -55,7 +55,6 @@ fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
     }
     Ok(game_data)
 }
-
 
 pub struct RealServerConnection;
 
@@ -137,7 +136,6 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
         cursor.position(),
         cursor.get_ref().len()
     );
-
 
     debug!(
         "cursor position: {}, cursor len: {}",

@@ -1,19 +1,20 @@
 use failure::{err_msg, Error};
-use r2d2_sqlite::SqliteConnectionManager;
+use lazy_static::lazy_static;
+use log::*;
+use num_traits::{FromPrimitive, ToPrimitive};
 use r2d2::Pool;
+use r2d2_sqlite::SqliteConnectionManager;
+use rusqlite::params;
 use serenity::model::id::UserId;
 use typemap::Key;
-use num_traits::{FromPrimitive, ToPrimitive};
-use log::*;
-use lazy_static::lazy_static;
 
-use crate::model::*;
 use crate::model::enums::*;
+use crate::model::*;
 use std::path::Path;
 
 use failure::SyncFailure;
 
-use migrant_lib::{Settings, Config, Migrator, list, EmbeddedMigration, Migratable, migration::Statements};
+use migrant_lib::{list, Config, EmbeddedMigration, Migratable, Migrator, Settings};
 
 #[cfg(test)]
 pub mod test_helpers;
@@ -24,18 +25,15 @@ impl Key for DbConnectionKey {
 }
 
 lazy_static! {
-    static ref MIGRATIONS: [Box<EmbeddedMigration>; 2] = [
-        Box::new(EmbeddedMigration {
-            tag: "001-baseline".to_owned(),
-            up: Some(Statements::StaticStr(include_str!("sql/migrations/001_baseline.sql"))),
-            down: None,
-        }),
-        Box::new(EmbeddedMigration {
-            tag: "002-lobby-description".to_owned(),
-            up: Some(Statements::StaticStr(include_str!("sql/migrations/002_lobby_description.sql"))),
-            down: None,
-        }),
-    ];
+    static ref MIGRATIONS: [EmbeddedMigration; 2] = {
+        let mut m1 = EmbeddedMigration::with_tag("001-baseline");
+        m1.up(include_str!("sql/migrations/001_baseline.sql"));
+
+        let mut m2 = EmbeddedMigration::with_tag("002-lobby-description");
+        m2.up(include_str!("sql/migrations/002_lobby_description.sql"));
+
+        [m1, m2]
+    };
 }
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
@@ -57,15 +55,16 @@ impl DbConnection {
         let mut config = Config::with_settings(&settings);
         config.setup().map_err(SyncFailure::new)?;
 
-        let migrations: Vec<Box<dyn Migratable>> =
-            MIGRATIONS
-                .iter()
-                .cloned()
-                .map(|x| x as Box<dyn Migratable>) // TODO: do NOT map cast
-                .collect::<Vec<_>>();
-        config.use_migrations(
-            &migrations
-        ).map_err(SyncFailure::new)?;
+        config
+            .use_migrations(
+                // there has GOT to be a better way
+                MIGRATIONS[..]
+                    .into_iter()
+                    .cloned()
+                    .map(|migration| -> Box<(dyn Migratable + 'static)> { Box::new(migration) })
+                    .collect::<Vec<_>>(),
+            )
+            .map_err(SyncFailure::new)?;
 
         let config = config.reload().map_err(SyncFailure::new)?;
 
@@ -73,7 +72,8 @@ impl DbConnection {
             .all(true)
             .show_output(false)
             .swallow_completion(true)
-            .apply().map_err(SyncFailure::new)?;
+            .apply()
+            .map_err(SyncFailure::new)?;
 
         let config = config.reload().map_err(SyncFailure::new)?;
         list(&config).map_err(SyncFailure::new)?;
@@ -91,7 +91,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             include_str!("sql/insert_server_player.sql"),
-            &[&nation_id, &(player_user_id.0 as i64), &server_alias],
+            params![&nation_id, &(player_user_id.0 as i64), &server_alias],
         )?;
         Ok(())
     }
@@ -106,12 +106,12 @@ impl DbConnection {
 
                 tx.execute(
                     include_str!("sql/insert_player.sql"),
-                    &[&(lobby_state.owner.0 as i64), &true],
+                    params![&(lobby_state.owner.0 as i64), &true],
                 )?;
 
                 tx.execute(
                     include_str!("sql/insert_lobby.sql"),
-                    &[
+                    params![
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
                         &lobby_state.player_count,
@@ -120,7 +120,7 @@ impl DbConnection {
                 )?;
                 tx.execute(
                     include_str!("sql/insert_game_server_from_lobby.sql"),
-                    &[
+                    params![
                         &game_server.alias,
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
@@ -134,11 +134,11 @@ impl DbConnection {
                 let tx = conn.transaction()?;
                 tx.execute(
                     include_str!("sql/insert_started_server.sql"),
-                    &[&started_state.address, &started_state.last_seen_turn],
+                    params![&started_state.address, &started_state.last_seen_turn],
                 )?;
                 tx.execute(
                     include_str!("sql/insert_started_game_server.sql"),
-                    &[&game_server.alias, &started_state.address],
+                    params![&game_server.alias, &started_state.address],
                 )?;
                 tx.commit()?;
                 Ok(())
@@ -147,12 +147,12 @@ impl DbConnection {
                 let tx = conn.transaction()?;
                 tx.execute(
                     include_str!("sql/insert_player.sql"),
-                    &[&(lobby_state.owner.0 as i64), &true],
+                    params![&(lobby_state.owner.0 as i64), &true],
                 )?;
 
                 tx.execute(
                     include_str!("sql/insert_lobby.sql"),
-                    &[
+                    params![
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
                         &lobby_state.player_count,
@@ -161,7 +161,7 @@ impl DbConnection {
                 )?;
                 tx.execute(
                     include_str!("sql/insert_game_server_from_lobby.sql"),
-                    &[
+                    params![
                         &game_server.alias,
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.0 as i64),
@@ -170,12 +170,12 @@ impl DbConnection {
                 )?;
                 tx.execute(
                     include_str!("sql/insert_started_state.sql"),
-                    &[&started_state.address, &started_state.last_seen_turn],
+                    params![&started_state.address, &started_state.last_seen_turn],
                 )?;
 
                 tx.execute(
                     include_str!("sql/update_game_with_started_state.sql"),
-                    &[
+                    params![
                         &started_state.address,
                         &started_state.last_seen_turn,
                         &game_server.alias,
@@ -192,7 +192,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             include_str!("sql/insert_player.sql"),
-            &[
+            params![
                 &(player.discord_user_id.0 as i64),
                 &player.turn_notifications,
             ],
@@ -204,26 +204,30 @@ impl DbConnection {
         info!("db::retrieve_all_servers");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_game_servers.sql"))?;
-        let foo = stmt.query_map(&[], |ref row| {
-            let maybe_address: Option<String> = row.get(1);
-            let maybe_last_seen_turn: Option<i32> = row.get(2);
-            let alias: String = row.get(0);
-            let maybe_owner: Option<i64> = row.get(3);
-            let maybe_era: Option<i32> = row.get(4);
-            let maybe_player_count: Option<i32> = row.get(5);
-            let description: Option<String> = row.get(6);
-            make_game_server(
-                alias,
-                maybe_address,
-                maybe_last_seen_turn,
-                maybe_owner,
-                maybe_era,
-                maybe_player_count,
-                description,
-            ).unwrap()
-        })?;
-        let vec = foo.collect::<Result<Vec<_>, _>>()?;
-        Ok(vec)
+        let foo = stmt
+            .query_and_then(params![], |ref row| -> Result<GameServer, Error> {
+                let maybe_address: Option<String> = row.get(1)?;
+                let maybe_last_seen_turn: Option<i32> = row.get(2)?;
+                let alias: String = row.get(0)?;
+                let maybe_owner: Option<i64> = row.get(3)?;
+                let maybe_era: Option<i32> = row.get(4)?;
+                let maybe_player_count: Option<i32> = row.get(5)?;
+                let description: Option<String> = row.get(6)?;
+
+                let game_server = make_game_server(
+                    alias,
+                    maybe_address,
+                    maybe_last_seen_turn,
+                    maybe_owner,
+                    maybe_era,
+                    maybe_player_count,
+                    description,
+                )?;
+
+                Ok(game_server)
+            })?
+            .collect::<Result<Vec<GameServer>, _>>()?;
+        Ok(foo)
     }
 
     pub fn players_with_nations_for_game_alias(
@@ -234,13 +238,13 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_players_nations.sql"))?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let discord_user_id: i64 = row.get(0);
+            let discord_user_id: i64 = row.get(0).unwrap();
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
-                turn_notifications: row.get(2),
+                turn_notifications: row.get(2).unwrap(),
             };
-            let nation: i32 = row.get(1);
-            (player, nation as usize)
+            let nation: i32 = row.get(1).unwrap();
+            Ok((player, nation as usize))
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
@@ -251,13 +255,13 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_game_server_for_alias.sql"))?;
         let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let maybe_address: Option<String> = row.get(0);
-            let maybe_last_seen_turn: Option<i32> = row.get(1);
-            let maybe_owner: Option<i64> = row.get(2);
-            let maybe_era: Option<i32> = row.get(3);
-            let maybe_player_count: Option<i32> = row.get(4);
-            let description: Option<String> = row.get(5);
-            make_game_server(
+            let maybe_address: Option<String> = row.get(0).unwrap();
+            let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
+            let maybe_owner: Option<i64> = row.get(2).unwrap();
+            let maybe_era: Option<i32> = row.get(3).unwrap();
+            let maybe_player_count: Option<i32> = row.get(4).unwrap();
+            let description: Option<String> = row.get(5).unwrap();
+            Ok(make_game_server(
                 game_alias.to_owned(),
                 maybe_address,
                 maybe_last_seen_turn,
@@ -265,17 +269,20 @@ impl DbConnection {
                 maybe_era,
                 maybe_player_count,
                 description,
-            ).unwrap()
+            )
+            .unwrap())
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         if vec.len() == 1 {
-            Ok(vec.into_iter()
+            Ok(vec
+                .into_iter()
                 .next()
                 .ok_or(err_msg("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
         } else {
-            Err(err_msg(
-                format!("could not find the game with alias {}", game_alias),
-            ))
+            Err(err_msg(format!(
+                "could not find the game with alias {}",
+                game_alias
+            )))
         }
     }
 
@@ -288,7 +295,7 @@ impl DbConnection {
         let conn = &mut *self.0.clone().get()?;
         let rows = conn.execute(
             include_str!("sql/update_game_with_turn.sql"),
-            &[&current_turn, &game_alias],
+            params![&current_turn, &game_alias],
         )?;
         info!("db::update_game_with_possibly_new_turn FINISHED");
         Ok(rows > 0)
@@ -299,7 +306,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             include_str!("sql/delete_player_from_game.sql"),
-            &[&game_alias, &(user.0 as i64)],
+            params![&game_alias, &(user.0 as i64)],
         )?;
         Ok(())
     }
@@ -310,16 +317,22 @@ impl DbConnection {
         let tx = conn.transaction()?;
         tx.execute(
             include_str!("sql/delete_server_players.sql"),
-            &[&game_alias],
+            params![&game_alias],
         )?;
-        let rows_modified = tx.execute(include_str!("sql/delete_game_server.sql"), &[&game_alias])?;
-        tx.execute(include_str!("sql/delete_started_server.sql"), &[])?;
-        tx.execute(include_str!("sql/delete_lobby.sql"), &[])?;
+        let rows_modified = tx.execute(
+            include_str!("sql/delete_game_server.sql"),
+            params![&game_alias],
+        )?;
+        tx.execute(include_str!("sql/delete_started_server.sql"), params![])?;
+        tx.execute(include_str!("sql/delete_lobby.sql"), params![])?;
         if rows_modified != 0 {
             tx.commit()?;
             Ok(())
         } else {
-            Err(err_msg(format!("Could not find server with name {}", game_alias)))
+            Err(err_msg(format!(
+                "Could not find server with name {}",
+                game_alias
+            )))
         }
     }
 
@@ -329,13 +342,13 @@ impl DbConnection {
         let mut stmt = conn.prepare(include_str!("sql/select_servers_for_player.sql"))?;
 
         let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
-            let alias: String = row.get(1);
-            let maybe_address: Option<String> = row.get(0);
-            let maybe_last_seen_turn: Option<i32> = row.get(2);
-            let maybe_owner: Option<i64> = row.get(4);
-            let maybe_era: Option<i32> = row.get(5);
-            let maybe_player_count: Option<i32> = row.get(6);
-            let description: Option<String> = row.get(7);
+            let alias: String = row.get(1).unwrap();
+            let maybe_address: Option<String> = row.get(0).unwrap();
+            let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
+            let maybe_owner: Option<i64> = row.get(4).unwrap();
+            let maybe_era: Option<i32> = row.get(5).unwrap();
+            let maybe_player_count: Option<i32> = row.get(6).unwrap();
+            let description: Option<String> = row.get(7).unwrap();
             let server = make_game_server(
                 alias,
                 maybe_address,
@@ -344,10 +357,11 @@ impl DbConnection {
                 maybe_era,
                 maybe_player_count,
                 description,
-            ).unwrap();
+            )
+            .unwrap();
 
-            let nation_id = row.get(3);
-            (server, nation_id)
+            let nation_id = row.get(3).unwrap();
+            Ok((server, nation_id))
         })?;
 
         let mut ret: Vec<(GameServer, i32)> = vec![];
@@ -367,7 +381,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             include_str!("sql/update_turn_notifications.sql"),
-            &[&(player.0 as i64), &desired_turn_notifications],
+            params![&(player.0 as i64), &desired_turn_notifications],
         )?;
         Ok(())
     }
@@ -382,12 +396,12 @@ impl DbConnection {
         let tx = conn.transaction()?;
         tx.execute(
             include_str!("sql/insert_started_state.sql"),
-            &[&started_state.address, &started_state.last_seen_turn],
+            params![&started_state.address, &started_state.last_seen_turn],
         )?;
 
         tx.execute(
             include_str!("sql/update_game_with_started_state.sql"),
-            &[
+            params![
                 &started_state.address,
                 &started_state.last_seen_turn,
                 &alias,
@@ -401,13 +415,13 @@ impl DbConnection {
         info!("select_lobbies");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("sql/select_lobbies.sql"))?;
-        let foo = stmt.query_map(&[], |ref row| {
-            let alias: String = row.get(0);
-            let maybe_owner: Option<i64> = row.get(1);
-            let maybe_era: Option<i32> = row.get(2);
-            let maybe_player_count: Option<i32> = row.get(3);
-            let registered_player_count: i32 = row.get(4);
-            let description: Option<String> = row.get(5);
+        let foo = stmt.query_map(params![], |ref row| {
+            let alias: String = row.get(0).unwrap();
+            let maybe_owner: Option<i64> = row.get(1).unwrap();
+            let maybe_era: Option<i32> = row.get(2).unwrap();
+            let maybe_player_count: Option<i32> = row.get(3).unwrap();
+            let registered_player_count: i32 = row.get(4).unwrap();
+            let description: Option<String> = row.get(5).unwrap();
             let server = make_game_server(
                 alias,
                 None,
@@ -416,14 +430,19 @@ impl DbConnection {
                 maybe_era,
                 maybe_player_count,
                 description,
-            ).unwrap();
-            (server, registered_player_count)
+            )
+            .unwrap();
+            Ok((server, registered_player_count))
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
     }
 
-    pub fn update_lobby_with_description(&self, alias: &str, description: &str) -> Result<(), Error> {
+    pub fn update_lobby_with_description(
+        &self,
+        alias: &str,
+        description: &str,
+    ) -> Result<(), Error> {
         info!("update_lobby_with_description");
         let conn = &*self.0.clone().get()?;
         let rows_modified = conn.execute(
@@ -486,9 +505,104 @@ fn make_game_server(
         _ => return Err(err_msg(format!("invalid db state for {}", alias))),
     };
 
-    let server = GameServer {
-        alias,
-        state,
-    };
+    let server = GameServer { alias, state };
     Ok(server)
+}
+
+mod db_test {
+    use super::*;
+
+    #[test]
+    fn test_insert_server_and_server_player() {
+        let conn: DbConnection = DbConnection::test();
+        let server_alias = "foobar";
+        let player_user_id = UserId(131311);
+        let nation_id = 32;
+        let server_address = "eg_address:3000".to_owned();
+        let server_last_seen_turn = 1;
+
+        conn.insert_game_server(&GameServer {
+            alias: server_alias.to_owned(),
+            state: GameServerState::StartedState(
+                StartedState {
+                    address: server_address.clone(),
+                    last_seen_turn: server_last_seen_turn,
+                },
+                None,
+            ),
+        })
+        .unwrap();
+
+        let started_server: (u32, String, i32) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn
+                .query_row(
+                    "select * from started_servers where address = ?1",
+                    params![&server_address],
+                    |r| Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap())),
+                )
+                .unwrap()
+        };
+
+        assert_eq!(started_server.1, server_address);
+        assert_eq!(started_server.2, server_last_seen_turn);
+
+        let game_server: (u32, String, u32, Option<u32>) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn
+                .query_row(
+                    "select * from game_servers where alias = ?1",
+                    params![&server_alias],
+                    |r| {
+                        Ok((
+                            r.get(0).unwrap(),
+                            r.get(1).unwrap(),
+                            r.get(2).unwrap(),
+                            r.get(3).unwrap(),
+                        ))
+                    },
+                )
+                .unwrap()
+        };
+
+        assert_eq!(game_server.1, server_alias);
+        assert_eq!(game_server.2, started_server.0);
+        assert!(game_server.3.is_none());
+
+        conn.insert_player(&Player {
+            discord_user_id: player_user_id,
+            turn_notifications: false,
+        })
+        .unwrap();
+
+        let player: (u32, u32, bool) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn
+                .query_row(
+                    "select * from players where discord_user_id = ?1",
+                    params![player_user_id.0 as i64],
+                    |r| Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap())),
+                )
+                .unwrap()
+        };
+
+        assert_eq!(player.1 as u64, player_user_id.0);
+        assert_eq!(player.2, false);
+
+        conn.insert_server_player(server_alias, player_user_id, nation_id)
+            .unwrap();
+
+        let server_player: (u32, u32, u32) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn
+                .query_row("select * from server_players", params![], |r| {
+                    Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap()))
+                })
+                .unwrap()
+        };
+
+        assert_eq!(server_player.0, game_server.0);
+        assert_eq!(server_player.1, player.0);
+        assert_eq!(server_player.2, nation_id);
+    }
 }

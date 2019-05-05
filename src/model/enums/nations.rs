@@ -1,7 +1,7 @@
-use std::collections::HashMap;
 use crate::model::enums::Era;
-use log::*;
 use lazy_static::lazy_static;
+use log::*;
+use std::collections::HashMap;
 
 pub struct Nations;
 impl Nations {
@@ -13,13 +13,21 @@ impl Nations {
     }
 
     pub fn from_id(id: u32) -> Option<Nation> {
-        NATIONS_BY_ID.get(&id).map ({ |&(name, era)|
-            Nation { id, name: name.to_owned(), era }
+        NATIONS_BY_ID.get(&id).map({
+            |&(name, era)| Nation {
+                id,
+                name: name.to_owned(),
+                era,
+            }
         })
     }
 
     pub fn from_name_prefix(name_prefix: &str, era_filter: Option<Era>) -> Vec<Nation> {
-        let sanitised_prefix = name_prefix.to_owned().to_lowercase().replace("'", "").replace(" ", "");
+        let sanitised_prefix = name_prefix
+            .to_owned()
+            .to_lowercase()
+            .replace("'", "")
+            .replace(" ", "");
         NATIONS_BY_ID
             .iter()
             .filter(|&(&_id, &(name, era))| {
@@ -27,10 +35,19 @@ impl Nations {
                     Some(some_era_filter) => some_era_filter == era,
                     None => true,
                 };
-                let sanitised_name = name.to_owned().to_lowercase().replace("'", "").replace(" ", "");
+                let sanitised_name = name
+                    .to_owned()
+                    .to_lowercase()
+                    .replace("'", "")
+                    .replace(" ", "");
                 era_correct && sanitised_name.starts_with(&sanitised_prefix)
-            }).map ({ |(&id, &(name, era))|
-                Nation { id, name: name.to_owned(), era }
+            })
+            .map({
+                |(&id, &(name, era))| Nation {
+                    id,
+                    name: name.to_owned(),
+                    era,
+                }
             })
             .collect::<Vec<_>>()
     }
@@ -45,7 +62,7 @@ pub struct Nation {
 type NationEnum = (&'static str, Era);
 
 // TODO: actually make an enum
-lazy_static ! { // TODO: replace with PHF crate?
+lazy_static! { // TODO: replace with PHF crate?
     pub static ref NATIONS_BY_ID: HashMap<u32, NationEnum> = {
         let mut m = HashMap::new();
         m.insert(5u32, ("Arcoscephale", Era::Early));
