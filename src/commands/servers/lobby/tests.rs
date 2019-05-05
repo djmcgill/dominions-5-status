@@ -19,8 +19,8 @@ fn add_lobby() {
 
     lobby_helper(&db_conn, Era::Early, 5, "foo", UserId(0)).unwrap();
 
-    assert_eq!(db_conn.count_servers(), initial_server_count+1);
-    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state_count+1);
+    assert_eq!(db_conn.count_servers(), initial_server_count + 1);
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state_count + 1);
 }
 
 #[test]
@@ -33,8 +33,8 @@ fn add_two_lobbies() {
     lobby_helper(&db_conn, Era::Early, 5, "foo", UserId(4)).unwrap();
     lobby_helper(&db_conn, Era::Early, 5, "bar", UserId(4)).unwrap();
 
-    assert_eq!(db_conn.count_servers(), initial_server_count+2);
-    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state_count+2);
+    assert_eq!(db_conn.count_servers(), initial_server_count + 2);
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state_count + 2);
 }
 /*
 

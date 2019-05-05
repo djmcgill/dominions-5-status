@@ -1,14 +1,14 @@
 #![allow(dead_code)]
 // hyssop snek.earth:30097
 
-use std::{env, fs};
+use super::*;
 use crate::db::*;
 use crate::model::*;
-use serenity::prelude::*;
-use super::*;
 use crate::server::ServerConnection;
+use serenity::prelude::*;
 use std::path::Path;
 use std::thread;
+use std::{env, fs};
 
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 
@@ -67,7 +67,10 @@ fn run_details_and_turns_simultaneously() {
             debug!("starting details");
             let data = data_clone.lock();
             let db_connection = data.get::<DbConnectionKey>().unwrap();
-            let res = commands::servers::details_helper::<RealServerConnection>(&db_connection, game_alias);
+            let res = commands::servers::details_helper::<RealServerConnection>(
+                &db_connection,
+                game_alias,
+            );
             debug!("DETAILS RESULT: {:?}", res);
             res.unwrap();
         });
@@ -78,7 +81,7 @@ fn run_details_and_turns_simultaneously() {
         thread::spawn(move || {
             debug!("starting turn_check");
             let res = commands::servers::message_players_if_new_turn::<RealServerConnection>(
-                data.as_ref()
+                data.as_ref(),
             );
             debug!("TURN_CHECK RESULT: {:?}", res);
             res.unwrap();
@@ -87,5 +90,4 @@ fn run_details_and_turns_simultaneously() {
 
     println!("SUCCESS");
     panic!();
-
 }

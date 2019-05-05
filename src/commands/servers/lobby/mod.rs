@@ -1,13 +1,12 @@
 use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
+use serenity::prelude::Context;
 
-use crate::model::{GameServer, GameServerState, LobbyState};
-use crate::model::enums::Era;
-use crate::db::*;
 use super::alias_from_arg_or_channel_name;
-
+use crate::db::*;
+use crate::model::enums::Era;
+use crate::model::{GameServer, GameServerState, LobbyState};
 
 #[cfg(test)]
 mod tests;
@@ -37,7 +36,8 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
     let player_count = args.single_quoted::<i32>()?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
     let data = context.data.lock();
-    let db_connection = data.get::<DbConnectionKey>()
+    let db_connection = data
+        .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
 
     lobby_helper(db_connection, era, player_count, &alias, message.author.id)?;

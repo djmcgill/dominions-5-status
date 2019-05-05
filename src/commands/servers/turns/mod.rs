@@ -1,13 +1,13 @@
+use log::*;
 use serenity::framework::standard::CommandError;
-use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use log::*;
+use serenity::prelude::Context;
 
-use crate::server::ServerConnection;
 use crate::db::*;
-use crate::model::{GameServerState, Nation};
 use crate::model::enums::*;
+use crate::model::{GameServerState, Nation};
+use crate::server::ServerConnection;
 
 fn turns_helper<C: ServerConnection>(
     user_id: UserId,
@@ -61,7 +61,8 @@ pub fn turns<C: ServerConnection>(
     message: &Message,
 ) -> Result<(), CommandError> {
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>()
+    let db_conn = data
+        .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
     let text = turns_helper::<C>(message.author.id, db_conn)?;
     info!("turns: replying with: {}", text);

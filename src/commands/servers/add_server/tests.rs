@@ -1,8 +1,8 @@
 use super::*;
 
-use std::io;
 use crate::model::GameData;
 use lazy_static::lazy_static;
+use std::io;
 
 #[test]
 fn should_return_error_on_no_connection() {

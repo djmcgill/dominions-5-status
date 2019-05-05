@@ -1,9 +1,9 @@
 use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
 use serenity::model::channel::Message;
+use serenity::prelude::Context;
 
-use crate::db::*;
 use super::alias_from_arg_or_channel_name;
+use crate::db::*;
 
 #[cfg(test)]
 mod tests;

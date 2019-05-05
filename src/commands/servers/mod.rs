@@ -37,9 +37,9 @@ pub use self::lobbies::*;
 mod describe;
 pub use self::describe::*;
 
+use crate::server::ServerConnection;
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
-use crate::server::ServerConnection;
 
 pub trait WithServersCommands: Sized {
     fn get_standard_framework(self) -> StandardFramework;
@@ -75,10 +75,9 @@ pub trait WithServersCommands: Sized {
             .command("turns", |c| {
                 c.bucket(bucket).exec(|cx, m, _| turns::<C>(cx, m))
             })
-            .command(
-                "lobby",
-                |c| c.bucket(bucket).exec(|cx, m, a| lobby(cx, m, a)),
-            )
+            .command("lobby", |c| {
+                c.bucket(bucket).exec(|cx, m, a| lobby(cx, m, a))
+            })
             .command("notifications", |c| {
                 c.bucket(bucket).exec(|cx, m, a| notifications(cx, m, a))
             })
@@ -112,10 +111,11 @@ fn alias_from_arg_or_channel_name(args: &mut Args, message: &Message) -> Result<
     result_alias
         .clone()
         .map(|s| s.to_lowercase())
-        .and_then(|s| if !s.is_empty() {Some(s)} else {None})
-        .ok_or_else(||
+        .and_then(|s| if !s.is_empty() { Some(s) } else { None })
+        .ok_or_else(|| {
             format!(
                 "Could not game alias from command argument or channel name \"{}\"",
-                result_alias.unwrap_or_default())
-        )
+                result_alias.unwrap_or_default()
+            )
+        })
 }

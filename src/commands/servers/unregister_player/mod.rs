@@ -1,8 +1,8 @@
+use log::*;
 use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
-use log::*;
+use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::{DbConnection, DbConnectionKey};
@@ -30,8 +30,7 @@ pub fn unregister_player(
 
     let text = format!(
         "Removing user {} from all nations in game {}",
-        message.author,
-        alias
+        message.author, alias
     );
     info!("{}", text);
     let _ = message.reply(&text);

@@ -1,16 +1,16 @@
-use crate::server::ServerConnection;
 use super::alias_from_arg_or_channel_name;
+use crate::server::ServerConnection;
 
-use serenity::framework::standard::{Args, CommandError};
-use serenity::prelude::Context;
-use serenity::model::channel::Message;
 use serenity::builder::CreateEmbed;
+use serenity::framework::standard::{Args, CommandError};
+use serenity::model::channel::Message;
+use serenity::prelude::Context;
 
-use crate::model::{GameServerState, LobbyState, StartedState};
-use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
 use crate::db::{DbConnection, DbConnectionKey};
-use std::collections::HashMap;
+use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
+use crate::model::{GameServerState, LobbyState, StartedState};
 use log::*;
+use std::collections::HashMap;
 
 #[cfg(test)]
 mod tests;
@@ -44,7 +44,8 @@ pub fn details<C: ServerConnection>(
     mut args: Args,
 ) -> Result<(), CommandError> {
     let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>()
+    let db_conn = data
+        .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
     if !args.is_empty() {
@@ -88,7 +89,9 @@ fn lobby_details(
         .field("Player", player_names, true)
         .field("Owner", format!("{}", owner), false);
     let e = match lobby_state.description {
-        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
+        Some(ref description) if !description.is_empty() => {
+            e_temp.field("Description", description, false)
+        }
         _ => e_temp,
     };
 
@@ -115,19 +118,17 @@ fn uploading_from_lobby_details<C: ServerConnection>(
     let id_player_registered_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let players_not_uploaded = id_player_registered_nations
         .iter()
-        .filter(|&&(_, nation_id)|
-            !players_uploaded_by_nation_id.contains_key(&nation_id)
-        );
+        .filter(|&&(_, nation_id)| !players_uploaded_by_nation_id.contains_key(&nation_id));
 
     let mut nation_names = String::new();
     let mut player_names = String::new();
     let mut submitted_status = String::new();
 
     for (&nation_id, _) in players_uploaded_by_nation_id.iter() {
-        let player_name = id_player_registered_nations.iter()
+        let player_name = id_player_registered_nations
+            .iter()
             .find(|&&(_, found_nation_id)| nation_id == found_nation_id)
-            .map(|&(ref p, _)|
-                     format!("**{}**\n", p.discord_user_id.to_user().unwrap()))
+            .map(|&(ref p, _)| format!("**{}**\n", p.discord_user_id.to_user().unwrap()))
             .unwrap_or_else(|| format!("{}\n", NationStatus::Human.show()));
         let &(nation_name, era) = Nations::get_nation_desc(nation_id);
         nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, nation_id));
@@ -144,8 +145,7 @@ fn uploading_from_lobby_details<C: ServerConnection>(
 
     let embed_title = format!(
         "{} ({}): Pretender uploading",
-        game_data.game_name,
-        started_state.address,
+        game_data.game_name, started_state.address,
     );
 
     let owner = lobby_state.owner.to_user()?;
@@ -156,7 +156,9 @@ fn uploading_from_lobby_details<C: ServerConnection>(
         .field("Uploaded", submitted_status, true)
         .field("Owner", format!("{}", owner), false);
     let e = match lobby_state.description {
-        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
+        Some(ref description) if !description.is_empty() => {
+            e_temp.field("Description", description, false)
+        }
         _ => e_temp,
     };
     Ok(e)
@@ -231,19 +233,12 @@ fn started_from_lobby_details<C: ServerConnection>(
     info!("getting owner name");
     let embed_title = format!(
         "{} ({}): turn {}, {}h {}m remaining",
-        game_data.game_name,
-        started_state.address,
-        game_data.turn,
-        hours_remaining,
-        mins_remaining
+        game_data.game_name, started_state.address, game_data.turn, hours_remaining, mins_remaining
     );
 
     info!(
         "replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
-        embed_title,
-        nation_names,
-        player_names,
-        submitted_status
+        embed_title, nation_names, player_names, submitted_status
     );
 
     let owner = lobby_state.owner.to_user()?;
@@ -254,7 +249,9 @@ fn started_from_lobby_details<C: ServerConnection>(
         .field("Submitted", submitted_status, true)
         .field("Owner", format!("{}", owner), false);
     let e = match lobby_state.description {
-        Some(ref description) if !description.is_empty() => e_temp.field("Description", description, false),
+        Some(ref description) if !description.is_empty() => {
+            e_temp.field("Description", description, false)
+        }
         _ => e_temp,
     };
     Ok(e)
@@ -314,19 +311,12 @@ fn started_details<C: ServerConnection>(
 
     let embed_title = format!(
         "{} ({}): turn {}, {}h {}m remaining",
-        game_data.game_name,
-        started_state.address,
-        game_data.turn,
-        hours_remaining,
-        mins_remaining
+        game_data.game_name, started_state.address, game_data.turn, hours_remaining, mins_remaining
     );
 
     info!(
         "replying with embed_title {:?}\n nations {:?}\n players {:?}\n, submission {:?}",
-        embed_title,
-        nation_names,
-        player_names,
-        submitted_status
+        embed_title, nation_names, player_names, submitted_status
     );
 
     let e = CreateEmbed::default()
