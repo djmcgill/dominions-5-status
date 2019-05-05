@@ -1,9 +1,6 @@
 use super::*;
 
 use std::io;
-use crate::model::*;
-use crate::model::enums::*;
-use serenity::model::*;
 
 #[test]
 fn should_return_error_on_no_connection() {

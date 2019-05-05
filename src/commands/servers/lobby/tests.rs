@@ -14,21 +14,27 @@ fn lobby_helper(
 fn add_lobby() {
     let db_conn = DbConnection::test();
 
+    let initial_server_count = db_conn.count_servers();
+    let initial_lobby_state_count = db_conn.count_lobby_state();
+
     lobby_helper(&db_conn, Era::Early, 5, "foo", UserId(0)).unwrap();
 
-    assert_eq!(db_conn.count_servers(), 1);
-    assert_eq!(db_conn.count_lobby_state(), 1);
+    assert_eq!(db_conn.count_servers(), initial_server_count+1);
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state_count+1);
 }
 
 #[test]
 fn add_two_lobbies() {
     let db_conn = DbConnection::test();
 
+    let initial_server_count = db_conn.count_servers();
+    let initial_lobby_state_count = db_conn.count_lobby_state();
+
     lobby_helper(&db_conn, Era::Early, 5, "foo", UserId(4)).unwrap();
     lobby_helper(&db_conn, Era::Early, 5, "bar", UserId(4)).unwrap();
 
-    assert_eq!(db_conn.count_servers(), 2);
-    assert_eq!(db_conn.count_lobby_state(), 2);
+    assert_eq!(db_conn.count_servers(), initial_server_count+2);
+    assert_eq!(db_conn.count_lobby_state(), initial_lobby_state_count+2);
 }
 /*
 

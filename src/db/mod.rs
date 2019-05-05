@@ -94,6 +94,9 @@ impl DbConnection {
     }
 
     pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
+        #[cfg(test)]
+        println!("db::insert_game_server: {:?}", game_server);
+        #[cfg(not(test))]
         info!("db::insert_game_server: {:?}", game_server);
         let conn = &mut *self.0.clone().get()?;
 
@@ -488,4 +491,78 @@ fn make_game_server(
         state,
     };
     Ok(server)
+}
+
+mod db_test {
+    use super::*;
+
+    #[test]
+    fn test_insert_server_and_server_player() {
+        let conn: DbConnection = DbConnection::test();
+        let server_alias = "foobar";
+        let player_user_id = UserId(131311);
+        let nation_id = 32;
+        let server_address = "eg_address:3000".to_owned();
+        let server_last_seen_turn = 1;
+
+        conn.insert_game_server(&GameServer{
+            alias: server_alias.to_owned(),
+            state: GameServerState::StartedState(StartedState{
+                address: server_address.clone(),
+                last_seen_turn: server_last_seen_turn,
+            }, None)
+        }).unwrap();
+
+        let started_server: (u32, String, i32) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn.query_row(
+                "select * from started_servers where address = ?1", params![&server_address], |r|
+                    Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap()))
+            ).unwrap()
+        };
+
+        assert_eq!(started_server.1, server_address);
+        assert_eq!(started_server.2, server_last_seen_turn);
+
+        let game_server: (u32, String, u32, Option<u32>) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn.query_row(
+                "select * from game_servers where alias = ?1", params![&server_alias], |r|
+                    Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap(), r.get(3).unwrap()))
+            ).unwrap()
+        };
+
+        assert_eq!(game_server.1, server_alias);
+        assert_eq!(game_server.2, started_server.0);
+        assert!(game_server.3.is_none());
+
+        conn.insert_player(&Player{
+            discord_user_id: player_user_id,
+            turn_notifications: false,
+        }).unwrap();
+
+        let player: (u32, u32, bool) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn.query_row(
+                "select * from players where discord_user_id = ?1", params![player_user_id.0 as i64], |r|
+                    Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap()))
+            ).unwrap()
+        };
+
+        assert_eq!(player.1 as u64, player_user_id.0);
+        assert_eq!(player.2, false);
+
+        conn.insert_server_player(server_alias, player_user_id, nation_id).unwrap();
+
+        let server_player: (u32, u32, u32) = {
+            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
+            raw_conn.query_row("select * from server_players", params![], |r|
+                Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap()))
+            ).unwrap()
+        };
+
+        assert_eq!(server_player.0, game_server.0);
+        assert_eq!(server_player.1, player.0);
+        assert_eq!(server_player.2, nation_id);
+    }
 }
