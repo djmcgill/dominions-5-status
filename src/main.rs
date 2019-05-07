@@ -7,7 +7,7 @@ mod server;
 #[cfg(test)]
 pub mod it;
 
-use serenity::framework::standard::StandardFramework;
+    use serenity::framework::standard::StandardFramework;
 use serenity::prelude::*;
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 
@@ -78,7 +78,7 @@ fn create_discord_client() -> Result<Client, Error> {
             .help(|_, msg, _, _, _| commands::help(msg))
             .before(|_, msg, _| {
                 info!("received message {:?}", msg);
-                true
+                !msg.author.bot // ignore bots
             })
             .after(|_ctx, msg, _cmd_name, result| {
                 if let Err(err) = result {
