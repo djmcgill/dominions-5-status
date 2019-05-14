@@ -29,7 +29,18 @@ fn add_server_helper<C: ServerConnection>(
         ),
     };
 
-    db_connection.insert_game_server(&server)?;
+    db_connection.insert_game_server(&server).map_err(|e| {
+        if e.to_string()
+            .contains("UNIQUE constraint failed: game_servers.alias")
+        {
+            CommandError::from(format!(
+                "A game called '{}' already exists, if you are starting a lobby use !start",
+                game_alias
+            ))
+        } else {
+            CommandError::from(e)
+        }
+    })?;
     Ok(())
 }
 
