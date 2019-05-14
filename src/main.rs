@@ -7,7 +7,7 @@ mod server;
 #[cfg(test)]
 pub mod it;
 
-    use serenity::framework::standard::StandardFramework;
+use serenity::framework::standard::StandardFramework;
 use serenity::prelude::*;
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 

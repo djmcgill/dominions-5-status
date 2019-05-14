@@ -1,7 +1,7 @@
 use super::*;
 
 use crate::model::GameData;
-use crate::{mock_server_connection, mock_conditional_server_connection};
+use crate::{mock_conditional_server_connection, mock_server_connection};
 use lazy_static::lazy_static;
 use std::io;
 
