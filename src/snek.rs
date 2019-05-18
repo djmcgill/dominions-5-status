@@ -7,7 +7,7 @@ pub fn snek_details(address: &str) -> Result<Option<()>, Box<Error>> {
 
     let host_str = snek_url.host_str().ok_or_else(|| -> Box<Error> {
         format!("Url '{}' did not have host", address).into()
-    });
+    })?;
     if host_str != "snek.earth" && host_str != "dom5.snek.earth" {
         return Ok(None);
     }
@@ -20,7 +20,7 @@ pub fn snek_details(address: &str) -> Result<Option<()>, Box<Error>> {
     };
     let game_id = port-30_000;
 
-    let response = reqwest::get(format!("https://dom5.snek.earth/api/games/{}/status", game_id))?;
+    let response = reqwest::get(&format!("https://dom5.snek.earth/api/games/{}/status", game_id))?;
 
     Ok(Some(()))
 }
