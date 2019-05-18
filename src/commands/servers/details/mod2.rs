@@ -11,8 +11,8 @@ use crate::model::enums::{Era, NationStatus, Nations, SubmissionStatus};
 use crate::model::{GameServerState, LobbyState, Nation, Player, StartedState};
 use log::*;
 use serenity::model::id::UserId;
-use std::collections::HashMap;
 use std::cmp::max;
+use std::collections::HashMap;
 
 struct GameDetails {
     alias: String,
@@ -69,7 +69,7 @@ struct LobbyPlayer {
     registered_nation: u32,
 }
 
-pub fn details_helper_2<C: ServerConnection>(
+fn details_helper<C: ServerConnection>(
     db_conn: &DbConnection,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
@@ -77,15 +77,9 @@ pub fn details_helper_2<C: ServerConnection>(
     info!("got server details");
 
     let details = match server.state {
-        GameServerState::Lobby(ref lobby_state) =>
-            lobby_details_2(db_conn, lobby_state, &alias)?,
+        GameServerState::Lobby(ref lobby_state) => lobby_details(db_conn, lobby_state, &alias)?,
         GameServerState::StartedState(ref started_state, ref option_lobby_state) => {
-            started_from_lobby_details_2::<C>(
-                db_conn,
-                started_state,
-                option_lobby_state.as_ref(),
-                &alias,
-            )?
+            started_details::<C>(db_conn, started_state, option_lobby_state.as_ref(), &alias)?
         }
     };
 
@@ -93,7 +87,7 @@ pub fn details_helper_2<C: ServerConnection>(
 }
 
 fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
-    match details.nations {
+    let mut e = match details.nations {
         NationDetails::Started(started_details) => {
             match started_details.state {
                 StartedStateDetails::Playing(playing_state) => {
@@ -111,63 +105,68 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     let mut submitted_status = String::new();
 
                     for potential_player in playing_state.players {
-                        match potential_player {
+                        let (option_user_id, player_details) = match potential_player {
                             // If the game has started and they're not in it, too bad
-                            PotentialPlayer::LobbyOnly(_, _) => {}
-
+                            PotentialPlayer::LobbyOnly(_, _) => continue,
                             PotentialPlayer::LobbyAndGame(user_id, player_details) => {
-                                let &(nation_name, era) = Nations::get_nation_desc(player_details.nation_id as usize);
-                                nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, player_details.nation_id));
-                                if let NationStatus::Human = player_details.player_status {
-                                    player_names.push_str(&format!("**{}**\n", user_id.to_user()?));
-                                    submitted_status.push_str(&format!("{}\n", player_details.submitted.show()));
-                                } else {
-                                    player_names.push_str(&format!("{}\n", player_details.player_status.show()));
-                                    submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
-                                }
+                                (Some(user_id), player_details)
                             }
-                            PotentialPlayer::GameOnly(player_details) => {
-                                let &(nation_name, era) = Nations::get_nation_desc(player_details.nation_id as usize);
-                                nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, player_details.nation_id));
-                                if let NationStatus::Human = player_details.player_status {
-                                    player_names.push_str(&format!("{}\n", player_details.player_status.show()));
-                                    submitted_status.push_str(&format!("{}\n", player_details.submitted.show()));
-                                } else {
-                                    player_names.push_str(&format!("{}\n", player_details.player_status.show()));
-                                    submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
+                            PotentialPlayer::GameOnly(player_details) => (None, player_details),
+                        };
+
+                        let &(nation_name, era) =
+                            Nations::get_nation_desc(player_details.nation_id as usize);
+                        nation_names.push_str(&format!(
+                            "{} {} ({})\n",
+                            era, nation_name, player_details.nation_id
+                        ));
+
+                        if let NationStatus::Human = player_details.player_status {
+                            match option_user_id {
+                                Some(user_id) => {
+                                    player_names.push_str(&format!("**{}**\n", user_id.to_user()?))
                                 }
+                                None => player_names.push_str(&format!(
+                                    "{}\n",
+                                    player_details.player_status.show()
+                                )),
                             }
+                            submitted_status
+                                .push_str(&format!("{}\n", player_details.submitted.show()));
+                        } else {
+                            player_names
+                                .push_str(&format!("{}\n", player_details.player_status.show()));
+                            submitted_status
+                                .push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
                         }
                     }
 
-                    let mut e = CreateEmbed::default()
+                    CreateEmbed::default()
                         .title(embed_title)
                         .field("Nation", nation_names, true)
                         .field("Player", player_names, true)
-                        .field("Submitted", submitted_status, true);
-
-                    for owner in details.owner {
-                        e = e.field("Owner", owner.to_user()?.to_string(), false);
-                    }
-
-                    for description in details.description {
-                        if !description.is_empty() {
-                            e = e.field("Description", description, false);
-                        }
-                    }
-                    Ok(e)
+                        .field("Submitted", submitted_status, true)
                 }
                 StartedStateDetails::Uploading(uploading_state) => {
+                    let embed_title = format!(
+                        "{} ({}): Pretender uploading",
+                        started_details.game_name, started_details.address,
+                    );
+
                     let mut nation_names = String::new();
                     let mut player_names = String::new();
                     let mut submitted_status = String::new();
 
                     for uploading_player in uploading_state.uploading_players {
-                        let &(nation_name, era) = Nations::get_nation_desc(uploading_player.nation as usize);
-                        nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, uploading_player.nation));
+                        let &(nation_name, era) =
+                            Nations::get_nation_desc(uploading_player.nation as usize);
+                        nation_names.push_str(&format!(
+                            "{} {} ({})\n",
+                            era, nation_name, uploading_player.nation
+                        ));
                         let player_name = match uploading_player.player {
                             Some(user_id) => format!("**{}**\n", user_id.to_user()?),
-                            None => format!("{}\n", NationStatus::Human.show())
+                            None => format!("{}\n", NationStatus::Human.show()),
                         };
                         player_names.push_str(&player_name);
                         let player_submitted_status = if uploading_player.uploaded {
@@ -176,37 +175,20 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             format!("{}\n", SubmissionStatus::NotSubmitted.show())
                         };
                         submitted_status.push_str(&player_submitted_status);
-
                     }
 
-                    let embed_title = format!(
-                        "{} ({}): Pretender uploading",
-                        started_details.game_name, started_details.address,
-                    );
-
-                    let mut e = CreateEmbed::default()
+                    CreateEmbed::default()
                         .title(embed_title)
                         .field("Nation", nation_names, true)
                         .field("Player", player_names, true)
-                        .field("Uploaded", submitted_status, true);
-
-                    for owner in details.owner {
-                        e = e.field("Owner", owner.to_user()?.to_string(), false);
-                    }
-
-                    for description in details.description {
-                        if !description.is_empty() {
-                            e = e.field("Description", description, false);
-                        }
-                    }
-                    Ok(e)
+                        .field("Uploaded", submitted_status, true)
                 }
             }
         }
         NationDetails::Lobby(lobby_details) => {
             let embed_title = match lobby_details.era {
                 Some(era) => format!("{} ({} Lobby)", details.alias, era),
-                None => format!("{} (Lobby)", details.alias)
+                None => format!("{} (Lobby)", details.alias),
             };
 
             let mut player_names = String::new();
@@ -214,32 +196,35 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
 
             for lobby_player in lobby_details.players {
                 let discord_user = lobby_player.player.to_user()?;
-                let &(nation_name, era) = Nations::get_nation_desc(lobby_player.registered_nation as usize);
+                let &(nation_name, era) =
+                    Nations::get_nation_desc(lobby_player.registered_nation as usize);
                 player_names.push_str(&format!("{} \n", discord_user));
-                nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, lobby_player.registered_nation));
+                nation_names.push_str(&format!(
+                    "{} {} ({})\n",
+                    era, nation_name, lobby_player.registered_nation
+                ));
             }
 
             for _ in 0..lobby_details.remaining_slots {
                 player_names.push_str(&".\n");
                 nation_names.push_str(&"OPEN\n");
             }
-            let mut e = CreateEmbed::default()
+            CreateEmbed::default()
                 .title(embed_title)
                 .field("Nation", nation_names, true)
-                .field("Player", player_names, true);
+                .field("Player", player_names, true)
+        }
+    };
+    for owner in details.owner {
+        e = e.field("Owner", owner.to_user()?.to_string(), false);
+    }
 
-            for owner in details.owner {
-                e = e.field("Owner", owner.to_user()?.to_string(), false);
-            }
-
-            for description in details.description {
-                if !description.is_empty() {
-                    e = e.field("Description", description, false);
-                }
-            }
-            Ok(e)
+    for description in details.description {
+        if !description.is_empty() {
+            e = e.field("Description", description, false);
         }
     }
+    Ok(e)
 }
 
 pub fn details_2<C: ServerConnection>(
@@ -258,14 +243,14 @@ pub fn details_2<C: ServerConnection>(
         ));
     }
 
-    let embed_response = details_helper_2::<C>(db_conn, &alias)?;
+    let embed_response = details_helper::<C>(db_conn, &alias)?;
     message
         .channel_id
         .send_message(|m| m.embed(|_| embed_response))?;
     Ok(())
 }
 
-fn lobby_details_2(
+fn lobby_details(
     db_conn: &DbConnection,
     lobby_state: &LobbyState,
     alias: &str,
@@ -282,7 +267,10 @@ fn lobby_details_2(
         })
         .collect();
 
-    let remaining_slots = max(0, (lobby_state.player_count - player_nation_details.len() as i32) as u32);
+    let remaining_slots = max(
+        0,
+        (lobby_state.player_count - player_nation_details.len() as i32) as u32,
+    );
 
     let lobby_details = LobbyDetails {
         players: player_nation_details,
@@ -298,7 +286,7 @@ fn lobby_details_2(
     })
 }
 
-fn started_from_lobby_details_2<C: ServerConnection>(
+fn started_details<C: ServerConnection>(
     db_conn: &DbConnection,
     started_state: &StartedState,
     option_lobby_state: Option<&LobbyState>,
