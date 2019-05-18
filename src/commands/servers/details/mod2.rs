@@ -118,20 +118,22 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             PotentialPlayer::LobbyAndGame(user_id, player_details) => {
                                 let &(nation_name, era) = Nations::get_nation_desc(player_details.nation_id as usize);
                                 nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, player_details.nation_id));
-                                player_names.push_str(&format!("**{}**\n", user_id.to_user()?));
                                 if let NationStatus::Human = player_details.player_status {
+                                    player_names.push_str(&format!("**{}**\n", user_id.to_user()?));
                                     submitted_status.push_str(&format!("{}\n", player_details.submitted.show()));
                                 } else {
+                                    player_names.push_str(&format!("{}\n", player_details.player_status.show()));
                                     submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
                                 }
                             }
                             PotentialPlayer::GameOnly(player_details) => {
                                 let &(nation_name, era) = Nations::get_nation_desc(player_details.nation_id as usize);
                                 nation_names.push_str(&format!("{} {} ({})\n", era, nation_name, player_details.nation_id));
-                                player_names.push_str(&format!("{}\n", player_details.player_status.show()));
                                 if let NationStatus::Human = player_details.player_status {
+                                    player_names.push_str(&format!("{}\n", player_details.player_status.show()));
                                     submitted_status.push_str(&format!("{}\n", player_details.submitted.show()));
                                 } else {
+                                    player_names.push_str(&format!("{}\n", player_details.player_status.show()));
                                     submitted_status.push_str(&format!("{}\n", SubmissionStatus::Submitted.show()));
                                 }
                             }
