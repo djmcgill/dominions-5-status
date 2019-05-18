@@ -55,10 +55,19 @@ pub trait WithServersCommands: Sized {
                 c.bucket(bucket).exec(|cx, m, a| remove_server(cx, m, a))
             })
             .command("details", |c| {
-                c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
+                c.bucket(bucket).exec(|cx, m, a|
+                    details::<C>(cx, m, a)
+                )
             })
             .command("deets", |c| {
-                c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
+                c.bucket(bucket).exec(|cx, m, a|
+                    details::<C>(cx, m, a)
+                )
+            })
+            .command("details2", |c| {
+                c.bucket(bucket).exec(|cx, m, a|
+                    details_2::<C>(cx, m, a)
+                )
             })
             .command("register", |c| {
                 c.bucket(bucket)
