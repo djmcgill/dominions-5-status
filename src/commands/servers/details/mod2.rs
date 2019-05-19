@@ -9,6 +9,7 @@ use serenity::prelude::Context;
 use crate::db::{DbConnection, DbConnectionKey};
 use crate::model::enums::{Era, NationStatus, Nations, SubmissionStatus};
 use crate::model::{GameServerState, LobbyState, Nation, Player, StartedState};
+use crate::snek::SnekGameStatus;
 use log::*;
 use serenity::model::id::UserId;
 use std::cmp::max;
@@ -29,6 +30,33 @@ struct StartedDetails {
     address: String,
     game_name: String,
     state: StartedStateDetails,
+    option_snek_state: Option<SnekGameStatus>,
+}
+impl StartedDetails {
+    pub fn get_nation_string(&self, nation_id: u32) -> String {
+        let snek_nation_details = self
+            .option_snek_state
+            .as_ref()
+            .and_then(|snek_details| {
+                snek_details.nations.get(&nation_id)
+            });
+        match snek_nation_details {
+            Some(snek_nation) => {
+                format!(
+                    "{} ({})\n",
+                    snek_nation.name, nation_id
+                )
+            }
+            None => {
+                let &(nation_name, _) =
+                    Nations::get_nation_desc(nation_id as usize);
+                format!(
+                    "{} ({})\n",
+                    nation_name, nation_id
+                )
+            }
+        }
+    }
 }
 enum StartedStateDetails {
     Playing(PlayingState),
@@ -89,7 +117,7 @@ fn details_helper<C: ServerConnection>(
 fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
     let mut e = match details.nations {
         NationDetails::Started(started_details) => {
-            match started_details.state {
+            match &started_details.state {
                 StartedStateDetails::Playing(playing_state) => {
                     let embed_title = format!(
                         "{} ({}): turn {}, {}h {}m remaining",
@@ -104,7 +132,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     let mut player_names = String::new();
                     let mut submitted_status = String::new();
 
-                    for potential_player in playing_state.players {
+                    for potential_player in &playing_state.players {
                         let (option_user_id, player_details) = match potential_player {
                             // If the game has started and they're not in it, too bad
                             PotentialPlayer::LobbyOnly(_, _) => continue,
@@ -114,12 +142,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             PotentialPlayer::GameOnly(player_details) => (None, player_details),
                         };
 
-                        let &(nation_name, era) =
-                            Nations::get_nation_desc(player_details.nation_id as usize);
-                        nation_names.push_str(&format!(
-                            "{} {} ({})\n",
-                            era, nation_name, player_details.nation_id
-                        ));
+                        nation_names.push_str(&started_details.get_nation_string(player_details.nation_id));
 
                         if let NationStatus::Human = player_details.player_status {
                             match option_user_id {
@@ -157,13 +180,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     let mut player_names = String::new();
                     let mut submitted_status = String::new();
 
-                    for uploading_player in uploading_state.uploading_players {
-                        let &(nation_name, era) =
-                            Nations::get_nation_desc(uploading_player.nation as usize);
-                        nation_names.push_str(&format!(
-                            "{} {} ({})\n",
-                            era, nation_name, uploading_player.nation
-                        ));
+                    for uploading_player in &uploading_state.uploading_players {
+                        nation_names.push_str(&started_details.get_nation_string(uploading_player.nation));
+
                         let player_name = match uploading_player.player {
                             Some(user_id) => format!("**{}**\n", user_id.to_user()?),
                             None => format!("{}\n", NationStatus::Human.show()),
@@ -346,10 +365,13 @@ fn started_details<C: ServerConnection>(
         })
     };
 
+    let option_snek_details = C::get_snek_data(server_address)?;
+
     let started_details = StartedDetails {
         address: server_address.clone(),
         game_name: game_data.game_name.clone(),
         state: state_details,
+        option_snek_state: option_snek_details,
     };
 
     Ok(GameDetails {

@@ -10,6 +10,11 @@ macro_rules! mock_server_connection {
             fn get_game_data(_: &str) -> io::Result<crate::model::GameData> {
                 $ret_val
             }
+            fn get_snek_data(
+                _server_address: &str,
+            ) -> Result<Option<crate::snek::SnekGameStatus>, Box<std::error::Error>> {
+                Ok(None)
+            }
         }
     };
 }
@@ -21,6 +26,11 @@ macro_rules! mock_conditional_server_connection {
         impl ServerConnection for $struct_name {
             fn get_game_data(server_address: &str) -> io::Result<GameData> {
                 $ret_fn(server_address)
+            }
+            fn get_snek_data(
+                _server_address: &str,
+            ) -> Result<Option<crate::snek::SnekGameStatus>, Box<std::error::Error>> {
+                Ok(None)
             }
         }
     };

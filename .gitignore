@@ -1,7 +1,6 @@
 
 /target/
 **/*.rs.bk
-Cargo.lock
 token
 *.db
 *.ppk

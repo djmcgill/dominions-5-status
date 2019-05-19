@@ -3,6 +3,7 @@ mod commands;
 mod db;
 mod model;
 mod server;
+mod snek;
 
 #[cfg(test)]
 pub mod it;
