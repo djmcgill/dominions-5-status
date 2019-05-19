@@ -20,6 +20,8 @@ r2d2 = "0.8.0"
 r2d2_sqlite = "0.9.0"
 reqwest = "0.9.17"
 rusqlite = {version = "0.17.*", features = ["bundled", "trace"]}
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 serenity = "0.5.11"
 simplelog = "^0.4.4"
 typemap = "0.3"

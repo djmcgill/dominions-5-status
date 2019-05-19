@@ -1,16 +1,19 @@
 use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
 use crate::model::{GameData, Nation, RawGameData};
+use crate::snek::{snek_details, SnekGameStatus};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use cached::{cached_key_result, Cached, TimedCache};
 use flate2::read::ZlibDecoder;
 use hex_slice::AsHex;
 use log::*;
+use std::error::Error;
 use std::io;
 use std::io::{Cursor, Read, Write};
 use std::net;
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
+    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<Error>>;
 }
 
 cached_key_result! {
@@ -61,6 +64,9 @@ pub struct RealServerConnection;
 impl ServerConnection for RealServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData> {
         get_game_data_fn(server_address)
+    }
+    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<Error>> {
+        snek_details(server_address)
     }
 }
 
