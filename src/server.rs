@@ -28,7 +28,7 @@ fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
         if status_num != 0 && status_num != 3 {
             let submitted = raw_data.f[i + 250];
             let connected = raw_data.f[i + 500];
-            let nation_id = i - 1; // why -1? No fucking idea
+            let nation_id = (i - 1) as u32; // why -1? No fucking idea
             let &(nation_name, era) = Nations::get_nation_desc(nation_id);
             let nation = Nation {
                 id: nation_id,

@@ -5,8 +5,8 @@ use std::collections::HashMap;
 
 pub struct Nations;
 impl Nations {
-    pub fn get_nation_desc(n: usize) -> &'static NationEnum {
-        NATIONS_BY_ID.get(&(n as u32)).unwrap_or_else(|| {
+    pub fn get_nation_desc(n: u32) -> &'static NationEnum {
+        NATIONS_BY_ID.get(&n).unwrap_or_else(|| {
             info!("unknown nation {}", n);
             &("unknown nation", Era::Early) // FIXME
         })
@@ -17,7 +17,7 @@ impl Nations {
             |&(name, era)| Nation {
                 id,
                 name: name.to_owned(),
-                era,
+                era: Some(era),
             }
         })
     }
@@ -46,7 +46,7 @@ impl Nations {
                 |(&id, &(name, era))| Nation {
                     id,
                     name: name.to_owned(),
-                    era,
+                    era: Some(era),
                 }
             })
             .collect::<Vec<_>>()
@@ -57,7 +57,7 @@ impl Nations {
 pub struct Nation {
     pub id: u32,
     pub name: String, // Can be 'static str with refactoring
-    pub era: Era,
+    pub era: Option<Era>,
 }
 type NationEnum = (&'static str, Era);
 

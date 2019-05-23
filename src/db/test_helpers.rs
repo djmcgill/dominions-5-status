@@ -52,14 +52,6 @@ impl DbConnection {
             tx.commit()?;
         }
 
-        // populate with dummy data
-        for i in 1..5 {
-            self.insert_player(&Player {
-                discord_user_id: UserId(i + 100 as u64),
-                turn_notifications: false,
-            })
-            .unwrap();
-        }
         for i in 1..10 {
             self.insert_game_server(&GameServer {
                 alias: format!("test server {}", i),
@@ -71,6 +63,19 @@ impl DbConnection {
                     None,
                 ),
             })
+            .unwrap();
+        }
+
+        // populate with dummy data
+        for i in 1..5 {
+            self.insert_player_into_server(
+                &Player {
+                    discord_user_id: UserId((i + 100) as u64),
+                    turn_notifications: false,
+                },
+                &format!("test server {}", i),
+                i,
+            )
             .unwrap();
         }
 

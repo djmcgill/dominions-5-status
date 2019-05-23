@@ -14,6 +14,7 @@ use log::*;
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::sync::Arc;
 use std::thread;
 use std::sync::Arc;
 

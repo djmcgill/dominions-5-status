@@ -21,11 +21,7 @@ fn turns_helper<C: ServerConnection>(
         // TODO: iflet macro crate
         if let GameServerState::StartedState(ref started_state, _) = server.state {
             if let Ok(game_data) = C::get_game_data(&started_state.address) {
-                if let Some(nation) = game_data
-                    .nations
-                    .iter()
-                    .find(|&n| n.id == nation_id as usize)
-                {
+                if let Some(nation) = game_data.nations.iter().find(|&n| n.id == nation_id) {
                     if nation.status == NationStatus::Human {
                         let (hours_remaining, mins_remaining) =
                             hours_mins_remaining(game_data.turn_timer);
