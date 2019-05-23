@@ -35,6 +35,7 @@ lazy_static! {
         [m1, m2]
     };
 }
+#[derive(Clone)]
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
@@ -78,21 +79,6 @@ impl DbConnection {
         let config = config.reload().map_err(SyncFailure::new)?;
         list(&config).map_err(SyncFailure::new)?;
 
-        Ok(())
-    }
-
-    pub fn insert_server_player(
-        &self,
-        server_alias: &str,
-        player_user_id: UserId,
-        nation_id: u32,
-    ) -> Result<(), Error> {
-        info!("db::insert_server_player");
-        let conn = &*self.0.clone().get()?;
-        conn.execute(
-            include_str!("db/sql/insert_server_player.sql"),
-            params![&nation_id, &(player_user_id.0 as i64), &server_alias],
-        )?;
         Ok(())
     }
 
@@ -187,16 +173,31 @@ impl DbConnection {
         }
     }
 
-    pub fn insert_player(&self, player: &Player) -> Result<(), Error> {
-        info!("db::insert_player");
-        let conn = &*self.0.clone().get()?;
-        conn.execute(
+    pub fn insert_player_into_server(
+        &self,
+        player: &Player,
+        server_alias: &str,
+        nation_id: u32,
+    ) -> Result<(), Error> {
+        info!("db::insert_player_into_server");
+        let conn = &mut *self.0.clone().get()?;
+        let tx = conn.transaction()?;
+        tx.execute(
             include_str!("db/sql/insert_player.sql"),
             params![
                 &(player.discord_user_id.0 as i64),
                 &player.turn_notifications,
             ],
         )?;
+        tx.execute(
+            include_str!("db/sql/insert_server_player.sql"),
+            params![
+                &nation_id,
+                &(player.discord_user_id.0 as i64),
+                &server_alias
+            ],
+        )?;
+        tx.commit()?;
         Ok(())
     }
 
@@ -233,7 +234,7 @@ impl DbConnection {
     pub fn players_with_nations_for_game_alias(
         &self,
         game_alias: &str,
-    ) -> Result<Vec<(Player, usize)>, Error> {
+    ) -> Result<Vec<(Player, u32)>, Error> {
         info!("players_with_nations_for_game_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_players_nations.sql"))?;
@@ -244,7 +245,7 @@ impl DbConnection {
                 turn_notifications: row.get(2).unwrap(),
             };
             let nation: i32 = row.get(1).unwrap();
-            Ok((player, nation as usize))
+            Ok((player, nation as u32))
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
@@ -335,7 +336,7 @@ impl DbConnection {
         }
     }
 
-    pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, i32)>, Error> {
+    pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, u32)>, Error> {
         info!("servers_for_player");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_servers_for_player.sql"))?;
@@ -359,11 +360,11 @@ impl DbConnection {
             )
             .unwrap();
 
-            let nation_id = row.get(3).unwrap();
-            Ok((server, nation_id))
+            let nation_id: i32 = row.get(3).unwrap();
+            Ok((server, nation_id as u32))
         })?;
 
-        let mut ret: Vec<(GameServer, i32)> = vec![];
+        let mut ret: Vec<(GameServer, u32)> = vec![];
         for pair in foo {
             ret.push(pair?);
         }
@@ -506,103 +507,4 @@ fn make_game_server(
 
     let server = GameServer { alias, state };
     Ok(server)
-}
-
-#[cfg(test)]
-mod db_test {
-    use super::*;
-
-    #[test]
-    fn test_insert_server_and_server_player() {
-        let conn: DbConnection = DbConnection::test();
-        let server_alias = "foobar";
-        let player_user_id = UserId(131311);
-        let nation_id = 32;
-        let server_address = "eg_address:3000".to_owned();
-        let server_last_seen_turn = 1;
-
-        conn.insert_game_server(&GameServer {
-            alias: server_alias.to_owned(),
-            state: GameServerState::StartedState(
-                StartedState {
-                    address: server_address.clone(),
-                    last_seen_turn: server_last_seen_turn,
-                },
-                None,
-            ),
-        })
-        .unwrap();
-
-        let started_server: (u32, String, i32) = {
-            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
-            raw_conn
-                .query_row(
-                    "select * from started_servers where address = ?1",
-                    params![&server_address],
-                    |r| Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap())),
-                )
-                .unwrap()
-        };
-
-        assert_eq!(started_server.1, server_address);
-        assert_eq!(started_server.2, server_last_seen_turn);
-
-        let game_server: (u32, String, u32, Option<u32>) = {
-            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
-            raw_conn
-                .query_row(
-                    "select * from game_servers where alias = ?1",
-                    params![&server_alias],
-                    |r| {
-                        Ok((
-                            r.get(0).unwrap(),
-                            r.get(1).unwrap(),
-                            r.get(2).unwrap(),
-                            r.get(3).unwrap(),
-                        ))
-                    },
-                )
-                .unwrap()
-        };
-
-        assert_eq!(game_server.1, server_alias);
-        assert_eq!(game_server.2, started_server.0);
-        assert!(game_server.3.is_none());
-
-        conn.insert_player(&Player {
-            discord_user_id: player_user_id,
-            turn_notifications: false,
-        })
-        .unwrap();
-
-        let player: (u32, u32, bool) = {
-            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
-            raw_conn
-                .query_row(
-                    "select * from players where discord_user_id = ?1",
-                    params![player_user_id.0 as i64],
-                    |r| Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap())),
-                )
-                .unwrap()
-        };
-
-        assert_eq!(player.1 as u64, player_user_id.0);
-        assert_eq!(player.2, false);
-
-        conn.insert_server_player(server_alias, player_user_id, nation_id)
-            .unwrap();
-
-        let server_player: (u32, u32, u32) = {
-            let raw_conn: &rusqlite::Connection = &*conn.0.clone().get().unwrap();
-            raw_conn
-                .query_row("select * from server_players", params![], |r| {
-                    Ok((r.get(0).unwrap(), r.get(1).unwrap(), r.get(2).unwrap()))
-                })
-                .unwrap()
-        };
-
-        assert_eq!(server_player.0, game_server.0);
-        assert_eq!(server_player.1, player.0);
-        assert_eq!(server_player.2, nation_id);
-    }
 }

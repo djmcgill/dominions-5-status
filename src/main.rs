@@ -5,9 +5,6 @@ mod model;
 mod server;
 mod snek;
 
-#[cfg(test)]
-pub mod it;
-
 use serenity::framework::standard::StandardFramework;
 use serenity::prelude::*;
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
@@ -17,10 +14,19 @@ use log::*;
 use std::env;
 use std::fs::File;
 use std::io::Read;
+use std::sync::Arc;
 use std::thread;
 
 use crate::db::*;
 use crate::server::RealServerConnection;
+
+use commands::servers::GameDetails;
+use evmap;
+
+use chrono::{DateTime, Utc};
+
+type WriteHandle = evmap::WriteHandle<String, Box<(DateTime<Utc>, Option<GameDetails>)>>;
+type ReadHandle = evmap::ReadHandleFactory<String, Box<(DateTime<Utc>, Option<GameDetails>)>>;
 
 struct Handler;
 impl EventHandler for Handler {}
@@ -32,7 +38,7 @@ fn main() {
 }
 
 fn do_main() -> Result<(), Error> {
-    SimpleLogger::init(LogLevelFilter::Debug, Config::default())?;
+    SimpleLogger::init(LogLevelFilter::Info, Config::default())?;
     info!("Logger initialised");
 
     let mut discord_client = create_discord_client().context("Creating discord client")?;
@@ -52,6 +58,11 @@ fn read_token() -> Result<String, Error> {
     Ok(temp_token)
 }
 
+struct DetailsReadHandleKey;
+impl typemap::Key for DetailsReadHandleKey {
+    type Value = ReadHandle;
+}
+
 fn create_discord_client() -> Result<Client, Error> {
     let token = read_token().context("Reading token file")?;
 
@@ -61,11 +72,14 @@ fn create_discord_client() -> Result<Client, Error> {
         DbConnection::new(&path).context(format!("Opening database '{}'", path.display()))?;
     info!("Opened database connection");
 
+    let (reader, write) = evmap::new();
+
     let mut discord_client = Client::new(&token, Handler).map_err(SyncFailure::new)?;
     info!("Created discord client");
     {
         let mut data = discord_client.data.lock();
-        data.insert::<DbConnectionKey>(db_conn);
+        data.insert::<DbConnectionKey>(db_conn.clone());
+        data.insert::<DetailsReadHandleKey>(reader.factory());
     }
 
     use crate::commands::servers::WithServersCommands;
@@ -92,12 +106,18 @@ fn create_discord_client() -> Result<Client, Error> {
     );
     info!("Configured discord client");
 
-    let data_clone = discord_client.data.clone();
+    let writer_mutex = Arc::new(Mutex::new(write));
+    let writer_mutex_clone = writer_mutex.clone();
     thread::spawn(move || {
-        commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(
-            data_clone.as_ref(),
+        crate::commands::servers::turn_check::update_details_cache_loop(
+            db_conn.clone(),
+            writer_mutex_clone,
         );
     });
+    thread::spawn(move || {
+        crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
+    });
+
     // start listening for events by starting a single shard
     Ok(discord_client)
 }
