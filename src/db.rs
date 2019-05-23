@@ -35,6 +35,7 @@ lazy_static! {
         [m1, m2]
     };
 }
+#[derive(Clone)]
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
     pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {

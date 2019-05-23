@@ -1,4 +1,4 @@
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 #[repr(u8)]
 pub enum NationStatus {
     Empty = 0,

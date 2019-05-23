@@ -16,7 +16,7 @@ use std::collections::HashMap;
 mod tests;
 
 mod mod2;
-pub use mod2::details_2; // this is the rewritten version
+pub use mod2::*; // this is the rewritten version
 
 pub fn details_helper<C: ServerConnection>(
     db_conn: &DbConnection,

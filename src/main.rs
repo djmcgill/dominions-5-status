@@ -22,6 +22,97 @@ use std::thread;
 use crate::db::*;
 use crate::server::RealServerConnection;
 
+use commands::servers::GameDetails;
+use evmap;
+
+use serenity::framework::standard::CommandError;
+
+use chrono::{DateTime, Duration, Utc};
+use lazy_static::lazy_static;
+
+use crate::commands::servers::get_details_for_alias;
+use std::collections::HashSet;
+use std::time;
+
+type WriteHandle = evmap::WriteHandle<String, Box<(DateTime<Utc>, Option<GameDetails>)>>;
+type ReadHandle = evmap::ReadHandleFactory<String, Box<(DateTime<Utc>, Option<GameDetails>)>>;
+
+pub fn update_details_cache_loop(db_conn: DbConnection, write_handle_mutex: &Mutex<WriteHandle>) {
+    loop {
+        info!("Checking for new turns!");
+        for mut write_handle in write_handle_mutex.try_lock() {
+            update_details_cache_for_all_games(&db_conn, &mut write_handle);
+        }
+        thread::sleep(time::Duration::from_secs(60));
+    }
+}
+
+// FIXME: should just be regular error
+fn update_details_cache_for_game(
+    alias: &str,
+    db_conn: &DbConnection,
+    write_handle: &mut WriteHandle,
+) -> Result<(), CommandError> {
+    info!("Checking turn for {}", alias);
+
+    let result_details = get_details_for_alias::<RealServerConnection>(db_conn, alias);
+    let now = Utc::now();
+    match result_details {
+        Err(e) => {
+            error!(
+                "Got an error when checking for details for alias {}: {:?}",
+                alias, e
+            );
+            write_handle.update(alias.to_owned(), Box::new((now, None)));
+        }
+        Ok(details) => {
+            write_handle.update(alias.to_owned(), Box::new((now, Some(details))));
+        }
+    }
+
+    // FIXME: might just want to store the hash
+    info!("Checking turn for {}: SUCCESS", alias);
+    Ok(())
+}
+
+fn update_details_cache_for_all_games(db_conn: &DbConnection, write_handle: &mut WriteHandle) {
+    match db_conn.retrieve_all_servers() {
+        Err(e) => {
+            error!("Could not query the db for all servers with error: {:?}", e);
+        }
+        Ok(servers) => {
+            // FIXME: might want to parallelise
+            for server in servers {
+                match update_details_cache_for_game(&server.alias, db_conn, write_handle) {
+                    Ok(()) => {}
+                    Err(e) => {
+                        error!("Could not update game {} with error {:?}", server.alias, e);
+                    }
+                }
+            }
+            write_handle.refresh();
+        }
+    }
+}
+
+fn remove_old_entries_from_cache(write_handle: &mut WriteHandle) {
+    let values: Vec<String> = write_handle.map_into(|key, _| key.clone());
+
+    for value in values {
+        write_handle.retain(value.clone(), move |box_value| {
+            let (ref last_updated, ref details) = **box_value;
+            let two_hours_ago = Utc::now().checked_sub_signed(Duration::hours(2)).unwrap();
+
+            // If we've updated successfully more recently than 2 hours ago, keep it.
+            let out_of_date = last_updated > &two_hours_ago;
+            if out_of_date {
+                info!("Removing game {} from cache", value);
+            };
+            !out_of_date
+        });
+    }
+}
+
 struct Handler;
 impl EventHandler for Handler {}
 
@@ -32,7 +123,7 @@ fn main() {
 }
 
 fn do_main() -> Result<(), Error> {
-    SimpleLogger::init(LogLevelFilter::Debug, Config::default())?;
+    SimpleLogger::init(LogLevelFilter::Info, Config::default())?;
     info!("Logger initialised");
 
     let mut discord_client = create_discord_client().context("Creating discord client")?;
@@ -52,6 +143,11 @@ fn read_token() -> Result<String, Error> {
     Ok(temp_token)
 }
 
+struct DetailsReadHandleKey;
+impl typemap::Key for DetailsReadHandleKey {
+    type Value = ReadHandle;
+}
+
 fn create_discord_client() -> Result<Client, Error> {
     let token = read_token().context("Reading token file")?;
 
@@ -61,11 +157,14 @@ fn create_discord_client() -> Result<Client, Error> {
         DbConnection::new(&path).context(format!("Opening database '{}'", path.display()))?;
     info!("Opened database connection");
 
+    let (reader, write) = evmap::new();
+
     let mut discord_client = Client::new(&token, Handler).map_err(SyncFailure::new)?;
     info!("Created discord client");
     {
         let mut data = discord_client.data.lock();
-        data.insert::<DbConnectionKey>(db_conn);
+        data.insert::<DbConnectionKey>(db_conn.clone());
+        data.insert::<DetailsReadHandleKey>(reader.factory());
     }
 
     use crate::commands::servers::WithServersCommands;
@@ -93,11 +192,11 @@ fn create_discord_client() -> Result<Client, Error> {
     info!("Configured discord client");
 
     let data_clone = discord_client.data.clone();
+    let writer_mutex = Mutex::new(write);
     thread::spawn(move || {
-        commands::servers::check_for_new_turns_every_1_min::<RealServerConnection>(
-            data_clone.as_ref(),
-        );
+        update_details_cache_loop(db_conn.clone(), &writer_mutex);
     });
+
     // start listening for events by starting a single shard
     Ok(discord_client)
 }

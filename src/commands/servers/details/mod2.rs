@@ -15,92 +15,116 @@ use serenity::model::id::UserId;
 use std::cmp::max;
 use std::collections::HashMap;
 
-struct GameDetails {
-    alias: String,
-    owner: Option<UserId>,
-    description: Option<String>,
-    nations: NationDetails,
+#[derive(PartialEq, Eq, Clone)]
+pub struct GameDetails {
+    pub alias: String,
+    pub owner: Option<UserId>,
+    pub description: Option<String>,
+    pub nations: NationDetails,
 }
-
-enum NationDetails {
+#[derive(PartialEq, Eq, Clone)]
+pub enum NationDetails {
     Lobby(LobbyDetails),
     Started(StartedDetails),
 }
-struct StartedDetails {
-    address: String,
-    game_name: String,
-    state: StartedStateDetails,
-    option_snek_state: Option<SnekGameStatus>,
+#[derive(PartialEq, Eq, Clone)]
+pub struct StartedDetails {
+    pub address: String,
+    pub game_name: String,
+    pub state: StartedStateDetails,
+    pub option_snek_state: Option<SnekGameStatus>,
 }
 impl StartedDetails {
     pub fn get_nation_string(&self, nation_id: u32) -> String {
         let snek_nation_details = self
             .option_snek_state
             .as_ref()
-            .and_then(|snek_details| {
-                snek_details.nations.get(&nation_id)
-            });
+            .and_then(|snek_details| snek_details.nations.get(&nation_id));
         match snek_nation_details {
-            Some(snek_nation) => {
-                format!(
-                    "{} ({})\n",
-                    snek_nation.name, nation_id
-                )
-            }
+            Some(snek_nation) => format!("{} ({})\n", snek_nation.name, nation_id),
             None => {
-                let &(nation_name, _) =
-                    Nations::get_nation_desc(nation_id as usize);
-                format!(
-                    "{} ({})\n",
-                    nation_name, nation_id
-                )
+                let &(nation_name, _) = Nations::get_nation_desc(nation_id as usize);
+                format!("{} ({})\n", nation_name, nation_id)
             }
         }
     }
 }
-enum StartedStateDetails {
+#[derive(PartialEq, Eq, Clone)]
+pub enum StartedStateDetails {
     Playing(PlayingState),
     Uploading(UploadingState),
 }
-struct UploadingState {
-    uploading_players: Vec<UploadingPlayer>,
+#[derive(PartialEq, Eq, Clone)]
+pub struct UploadingState {
+    pub uploading_players: Vec<UploadingPlayer>,
 }
-struct PlayingState {
-    players: Vec<PotentialPlayer>,
-    turn: u32,
-    mins_remaining: i32,
-    hours_remaining: i32,
+#[derive(PartialEq, Eq, Clone)]
+pub struct PlayingState {
+    pub players: Vec<PotentialPlayer>,
+    pub turn: u32,
+    pub mins_remaining: i32,
+    pub hours_remaining: i32,
 }
-enum PotentialPlayer {
+#[derive(PartialEq, Eq, Clone)]
+pub enum PotentialPlayer {
     LobbyOnly(UserId, u32),
     LobbyAndGame(UserId, PlayerDetails),
     GameOnly(PlayerDetails),
 }
-struct PlayerDetails {
-    nation_id: u32,
-    submitted: SubmissionStatus,
-    player_status: NationStatus,
+#[derive(PartialEq, Eq, Clone)]
+pub struct PlayerDetails {
+    pub nation_id: u32,
+    pub submitted: SubmissionStatus,
+    pub player_status: NationStatus,
 }
-
-struct UploadingPlayer {
-    player: Option<UserId>,
-    nation: u32,
-    uploaded: bool,
+#[derive(PartialEq, Eq, Clone)]
+pub struct UploadingPlayer {
+    pub player: Option<UserId>,
+    pub nation: u32,
+    pub uploaded: bool,
 }
-struct LobbyDetails {
-    players: Vec<LobbyPlayer>,
-    era: Option<Era>,
-    remaining_slots: u32,
+#[derive(PartialEq, Eq, Clone)]
+pub struct LobbyDetails {
+    pub players: Vec<LobbyPlayer>,
+    pub era: Option<Era>,
+    pub remaining_slots: u32,
 }
-struct LobbyPlayer {
-    player: UserId,
-    registered_nation: u32,
+#[derive(PartialEq, Eq, Clone)]
+pub struct LobbyPlayer {
+    pub player: UserId,
+    pub registered_nation: u32,
 }
 
 fn details_helper<C: ServerConnection>(
     db_conn: &DbConnection,
     alias: &str,
 ) -> Result<CreateEmbed, CommandError> {
+    let details = get_details_for_alias::<C>(db_conn, alias)?;
+
+    details_to_embed(details)
+}
+
+fn details_helper_2(
+    alias: &str,
+    db_conn: &DbConnection,
+    read_handle: &crate::ReadHandle,
+) -> Result<CreateEmbed, CommandError> {
+    let handle = read_handle.handle().get_and(alias, |values| {
+        if values.len() != 1 {
+            panic!()
+        } else {
+            (*values[0]).1.clone().unwrap()
+        }
+    });
+    let details = handle.unwrap();
+
+    details_to_embed(details)
+}
+
+pub fn get_details_for_alias<C: ServerConnection>(
+    db_conn: &DbConnection,
+    alias: &str,
+) -> Result<GameDetails, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
     info!("got server details");
 
@@ -111,7 +135,7 @@ fn details_helper<C: ServerConnection>(
         }
     };
 
-    details_to_embed(details)
+    Ok(details)
 }
 
 fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
@@ -142,7 +166,8 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             PotentialPlayer::GameOnly(player_details) => (None, player_details),
                         };
 
-                        nation_names.push_str(&started_details.get_nation_string(player_details.nation_id));
+                        nation_names
+                            .push_str(&started_details.get_nation_string(player_details.nation_id));
 
                         if let NationStatus::Human = player_details.player_status {
                             match option_user_id {
@@ -181,7 +206,8 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     let mut submitted_status = String::new();
 
                     for uploading_player in &uploading_state.uploading_players {
-                        nation_names.push_str(&started_details.get_nation_string(uploading_player.nation));
+                        nation_names
+                            .push_str(&started_details.get_nation_string(uploading_player.nation));
 
                         let player_name = match uploading_player.player {
                             Some(user_id) => format!("**{}**\n", user_id.to_user()?),
@@ -255,14 +281,20 @@ pub fn details_2<C: ServerConnection>(
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
+
+    let read_handle = data
+        .get::<crate::DetailsReadHandleKey>()
+        .ok_or("No ReadHandle was created on startup. This is a bug.")?;
+
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
+    let embed_response = details_helper_2(&alias, db_conn, read_handle)?;
 
-    let embed_response = details_helper::<C>(db_conn, &alias)?;
+    //    let embed_response = details_helper::<C>(db_conn, &alias)?;
     message
         .channel_id
         .send_message(|m| m.embed(|_| embed_response))?;
