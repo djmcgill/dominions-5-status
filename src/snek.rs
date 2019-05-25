@@ -8,6 +8,7 @@ use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
+#[derive(PartialEq, Eq, Clone)]
 pub struct SnekGameStatus {
     pub nations: HashMap<u32, SnekNation>,
 }
@@ -17,7 +18,7 @@ struct RawSnekGameStatus {
     nations: Vec<SnekNation>,
 }
 
-#[derive(Deserialize, Debug)]
+#[derive(PartialEq, Eq, Deserialize, Debug, Clone)]
 pub struct SnekNation {
     #[serde(rename = "nationid", deserialize_with = "u32_from_str")]
     pub nation_id: u32,

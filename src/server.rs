@@ -2,7 +2,6 @@ use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
 use crate::model::{GameData, Nation, RawGameData};
 use crate::snek::{snek_details, SnekGameStatus};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
-use cached::{cached_key_result, Cached, TimedCache};
 use flate2::read::ZlibDecoder;
 use hex_slice::AsHex;
 use log::*;
@@ -14,20 +13,6 @@ use std::net;
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
     fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<Error>>;
-}
-
-cached_key_result! {
-    ONE_MIN_GAME_DATA: TimedCache<String, GameData> = TimedCache::with_lifespan(59);
-    Key = { server_address.to_owned() };
-    fn get_game_data_fn(server_address: &str) -> io::Result<GameData> = {
-        get_game_data_cache(server_address)
-    }
-}
-
-pub fn cache_get(k: &String) -> Option<GameData> {
-    // FIXME possible timing issues
-    let mut cache = ONE_MIN_GAME_DATA.lock().unwrap();
-    cache.cache_get(k).cloned()
 }
 
 fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
@@ -63,7 +48,7 @@ pub struct RealServerConnection;
 
 impl ServerConnection for RealServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData> {
-        get_game_data_fn(server_address)
+        get_game_data_cache(server_address)
     }
     fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<Error>> {
         snek_details(server_address)
@@ -80,18 +65,18 @@ fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
 fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
     info!("starting to connect to {}", server_address);
     let mut stream = net::TcpStream::connect(server_address)?;
-    info!("connected");
+    debug!("connected");
     let mut wtr = vec![];
     wtr.write_u8(b'f')?;
     wtr.write_u8(b'H')?;
     wtr.write_u32::<LittleEndian>(1)?;
     wtr.write_u8(3)?;
 
-    info!("Sending {:x}", wtr.as_slice().as_hex());
+    debug!("Sending {:x}", wtr.as_slice().as_hex());
     let _ = stream.write(&wtr)?;
-    info!("sent");
+    debug!("sent");
     let mut buffer = [0; 2048];
-    info!("trying to receive");
+    debug!("trying to receive");
     let _ = stream.read(&mut buffer)?;
 
     let mut wtr2 = vec![];
@@ -99,9 +84,9 @@ fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
     wtr2.write_u8(b'H')?;
     wtr2.write_u32::<LittleEndian>(1)?;
     wtr2.write_u8(11)?;
-    info!("Sending {:x}", wtr2.as_slice().as_hex());
+    debug!("Sending {:x}", wtr2.as_slice().as_hex());
     let _ = stream.write(&wtr2)?;
-    info!("sent");
+    debug!("sent");
 
     Ok(buffer.to_vec())
 }
@@ -109,13 +94,13 @@ fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
 fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
     debug!("HEADER {:?}", &raw[0..10]);
     if raw[1] == b'J' {
-        info!("decompressing");
+        debug!("decompressing");
         let mut decoder = ZlibDecoder::new(&raw[10..]);
         let mut decompressed = vec![];
         let _ = decoder.read_to_end(&mut decompressed)?;
         Ok(decompressed)
     } else {
-        info!("No need to decompress");
+        debug!("No need to decompress");
         Ok(raw[10..].to_vec())
     }
 }

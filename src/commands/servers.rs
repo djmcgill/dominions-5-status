@@ -28,8 +28,7 @@ use self::start::*;
 mod notifications;
 use self::notifications::*;
 
-mod turn_check;
-pub use self::turn_check::*;
+pub mod turn_check;
 
 mod lobbies;
 pub use self::lobbies::*;
@@ -59,9 +58,6 @@ pub trait WithServersCommands: Sized {
             })
             .command("deets", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
-            })
-            .command("details2", |c| {
-                c.bucket(bucket).exec(|cx, m, a| details_2::<C>(cx, m, a))
             })
             .command("register", |c| {
                 c.bucket(bucket)

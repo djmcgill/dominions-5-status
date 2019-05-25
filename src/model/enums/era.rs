@@ -1,7 +1,7 @@
 use enum_primitive_derive::Primitive;
 use std::fmt;
 
-#[derive(Clone, Copy, PartialEq, Debug, Primitive)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Primitive)]
 pub enum Era {
     Early = 0,
     Middle = 1,

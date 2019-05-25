@@ -1,6 +1,6 @@
 use std::borrow::Cow;
 
-#[derive(PartialEq, Clone, Copy, Debug)]
+#[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum SubmissionStatus {
     NotSubmitted,
     PartiallySubmitted,
