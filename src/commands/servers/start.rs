@@ -6,7 +6,6 @@ use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
-use crate::model::enums::Nations;
 use crate::model::*;
 
 fn start_helper<C: ServerConnection>(
@@ -55,17 +54,5 @@ pub fn start<C: ServerConnection>(
     }
     start_helper::<C>(db_conn, &address, &alias)?;
     message.reply(&"started!")?;
-    for (player, nation_id) in db_conn.players_with_nations_for_game_alias(&alias)? {
-        let &(name, era) = Nations::get_nation_desc(nation_id);
-        let text = format!(
-            "Pretender upload has started in {}.\nServer address is {}.\nYou are registered as {} {}",
-            alias,
-            address,
-            era,
-            name,
-        );
-        let private_channel = player.discord_user_id.create_dm_channel()?;
-        private_channel.say(&text)?;
-    }
     Ok(())
 }

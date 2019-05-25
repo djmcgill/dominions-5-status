@@ -6,7 +6,6 @@ edition = "2018"
 
 [dependencies]
 byteorder = "*"
-cached = "0.8.0"
 chrono = "0.4.*"
 either = "1.4"
 enum-primitive-derive = "^0.1"
