@@ -202,18 +202,21 @@ fn create_messages_for_new_turn(
                     PotentialPlayer::RegisteredAndGame(user_id, details) => {
                         // Only message them if they haven't submitted yet
                         if let SubmissionStatus::NotSubmitted = details.submitted {
-                            ret.push(
-                                NewTurnNation {
-                                    user_id: *user_id,
-                                    message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
-                                                     alias,
-                                                     details.nation_name,
-                                                     new_playing_details.hours_remaining,
-                                                     new_playing_details.mins_remaining,
-                                                     new_playing_details.turn,
-                                    )
-                                }
-                            );
+                            // and if they're actually playing
+                            if let NationStatus::Human = details.player_status {
+                                ret.push(
+                                    NewTurnNation {
+                                        user_id: *user_id,
+                                        message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
+                                                         alias,
+                                                         details.nation_name,
+                                                         new_playing_details.hours_remaining,
+                                                         new_playing_details.mins_remaining,
+                                                         new_playing_details.turn,
+                                        )
+                                    }
+                                );
+                            }
                         }
                     }
                 }
