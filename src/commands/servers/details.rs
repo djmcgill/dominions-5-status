@@ -13,6 +13,7 @@ use crate::snek::SnekGameStatus;
 use log::*;
 use serenity::model::id::UserId;
 use std::cmp::max;
+use std::cmp::Ordering;
 use std::collections::HashMap;
 
 #[derive(PartialEq, Eq, Clone)]
@@ -33,20 +34,17 @@ pub struct StartedDetails {
     pub address: String,
     pub game_name: String,
     pub state: StartedStateDetails,
-    pub option_snek_state: Option<SnekGameStatus>,
 }
-impl StartedDetails {
-    pub fn get_nation_string(&self, nation_id: u32) -> String {
-        let snek_nation_details = self
-            .option_snek_state
-            .as_ref()
-            .and_then(|snek_details| snek_details.nations.get(&nation_id));
-        match snek_nation_details {
-            Some(snek_nation) => snek_nation.name.clone(),
-            None => {
-                let &(nation_name, _) = Nations::get_nation_desc(nation_id as usize);
-                nation_name.to_owned()
-            }
+
+pub fn get_nation_string(option_snek_state: &Option<SnekGameStatus>, nation_id: u32) -> String {
+    let snek_nation_details = option_snek_state
+        .as_ref()
+        .and_then(|snek_details| snek_details.nations.get(&nation_id));
+    match snek_nation_details {
+        Some(snek_nation) => snek_nation.name.clone(),
+        None => {
+            let &(nation_name, _) = Nations::get_nation_desc(nation_id);
+            nation_name.to_owned()
         }
     }
 }
@@ -69,21 +67,65 @@ pub struct PlayingState {
 }
 #[derive(PartialEq, Eq, Clone)]
 pub enum PotentialPlayer {
-    RegisteredOnly(UserId, u32),
+    RegisteredOnly(UserId, u32, String),
     RegisteredAndGame(UserId, PlayerDetails),
     GameOnly(PlayerDetails),
+}
+impl PotentialPlayer {
+    pub fn nation_name(&self) -> &String {
+        match &self {
+            PotentialPlayer::RegisteredOnly(_, _, nation_name) => nation_name,
+            PotentialPlayer::RegisteredAndGame(_, details) => &details.nation_name,
+            PotentialPlayer::GameOnly(details) => &details.nation_name,
+        }
+    }
+    pub fn nation_id(&self) -> u32 {
+        match &self {
+            PotentialPlayer::RegisteredOnly(_, nation_id, _) => *nation_id,
+            PotentialPlayer::RegisteredAndGame(_, details) => details.nation_id,
+            PotentialPlayer::GameOnly(details) => details.nation_id,
+        }
+    }
+    pub fn option_player_id(&self) -> Option<&UserId> {
+        match &self {
+            PotentialPlayer::RegisteredOnly(player_id, _, _) => Some(player_id),
+            PotentialPlayer::RegisteredAndGame(player_id, _) => Some(player_id),
+            PotentialPlayer::GameOnly(_) => None,
+        }
+    }
+}
+impl PartialOrd<Self> for PotentialPlayer {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+impl Ord for PotentialPlayer {
+    fn cmp(&self, other: &Self) -> Ordering {
+        self.nation_name().cmp(&other.nation_name())
+    }
 }
 #[derive(PartialEq, Eq, Clone)]
 pub struct PlayerDetails {
     pub nation_id: u32,
+    pub nation_name: String,
     pub submitted: SubmissionStatus,
     pub player_status: NationStatus,
 }
 #[derive(PartialEq, Eq, Clone)]
 pub struct UploadingPlayer {
-    pub player: Option<UserId>,
-    pub nation: u32,
+    pub potential_player: PotentialPlayer,
     pub uploaded: bool,
+}
+impl UploadingPlayer {
+    pub fn nation_name(&self) -> &String {
+        self.potential_player.nation_name()
+    }
+    pub fn nation_id(&self) -> u32 {
+        self.potential_player.nation_id()
+    }
+    pub fn option_player_id(&self) -> Option<&UserId> {
+        self.potential_player.option_player_id()
+    }
 }
 #[derive(PartialEq, Eq, Clone)]
 pub struct LobbyDetails {
@@ -93,8 +135,9 @@ pub struct LobbyDetails {
 }
 #[derive(PartialEq, Eq, Clone)]
 pub struct LobbyPlayer {
-    pub player: UserId,
-    pub registered_nation: u32,
+    pub player_id: UserId,
+    pub nation_id: u32,
+    pub nation_name: String,
 }
 
 pub fn details<C: ServerConnection>(
@@ -130,7 +173,7 @@ fn details_helper(
     db_conn: &DbConnection,
     read_handle: &crate::ReadHandle,
 ) -> Result<CreateEmbed, CommandError> {
-    let handle = read_handle.handle().get_and(alias, |values| {
+    let option_option_game_details = read_handle.handle().get_and(alias, |values| {
         if values.len() != 1 {
             panic!()
         } else {
@@ -138,7 +181,7 @@ fn details_helper(
         }
     });
 
-    match handle {
+    match option_option_game_details {
         Some(Some(details)) => details_to_embed(details),
         Some(None) => Err(CommandError::from("Failed to connect to the server.")),
         None => {
@@ -199,16 +242,17 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     for potential_player in &playing_state.players {
                         let (option_user_id, player_details) = match potential_player {
                             // If the game has started and they're not in it, too bad
-                            PotentialPlayer::RegisteredOnly(_, _) => continue,
+                            PotentialPlayer::RegisteredOnly(_, _, _) => continue,
                             PotentialPlayer::RegisteredAndGame(user_id, player_details) => {
                                 (Some(user_id), player_details)
                             }
                             PotentialPlayer::GameOnly(player_details) => (None, player_details),
                         };
 
-                        let nation_string = started_details.get_nation_string(player_details.nation_id);
-                        nation_names
-                            .push_str(&format!("{} ({})\n", nation_string, player_details.nation_id));
+                        nation_names.push_str(&format!(
+                            "{} ({})\n",
+                            player_details.nation_name, player_details.nation_id
+                        ));
 
                         if let NationStatus::Human = player_details.player_status {
                             match option_user_id {
@@ -247,11 +291,13 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     let mut submitted_status = String::new();
 
                     for uploading_player in &uploading_state.uploading_players {
-                        let nation_string = started_details.get_nation_string(uploading_player.nation);
-                        nation_names
-                            .push_str(&format!("{} ({})\n", nation_string, uploading_player.nation));
+                        nation_names.push_str(&format!(
+                            "{} ({})\n",
+                            uploading_player.nation_name(),
+                            uploading_player.nation_id()
+                        ));
 
-                        let player_name = match uploading_player.player {
+                        let player_name = match uploading_player.option_player_id() {
                             Some(user_id) => format!("**{}**\n", user_id.to_user()?),
                             None => format!("{}\n", NationStatus::Human.show()),
                         };
@@ -282,13 +328,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             let mut nation_names = String::new();
 
             for lobby_player in lobby_details.players {
-                let discord_user = lobby_player.player.to_user()?;
-                let &(nation_name, era) =
-                    Nations::get_nation_desc(lobby_player.registered_nation as usize);
+                let discord_user = lobby_player.player_id.to_user()?;
                 player_names.push_str(&format!("{} \n", discord_user));
                 nation_names.push_str(&format!(
-                    "{} {} ({})\n",
-                    era, nation_name, lobby_player.registered_nation
+                    "{} ({})\n",
+                    lobby_player.nation_name, lobby_player.nation_id
                 ));
             }
 
@@ -321,15 +365,18 @@ fn lobby_details(
 ) -> Result<GameDetails, CommandError> {
     let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
 
-    let player_nation_details: Vec<LobbyPlayer> = players_nations
+    let mut player_nation_details: Vec<LobbyPlayer> = players_nations
         .into_iter()
         .map(|(player, nation_id)| -> LobbyPlayer {
+            let &(nation_name, _) = Nations::get_nation_desc(nation_id);
             LobbyPlayer {
-                player: player.discord_user_id,
-                registered_nation: nation_id as u32,
+                player_id: player.discord_user_id,
+                nation_id,
+                nation_name: nation_name.to_owned(),
             }
         })
         .collect();
+    player_nation_details.sort_by(|n1, n2| n1.nation_name.cmp(&n2.nation_name));
 
     let remaining_slots = max(
         0,
@@ -360,31 +407,30 @@ fn started_details<C: ServerConnection>(
     let game_data = C::get_game_data(&server_address)?;
 
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
-    let player_details = join_players_with_nations(&game_data.nations, &id_player_nations)?;
+    let option_snek_details = C::get_snek_data(server_address)?;
+    let player_details =
+        join_players_with_nations(&game_data.nations, &id_player_nations, &option_snek_details)?;
 
     let state_details = if game_data.turn < 0 {
         let uploaded_players_detail: Vec<UploadingPlayer> = player_details
             .into_iter()
             .map(|potential_player_detail| {
                 match potential_player_detail {
-                    PotentialPlayer::GameOnly(player_detail) => {
+                    potential_player @ PotentialPlayer::GameOnly(_) => {
                         UploadingPlayer {
-                            player: None,
-                            nation: player_detail.nation_id,
+                            potential_player,
                             uploaded: true, // all players we can see have uploaded
                         }
                     }
-                    PotentialPlayer::RegisteredAndGame(user_id, player_detail) => {
+                    potential_player @ PotentialPlayer::RegisteredAndGame(_, _) => {
                         UploadingPlayer {
-                            player: Some(user_id),
-                            nation: player_detail.nation_id,
+                            potential_player,
                             uploaded: true, // all players we can see have uploaded
                         }
                     }
-                    PotentialPlayer::RegisteredOnly(user_id, nation_id) => {
+                    potential_player @ PotentialPlayer::RegisteredOnly(_, _, _) => {
                         UploadingPlayer {
-                            player: Some(user_id),
-                            nation: nation_id as u32,
+                            potential_player,
                             uploaded: false, // all players we can't see have not uploaded
                         }
                     }
@@ -407,13 +453,10 @@ fn started_details<C: ServerConnection>(
         })
     };
 
-    let option_snek_details = C::get_snek_data(server_address)?;
-
     let started_details = StartedDetails {
         address: server_address.clone(),
         game_name: game_data.game_name.clone(),
         state: state_details,
-        option_snek_state: option_snek_details,
     };
 
     Ok(GameDetails {
@@ -426,7 +469,8 @@ fn started_details<C: ServerConnection>(
 
 fn join_players_with_nations(
     nations: &Vec<Nation>,
-    players_nations: &Vec<(Player, usize)>,
+    players_nations: &Vec<(Player, u32)>,
+    option_snek_details: &Option<SnekGameStatus>,
 ) -> Result<Vec<PotentialPlayer>, CommandError> {
     let mut potential_players = vec![];
 
@@ -439,7 +483,8 @@ fn join_players_with_nations(
             // Lobby and game
             Some(player) => {
                 let player_details = PlayerDetails {
-                    nation_id: nation.id as u32,
+                    nation_id: nation.id,
+                    nation_name: get_nation_string(option_snek_details, nation.id),
                     submitted: nation.submitted,
                     player_status: nation.status,
                 };
@@ -450,7 +495,8 @@ fn join_players_with_nations(
             }
             // Game only
             None => potential_players.push(PotentialPlayer::GameOnly(PlayerDetails {
-                nation_id: nation.id as u32,
+                nation_id: nation.id,
+                nation_name: get_nation_string(option_snek_details, nation.id),
                 submitted: nation.submitted,
                 player_status: nation.status,
             })),
@@ -458,10 +504,13 @@ fn join_players_with_nations(
     }
     // Lobby only
     for (nation_id, player) in players_by_nation_id {
+        let &(nation_name, _) = Nations::get_nation_desc(nation_id);
         potential_players.push(PotentialPlayer::RegisteredOnly(
             player.discord_user_id,
-            nation_id as u32,
+            nation_id,
+            nation_name.to_owned(),
         ));
     }
+    potential_players.sort_unstable();
     Ok(potential_players)
 }

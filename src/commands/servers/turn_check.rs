@@ -1,18 +1,21 @@
-use crate::model::enums::*;
-use serenity::model::id::UserId;
 use crate::commands::servers::*;
+use crate::db::*;
+use crate::model::enums::*;
+use crate::server::RealServerConnection;
 use crate::WriteHandle;
+use chrono::{Duration, Utc};
+use log::*;
+use serenity::framework::standard::CommandError;
+use serenity::model::id::UserId;
+use serenity::prelude::*;
+use std::sync::Arc;
 use std::thread;
 use std::time;
-use crate::db::*;
-use serenity::framework::standard::CommandError;
-use chrono::{Duration, Utc};
-use std::sync::Arc;
-use log::*;
-use serenity::prelude::*;
-use crate::server::RealServerConnection;
 
-pub fn update_details_cache_loop(db_conn: DbConnection, write_handle_mutex: Arc<Mutex<WriteHandle>>) {
+pub fn update_details_cache_loop(
+    db_conn: DbConnection,
+    write_handle_mutex: Arc<Mutex<WriteHandle>>,
+) {
     loop {
         info!("Checking for new turns!");
         let mut option_new_turn_nations = None;
@@ -36,10 +39,8 @@ pub fn update_details_cache_loop(db_conn: DbConnection, write_handle_mutex: Arc<
 }
 
 pub fn notify_player_for_new_turn(new_turn: &NewTurnNation) -> Result<(), CommandError> {
-    let private_channel = new_turn.user_id
-        .create_dm_channel()?;
-    private_channel
-        .say(&new_turn.message)?;
+    let private_channel = new_turn.user_id.create_dm_channel()?;
+    private_channel.say(&new_turn.message)?;
     Ok(())
 }
 
@@ -74,7 +75,9 @@ fn update_details_cache_for_game(
                     -1
                 };
                 db_conn.update_game_with_possibly_new_turn(alias, turn)?
-            } else { false };
+            } else {
+                false
+            };
 
             if updated {
                 if let NationDetails::Started(started_details) = &details.nations {
@@ -179,9 +182,9 @@ pub fn was_updated(old_details: &GameDetails, new_details: &GameDetails) -> bool
             ) => {
                 old_playing_details.turn < new_playing_details.turn // New turn?
             }
-            _ => false
+            _ => false,
         },
-        _ => false
+        _ => false,
     }
 }
 
@@ -195,18 +198,16 @@ fn create_messages_for_new_turn(
             for potential_player in &new_playing_details.players {
                 match potential_player {
                     PotentialPlayer::GameOnly(_) => {} // Don't know who they are, can't message them
-                    PotentialPlayer::RegisteredOnly(_, _) => {} // Looks like they got left out, too bad
+                    PotentialPlayer::RegisteredOnly(_, _, _) => {} // Looks like they got left out, too bad
                     PotentialPlayer::RegisteredAndGame(user_id, details) => {
                         // Only message them if they haven't submitted yet
                         if let SubmissionStatus::NotSubmitted = details.submitted {
-                            let nation_string =
-                                new_started_details.get_nation_string(details.nation_id);
                             ret.push(
                                 NewTurnNation {
                                     user_id: *user_id,
                                     message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
                                                      alias,
-                                                     nation_string,
+                                                     details.nation_name,
                                                      new_playing_details.hours_remaining,
                                                      new_playing_details.mins_remaining,
                                                      new_playing_details.turn,
@@ -220,14 +221,13 @@ fn create_messages_for_new_turn(
         }
         StartedStateDetails::Uploading(ref new_uploading_details) => {
             for ref player in &new_uploading_details.uploading_players {
-                if let Some(user_id) = player.player {
+                if let Some(user_id) = player.option_player_id() {
                     if !player.uploaded {
-                        let nation_string = new_started_details.get_nation_string(player.nation);
                         ret.push(NewTurnNation {
-                            user_id,
+                            user_id: *user_id,
                             message: format!(
                                 "Uploading has started in {}! You registered as {}. Server address is '{}'.",
-                                alias, nation_string, new_started_details.address
+                                alias, player.nation_name(), new_started_details.address
                             ),
                         });
                     }

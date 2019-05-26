@@ -14,8 +14,8 @@ use log::*;
 use std::env;
 use std::fs::File;
 use std::io::Read;
-use std::thread;
 use std::sync::Arc;
+use std::thread;
 
 use crate::db::*;
 use crate::server::RealServerConnection;
@@ -109,7 +109,10 @@ fn create_discord_client() -> Result<Client, Error> {
     let writer_mutex = Arc::new(Mutex::new(write));
     let writer_mutex_clone = writer_mutex.clone();
     thread::spawn(move || {
-        crate::commands::servers::turn_check::update_details_cache_loop(db_conn.clone(), writer_mutex_clone);
+        crate::commands::servers::turn_check::update_details_cache_loop(
+            db_conn.clone(),
+            writer_mutex_clone,
+        );
     });
     thread::spawn(move || {
         crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
