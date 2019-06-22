@@ -3,7 +3,7 @@ use crate::db::*;
 use crate::model::enums::*;
 use crate::server::RealServerConnection;
 use crate::WriteHandle;
-use chrono::{Duration, Utc};
+use chrono::Utc;
 use log::*;
 use serenity::framework::standard::CommandError;
 use serenity::model::id::UserId;
@@ -134,34 +134,6 @@ fn update_details_cache_for_all_games(
         }
     }
     ret
-}
-
-pub fn remove_old_entries_from_cache_loop(write_handle_mutex: Arc<Mutex<WriteHandle>>) {
-    loop {
-        info!("Removing old entries from cache");
-        for mut write_handle in write_handle_mutex.try_lock() {
-            remove_old_entries_from_cache(&mut write_handle);
-        }
-        thread::sleep(time::Duration::from_secs(60 * 60 * 24)); // whatever doesn't need to be exactly 24 hours
-    }
-}
-
-fn remove_old_entries_from_cache(write_handle: &mut WriteHandle) {
-    let values: Vec<String> = write_handle.map_into(|key, _| key.clone());
-
-    for value in values {
-        write_handle.retain(value.clone(), move |box_value| {
-            let (ref last_updated, _) = **box_value;
-            let two_hours_ago = Utc::now().checked_sub_signed(Duration::hours(2)).unwrap();
-
-            // If we've updated successfully more recently than 2 hours ago, keep it.
-            let out_of_date = last_updated > &two_hours_ago;
-            if out_of_date {
-                info!("Removing game {} from cache", value);
-            };
-            !out_of_date
-        });
-    }
 }
 
 pub fn was_updated(old_details: &GameDetails, new_details: &GameDetails) -> bool {

@@ -16,6 +16,9 @@ use self::unregister_player::*;
 mod details;
 pub use self::details::*;
 
+mod details2;
+pub use self::details2::*;
+
 mod turns;
 use self::turns::*;
 
@@ -55,6 +58,9 @@ pub trait WithServersCommands: Sized {
             })
             .command("details", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
+            })
+            .command("details2", |c| {
+                c.bucket(bucket).exec(|cx, m, a| details2::<C>(cx, m, a))
             })
             .command("deets", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
