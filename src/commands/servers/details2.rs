@@ -80,7 +80,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             match &started_details.state {
                 StartedStateDetails::Playing(playing_state) => {
                     let embed_title = format!(
-                        "{} ({}): turn {}, {}h {}m remaining TEMP DISPLAYING ONLY 10 NATIONS",
+                        "{} ({}): turn {}, {}h {}m remaining",
                         started_details.game_name,
                         started_details.address,
                         playing_state.turn,
@@ -142,12 +142,82 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     e
                 }
                 StartedStateDetails::Uploading(uploading_state) => {
-                    Err("Uploading details not implemented yet, just !details")?
+                    let embed_title = format!(
+                        "{} ({}): Pretender uploading",
+                        started_details.game_name, started_details.address,
+                    );
+
+                    let mut embed_texts = vec![];
+                    for (ix, uploading_player) in uploading_state.uploading_players.iter().enumerate() {
+                        let player_name = match uploading_player.option_player_id() {
+                            Some(user_id) => format!("**{}**", user_id.to_user()?),
+                            None => NationStatus::Human.show().to_owned(),
+                        };
+
+                        let player_submitted_status = if uploading_player.uploaded {
+                            SubmissionStatus::Submitted.show()
+                        } else {
+                            SubmissionStatus::NotSubmitted.show()
+                        };
+
+                        if ix % 20 == 0 {
+                            embed_texts.push(String::new());
+                        }
+                        let new_len = embed_texts.len();
+                        embed_texts[new_len-1].push_str(&format!(
+                            "`{}` {} ({}): {}\n",
+                            player_submitted_status,
+                            uploading_player.nation_name(),
+                            uploading_player.nation_id(),
+                            player_name,
+                        ));
+                    }
+                    // This is pretty hacky
+                    let mut e = CreateEmbed::default()
+                        .title("Details")
+                        .field(embed_title, embed_texts[0].clone(), false);
+                    for embed_text in &embed_texts[1..] {
+                        e = e.field("-----", embed_text, false);
+                    }
+                    e
                 }
             }
         }
         NationDetails::Lobby(lobby_details) => {
-            Err("Lobby details not implemented yet, just !details")?
+            let embed_title = match lobby_details.era {
+                Some(era) => format!("{} ({} Lobby)", details.alias, era),
+                None => format!("{} (Lobby)", details.alias),
+            };
+            let mut embed_texts = vec![];
+
+
+            for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
+                let discord_user = lobby_player.player_id.to_user()?;
+                if ix % 20 == 0 {
+                    embed_texts.push(String::new());
+                }
+                let new_len = embed_texts.len();
+                embed_texts[new_len-1].push_str(&format!(
+                    "{} ({}): {}\n",
+                    lobby_player.nation_name,
+                    lobby_player.nation_id,
+                    discord_user,
+                ));
+            }
+
+            // We don't increase the number of fields any more
+            let new_len = embed_texts.len();
+            for _ in 0..lobby_details.remaining_slots {
+                embed_texts[new_len-1].push_str("OPEN\n");
+            }
+            // This is pretty hacky
+            let mut e = CreateEmbed::default()
+                .title("Details")
+                .field(embed_title, embed_texts[0].clone(), false);
+            for embed_text in &embed_texts[1..] {
+                e = e.field("-----", embed_text, false);
+            }
+            e
         },
     };
     for owner in details.owner {
