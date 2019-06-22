@@ -51,9 +51,7 @@ fn details_helper(
 
     match option_option_game_details {
         Some(Some(details)) => {
-            let embed = details_to_embed(details);
-            println!("DETAILS2 EMBED: {:?}", embed);
-            embed
+            details_to_embed(details)
         },
         Some(None) => Err(CommandError::from("Failed to connect to the server.")),
         None => {
@@ -82,7 +80,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             match &started_details.state {
                 StartedStateDetails::Playing(playing_state) => {
                     let embed_title = format!(
-                        "{} ({}): turn {}, {}h {}m remaining",
+                        "{} ({}): turn {}, {}h {}m remaining TEMP DISPLAYING ONLY 10 NATIONS",
                         started_details.game_name,
                         started_details.address,
                         playing_state.turn,
@@ -91,7 +89,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     );
 
                     let mut embed_text = String::new();
-                    for potential_player in &playing_state.players {
+                    for potential_player in &playing_state.players[..10] {
                         let (option_user_id, player_details) = match potential_player {
                             // If the game has started and they're not in it, too bad
                             PotentialPlayer::RegisteredOnly(_, _, _) => continue,
