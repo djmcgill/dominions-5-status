@@ -88,8 +88,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         playing_state.mins_remaining
                     );
 
-                    let mut embed_text = String::new();
-                    for potential_player in &playing_state.players[..10] {
+                    // we can't have too many players per embed it's real annoying
+                    let mut embed_texts = vec![];
+                    for (ix, potential_player) in playing_state.players.iter().enumerate() {
                         let (option_user_id, player_details) = match potential_player {
                             // If the game has started and they're not in it, too bad
                             PotentialPlayer::RegisteredOnly(_, _, _) => continue,
@@ -118,7 +119,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             SubmissionStatus::Submitted.show().to_owned()
                         };
 
-                        embed_text.push_str(&format!(
+                        if ix % 20 == 0 {
+                            embed_texts.push(String::new());
+                        }
+                        let new_len = embed_texts.len();
+                        embed_texts[new_len-1].push_str(&format!(
                             "`{}` {} ({}): {}\n",
                             submission_symbol,
                             player_details.nation_name,
@@ -127,9 +132,14 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         ));
                     }
 
-                    CreateEmbed::default()
+                    // This is pretty hacky
+                    let mut e = CreateEmbed::default()
                         .title("Details")
-                        .field(embed_title, embed_text, true)
+                        .field(embed_title, embed_texts[0].clone(), false);
+                    for embed_text in &embed_texts[1..] {
+                        e = e.field("-----", embed_text, false);
+                    }
+                    e
                 }
                 StartedStateDetails::Uploading(uploading_state) => {
                     Err("Uploading details not implemented yet, just !details")?
