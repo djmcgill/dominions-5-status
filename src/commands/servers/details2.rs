@@ -50,7 +50,11 @@ fn details_helper(
     });
 
     match option_option_game_details {
-        Some(Some(details)) => details_to_embed(details),
+        Some(Some(details)) => {
+            let embed = details_to_embed(details);
+            println!("DETAILS2 EMBED: {:?}", embed);
+            embed
+        },
         Some(None) => Err(CommandError::from("Failed to connect to the server.")),
         None => {
             if db_conn
