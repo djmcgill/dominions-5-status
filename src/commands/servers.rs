@@ -39,6 +39,9 @@ pub use self::lobbies::*;
 mod describe;
 pub use self::describe::*;
 
+mod turns2;
+pub use self::turns2::turns2;
+
 use crate::server::ServerConnection;
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
@@ -65,6 +68,9 @@ pub trait WithServersCommands: Sized {
             .command("deets", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
             })
+            .command("deets2", |c| {
+                c.bucket(bucket).exec(|cx, m, a| details2::<C>(cx, m, a))
+            })
             .command("register", |c| {
                 c.bucket(bucket)
                     .exec(|cx, m, a| register_player::<C>(cx, m, a))
@@ -79,6 +85,9 @@ pub trait WithServersCommands: Sized {
             })
             .command("turns", |c| {
                 c.bucket(bucket).exec(|cx, m, _| turns::<C>(cx, m))
+            })
+            .command("turns2", |c| {
+                c.bucket(bucket).exec(|cx, m, _| turns2::<C>(cx, m))
             })
             .command("lobby", |c| {
                 c.bucket(bucket).exec(|cx, m, a| lobby(cx, m, a))
