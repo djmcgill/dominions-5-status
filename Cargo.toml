@@ -23,7 +23,7 @@ reqwest = "0.9.18"
 rusqlite = {version = "0.17.*", features = ["bundled", "trace"]}
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-serenity = "0.5.11"
+serenity = "0.6.2"
 simplelog = "^0.4.4"
 typemap = "0.3"
 url = "1.7.*"
