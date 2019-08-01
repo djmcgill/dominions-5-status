@@ -132,7 +132,7 @@ lazy_static! { // TODO: replace with PHF crate?
         m.insert(77u32, ("Ys", Era::Middle));
         m.insert(80u32, ("Arcoscephale", Era::Late));
         m.insert(81u32, ("Pythium", Era::Late));
-        m.insert(82u32, ("Lemur", Era::Late));
+        m.insert(82u32, ("Lemuria", Era::Late));
         m.insert(83u32, ("Man", Era::Late));
         m.insert(84u32, ("Ulm", Era::Late));
         m.insert(85u32, ("Marignon", Era::Late));
