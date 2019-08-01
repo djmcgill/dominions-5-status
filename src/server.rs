@@ -15,7 +15,7 @@ use std::net::ToSocketAddrs;
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
-    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<Error>>;
+    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Error>>;
 }
 
 fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
@@ -53,7 +53,7 @@ impl ServerConnection for RealServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData> {
         get_game_data_cache(server_address)
     }
-    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<Error>> {
+    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Error>> {
         snek_details(server_address)
     }
 }

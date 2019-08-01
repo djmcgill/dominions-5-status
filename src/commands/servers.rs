@@ -19,9 +19,6 @@ pub use self::details::*;
 mod details2;
 pub use self::details2::*;
 
-mod turns;
-use self::turns::*;
-
 mod lobby;
 use self::lobby::*;
 
@@ -60,13 +57,13 @@ pub trait WithServersCommands: Sized {
                 c.bucket(bucket).exec(|cx, m, a| remove_server(cx, m, a))
             })
             .command("details", |c| {
-                c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
+                c.bucket(bucket).exec(|cx, m, a| details2::<C>(cx, m, a))
             })
             .command("details2", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details2::<C>(cx, m, a))
             })
             .command("deets", |c| {
-                c.bucket(bucket).exec(|cx, m, a| details::<C>(cx, m, a))
+                c.bucket(bucket).exec(|cx, m, a| details2::<C>(cx, m, a))
             })
             .command("deets2", |c| {
                 c.bucket(bucket).exec(|cx, m, a| details2::<C>(cx, m, a))
@@ -84,7 +81,7 @@ pub trait WithServersCommands: Sized {
                     .exec(|cx, m, a| unregister_player(cx, m, a))
             })
             .command("turns", |c| {
-                c.bucket(bucket).exec(|cx, m, _| turns::<C>(cx, m))
+                c.bucket(bucket).exec(|cx, m, _| turns2::<C>(cx, m))
             })
             .command("turns2", |c| {
                 c.bucket(bucket).exec(|cx, m, _| turns2::<C>(cx, m))
