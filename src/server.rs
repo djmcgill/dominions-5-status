@@ -9,9 +9,9 @@ use std::error::Error;
 use std::io;
 use std::io::{Cursor, Read, Write};
 use std::net;
-use std::time::Duration;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
+use std::time::Duration;
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;
@@ -67,13 +67,15 @@ fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
 
 fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
     info!("starting to connect to {}", server_address);
-    let parsed_address: SocketAddr = server_address.to_socket_addrs()?.next().ok_or(
-        io::Error::new(io::ErrorKind::Other, "Could not resolve ip address")
-    )?;
-    let mut stream = net::TcpStream::connect_timeout(
-        &parsed_address,
-        Duration::from_secs(30)
-    )?;
+    let parsed_address: SocketAddr =
+        server_address
+            .to_socket_addrs()?
+            .next()
+            .ok_or(io::Error::new(
+                io::ErrorKind::Other,
+                "Could not resolve ip address",
+            ))?;
+    let mut stream = net::TcpStream::connect_timeout(&parsed_address, Duration::from_secs(30))?;
     debug!("connected");
     let mut wtr = vec![];
     wtr.write_u8(b'f')?;

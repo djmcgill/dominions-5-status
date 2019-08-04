@@ -48,6 +48,8 @@ n.b. server alias is optional, defaults to channel name.
     - register a started server for a lobby game
 - `!describe "text" [<alias>]`:
     - add a description to a lobby. Quotes required to avoid issues with spaces.
+- `!unstart [<alias>]`:
+    - turn a game back into a lobby, if you need to change address
 - `!help`:
     - display this text
 

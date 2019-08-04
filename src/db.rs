@@ -386,6 +386,28 @@ impl DbConnection {
         Ok(())
     }
 
+    pub fn remove_started_state(&self, alias: &str) -> Result<(), Error> {
+        info!("remove_started_state");
+        let conn = &mut *self.0.clone().get()?;
+        let tx = conn.transaction()?;
+
+        let rows_modified = tx.execute(
+            include_str!("db/sql/update_game_with_null_started_state.sql"),
+            params![&alias],
+        )?;
+        tx.execute(include_str!("db/sql/delete_started_server.sql"), params![])?;
+        tx.commit()?;
+
+        if rows_modified == 0 {
+            Err(err_msg(format!(
+                "Could not find started lobby with alias '{}'",
+                alias
+            )))?
+        } else {
+            Ok(())
+        }
+    }
+
     pub fn insert_started_state(
         &self,
         alias: &str,

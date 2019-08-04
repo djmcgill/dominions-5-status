@@ -21,6 +21,7 @@ pub fn help(message: &Message) -> Result<(), CommandError> {
          - !{item, spell, unit, site, merc, event} <text>: get dom5inspector search url\n\
          - !help: display this text\n\
          - !describe \"text\" <alias>: add a description to a lobby. Quotes required.\n\
+         - !unstart <alias>: turn a game back into a lobby, if you need to change address\n\
          Source is located at www.github.com/djmcgill/dominions-5-status Contributions welcome!",
     )?;
     Ok(())

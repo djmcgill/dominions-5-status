@@ -4,10 +4,10 @@ use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
 
+use crate::commands::servers::*;
 use crate::db::*;
 use crate::model::enums::*;
 use crate::server::ServerConnection;
-use crate::commands::servers::*;
 
 fn turns_helper<C: ServerConnection>(
     user_id: UserId,
@@ -34,21 +34,28 @@ fn turns_helper<C: ServerConnection>(
                         match started_state.state {
                             StartedStateDetails::Uploading(uploading_state) => {
                                 let player_count = uploading_state.uploading_players.len();
-                                let uploaded_player_count = uploading_state.uploading_players.iter().filter(
-                                    |uploading_player|
+                                let uploaded_player_count = uploading_state
+                                    .uploading_players
+                                    .iter()
+                                    .filter(|uploading_player| {
                                         match uploading_player.potential_player {
                                             PotentialPlayer::GameOnly(_) => true,
                                             PotentialPlayer::RegisteredAndGame(_, _) => true,
-                                            PotentialPlayer::RegisteredOnly(_, _, _) => false
+                                            PotentialPlayer::RegisteredOnly(_, _, _) => false,
                                         }
-                                ).count();
+                                    })
+                                    .count();
 
                                 for uploading_player in uploading_state.uploading_players {
                                     match uploading_player.potential_player {
                                         // This isn't them - it's somebody not registered
                                         PotentialPlayer::GameOnly(_) => (),
-                                        PotentialPlayer::RegisteredAndGame(registered_user_id, player_details) =>
-                                            // is this them?
+                                        PotentialPlayer::RegisteredAndGame(
+                                            registered_user_id,
+                                            player_details,
+                                        ) =>
+                                        // is this them?
+                                        {
                                             if registered_user_id == user_id {
                                                 let turn_str = format!(
                                                     "{} uploading: {} ({}) (uploaded: {}, {}/{})\n",
@@ -60,9 +67,14 @@ fn turns_helper<C: ServerConnection>(
                                                     player_count,
                                                 );
                                                 text.push_str(&turn_str);
-                                            },
+                                            }
+                                        }
                                         // If this is them, they haven't uploaded
-                                        PotentialPlayer::RegisteredOnly(registered_user_id, nation_id, nation_name) =>
+                                        PotentialPlayer::RegisteredOnly(
+                                            registered_user_id,
+                                            nation_id,
+                                            nation_name,
+                                        ) => {
                                             if registered_user_id == user_id {
                                                 let turn_str = format!(
                                                     "{} uploading: {} ({}) (uploaded: {}, {}/{})\n",
@@ -74,7 +86,8 @@ fn turns_helper<C: ServerConnection>(
                                                     player_count,
                                                 );
                                                 text.push_str(&turn_str);
-                                            },
+                                            }
+                                        }
                                     }
                                 }
                             }
@@ -85,17 +98,25 @@ fn turns_helper<C: ServerConnection>(
                                     match playing_player {
                                         PotentialPlayer::RegisteredOnly(_, _, _) => (),
                                         PotentialPlayer::RegisteredAndGame(_, player_details) => {
-                                            if let NationStatus::Human = player_details.player_status {
+                                            if let NationStatus::Human =
+                                                player_details.player_status
+                                            {
                                                 playing_players += 1;
-                                                if let SubmissionStatus::Submitted = player_details.submitted {
+                                                if let SubmissionStatus::Submitted =
+                                                    player_details.submitted
+                                                {
                                                     submitted_players += 1;
                                                 }
                                             }
                                         }
                                         PotentialPlayer::GameOnly(player_details) => {
-                                            if let NationStatus::Human = player_details.player_status {
+                                            if let NationStatus::Human =
+                                                player_details.player_status
+                                            {
                                                 playing_players += 1;
-                                                if let SubmissionStatus::Submitted = player_details.submitted {
+                                                if let SubmissionStatus::Submitted =
+                                                    player_details.submitted
+                                                {
                                                     submitted_players += 1;
                                                 }
                                             }
@@ -107,9 +128,14 @@ fn turns_helper<C: ServerConnection>(
                                     match playing_player {
                                         PotentialPlayer::RegisteredOnly(_, _, _) => (),
                                         PotentialPlayer::GameOnly(_) => (),
-                                        PotentialPlayer::RegisteredAndGame(potential_player_user_id, potential_player_details) => {
+                                        PotentialPlayer::RegisteredAndGame(
+                                            potential_player_user_id,
+                                            potential_player_details,
+                                        ) => {
                                             if potential_player_user_id == user_id {
-                                                if let NationStatus::Human = potential_player_details.player_status {
+                                                if let NationStatus::Human =
+                                                    potential_player_details.player_status
+                                                {
                                                     let turn_str = format!(
                                                         "{} turn {} ({}h {}m): {} ({}) (submitted: {}, {}/{})\n",
                                                         server.alias,
@@ -130,15 +156,18 @@ fn turns_helper<C: ServerConnection>(
                                 }
                             }
                         }
-                    },
+                    }
                     NationDetails::Lobby(_) => continue,
                 }
-            },
+            }
             Some(None) => {
                 text.push_str(&format!("{}: Cannot connect to server!\n", server.alias));
-            },
+            }
             None => {
-                text.push_str(&format!("{}: Server starting up, please try again in 1 min.\n", server.alias));
+                text.push_str(&format!(
+                    "{}: Server starting up, please try again in 1 min.\n",
+                    server.alias
+                ));
             }
         }
     }

@@ -114,9 +114,9 @@ fn create_discord_client() -> Result<Client, Error> {
             writer_mutex_clone,
         );
     });
-//    thread::spawn(move || {
-//        crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
-//    });
+    //    thread::spawn(move || {
+    //        crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
+    //    });
 
     // start listening for events by starting a single shard
     Ok(discord_client)

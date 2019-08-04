@@ -5,8 +5,8 @@ use serenity::prelude::Context;
 
 use crate::commands::servers::*;
 use crate::db::{DbConnection, DbConnectionKey};
-use crate::server::ServerConnection;
 use crate::model::enums::{NationStatus, SubmissionStatus};
+use crate::server::ServerConnection;
 
 pub fn details2<C: ServerConnection>(
     context: &mut Context,
@@ -50,9 +50,7 @@ fn details_helper(
     });
 
     match option_option_game_details {
-        Some(Some(details)) => {
-            details_to_embed(details)
-        },
+        Some(Some(details)) => details_to_embed(details),
         Some(None) => Err(CommandError::from("Failed to connect to the server.")),
         None => {
             if db_conn
@@ -100,30 +98,28 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             PotentialPlayer::GameOnly(player_details) => (None, player_details),
                         };
 
-                        let player_name = if let NationStatus::Human = player_details.player_status {
+                        let player_name = if let NationStatus::Human = player_details.player_status
+                        {
                             match option_user_id {
-                                Some(user_id) => {
-                                    format!("**{}**", user_id.to_user()?)
-                                }
-                                None => {
-                                    player_details.player_status.show().to_owned()
-                                }
+                                Some(user_id) => format!("**{}**", user_id.to_user()?),
+                                None => player_details.player_status.show().to_owned(),
                             }
                         } else {
                             player_details.player_status.show().to_owned()
                         };
 
-                        let submission_symbol = if let NationStatus::Human = player_details.player_status {
-                            player_details.submitted.show().to_owned()
-                        } else {
-                            SubmissionStatus::Submitted.show().to_owned()
-                        };
+                        let submission_symbol =
+                            if let NationStatus::Human = player_details.player_status {
+                                player_details.submitted.show().to_owned()
+                            } else {
+                                SubmissionStatus::Submitted.show().to_owned()
+                            };
 
                         if ix % 20 == 0 {
                             embed_texts.push(String::new());
                         }
                         let new_len = embed_texts.len();
-                        embed_texts[new_len-1].push_str(&format!(
+                        embed_texts[new_len - 1].push_str(&format!(
                             "`{}` {} ({}): {}\n",
                             submission_symbol,
                             player_details.nation_name,
@@ -133,9 +129,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     }
 
                     // This is pretty hacky
-                    let mut e = CreateEmbed::default()
-                        .title("Details")
-                        .field(embed_title, embed_texts[0].clone(), false);
+                    let mut e = CreateEmbed::default().title("Details").field(
+                        embed_title,
+                        embed_texts[0].clone(),
+                        false,
+                    );
                     for embed_text in &embed_texts[1..] {
                         e = e.field("-----", embed_text, false);
                     }
@@ -148,7 +146,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     );
 
                     let mut embed_texts = vec![];
-                    for (ix, uploading_player) in uploading_state.uploading_players.iter().enumerate() {
+                    for (ix, uploading_player) in
+                        uploading_state.uploading_players.iter().enumerate()
+                    {
                         let player_name = match uploading_player.option_player_id() {
                             Some(user_id) => format!("**{}**", user_id.to_user()?),
                             None => NationStatus::Human.show().to_owned(),
@@ -164,7 +164,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             embed_texts.push(String::new());
                         }
                         let new_len = embed_texts.len();
-                        embed_texts[new_len-1].push_str(&format!(
+                        embed_texts[new_len - 1].push_str(&format!(
                             "`{}` {} ({}): {}\n",
                             player_submitted_status,
                             uploading_player.nation_name(),
@@ -173,9 +173,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         ));
                     }
                     // This is pretty hacky
-                    let mut e = CreateEmbed::default()
-                        .title("Details")
-                        .field(embed_title, embed_texts[0].clone(), false);
+                    let mut e = CreateEmbed::default().title("Details").field(
+                        embed_title,
+                        embed_texts[0].clone(),
+                        false,
+                    );
                     for embed_text in &embed_texts[1..] {
                         e = e.field("-----", embed_text, false);
                     }
@@ -190,35 +192,34 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             };
             let mut embed_texts = vec![];
 
-
             for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
                 let discord_user = lobby_player.player_id.to_user()?;
                 if ix % 20 == 0 {
                     embed_texts.push(String::new());
                 }
                 let new_len = embed_texts.len();
-                embed_texts[new_len-1].push_str(&format!(
+                embed_texts[new_len - 1].push_str(&format!(
                     "{} ({}): {}\n",
-                    lobby_player.nation_name,
-                    lobby_player.nation_id,
-                    discord_user,
+                    lobby_player.nation_name, lobby_player.nation_id, discord_user,
                 ));
             }
 
             // We don't increase the number of fields any more
             let new_len = embed_texts.len();
             for _ in 0..lobby_details.remaining_slots {
-                embed_texts[new_len-1].push_str("OPEN\n");
+                embed_texts[new_len - 1].push_str("OPEN\n");
             }
             // This is pretty hacky
-            let mut e = CreateEmbed::default()
-                .title("Details")
-                .field(embed_title, embed_texts[0].clone(), false);
+            let mut e = CreateEmbed::default().title("Details").field(
+                embed_title,
+                embed_texts[0].clone(),
+                false,
+            );
             for embed_text in &embed_texts[1..] {
                 e = e.field("-----", embed_text, false);
             }
             e
-        },
+        }
     };
     for owner in details.owner {
         e = e.field("Owner", owner.to_user()?.to_string(), false);

@@ -12,7 +12,7 @@ macro_rules! mock_server_connection {
             }
             fn get_snek_data(
                 _server_address: &str,
-            ) -> Result<Option<crate::snek::SnekGameStatus>, Box<std::error::Error>> {
+            ) -> Result<Option<crate::snek::SnekGameStatus>, Box<dyn std::error::Error>> {
                 Ok(None)
             }
         }
@@ -29,7 +29,7 @@ macro_rules! mock_conditional_server_connection {
             }
             fn get_snek_data(
                 _server_address: &str,
-            ) -> Result<Option<crate::snek::SnekGameStatus>, Box<std::error::Error>> {
+            ) -> Result<Option<crate::snek::SnekGameStatus>, Box<dyn std::error::Error>> {
                 Ok(None)
             }
         }

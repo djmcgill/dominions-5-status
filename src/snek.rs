@@ -37,15 +37,15 @@ pub fn snek_details(address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Err
     let snek_url = Url::parse(&format!("https://{}", address)).or_else(|_| Url::parse(address))?;
 
     println!("SNEK URL: '{:?}'", snek_url.host_str());
-    let host_str = snek_url
-        .host_str()
-        .ok_or_else(|| -> Box<dyn Error> { format!("Url '{}' did not have host", address).into() })?;
+    let host_str = snek_url.host_str().ok_or_else(|| -> Box<dyn Error> {
+        format!("Url '{}' did not have host", address).into()
+    })?;
     if host_str != "snek.earth" && host_str != "dom5.snek.earth" {
         return Ok(None);
     }
-    let port = snek_url
-        .port()
-        .ok_or_else(|| -> Box<dyn Error> { format!("Url '{}' did not have port", address).into() })?;
+    let port = snek_url.port().ok_or_else(|| -> Box<dyn Error> {
+        format!("Url '{}' did not have port", address).into()
+    })?;
 
     if port <= 30_000 {
         return Err("Url '{}' had an invalid port".into());

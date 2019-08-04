@@ -39,6 +39,9 @@ pub use self::describe::*;
 mod turns2;
 pub use self::turns2::turns2;
 
+mod unstart;
+pub use self::unstart::unstart;
+
 use crate::server::ServerConnection;
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
@@ -103,6 +106,9 @@ pub trait WithServersCommands: Sized {
             })
             .command("desc", |c| {
                 c.bucket(bucket).exec(|cx, m, a| describe(cx, m, a))
+            })
+            .command("unstart", |c| {
+                c.bucket(bucket).exec(|cx, m, a| unstart(cx, m, a))
             })
     }
 }
