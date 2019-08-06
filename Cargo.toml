@@ -26,7 +26,7 @@ serde_json = "1.0"
 serenity = "0.5.11"
 simplelog = "^0.4.4"
 typemap = "0.3"
-url = "1.7.*"
+url = "2.1.*"
 
 [dev-dependencies]
 color-backtrace = { version = "0.2" }
