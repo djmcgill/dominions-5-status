@@ -192,16 +192,20 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             };
             let mut embed_texts = vec![];
 
-            for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
-                let discord_user = lobby_player.player_id.to_user()?;
-                if ix % 20 == 0 {
-                    embed_texts.push(String::new());
+            if lobby_details.players.len() != 0 {
+                for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
+                    let discord_user = lobby_player.player_id.to_user()?;
+                    if ix % 20 == 0 {
+                        embed_texts.push(String::new());
+                    }
+                    let new_len = embed_texts.len();
+                    embed_texts[new_len - 1].push_str(&format!(
+                        "{} ({}): {}\n",
+                        lobby_player.nation_name, lobby_player.nation_id, discord_user,
+                    ));
                 }
-                let new_len = embed_texts.len();
-                embed_texts[new_len - 1].push_str(&format!(
-                    "{} ({}): {}\n",
-                    lobby_player.nation_name, lobby_player.nation_id, discord_user,
-                ));
+            } else {
+                embed_texts.push(String::new());
             }
 
             // We don't increase the number of fields any more
