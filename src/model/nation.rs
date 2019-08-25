@@ -1,6 +1,6 @@
 use crate::model::enums::{NationStatus, SubmissionStatus};
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Nation {
     pub id: u32,
     pub status: NationStatus,

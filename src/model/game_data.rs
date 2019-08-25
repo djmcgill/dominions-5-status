@@ -1,6 +1,6 @@
 use crate::model::nation::Nation;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GameData {
     pub game_name: String,
     pub nations: Vec<Nation>,

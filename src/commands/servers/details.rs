@@ -4,7 +4,7 @@ use serenity::framework::standard::CommandError;
 
 use crate::db::DbConnection;
 use crate::model::enums::{Era, NationStatus, Nations, SubmissionStatus};
-use crate::model::{GameServerState, LobbyState, Nation, Player, StartedState};
+use crate::model::{GameData, GameServerState, LobbyState, Nation, Player, StartedState};
 use crate::snek::SnekGameStatus;
 use log::*;
 use serenity::model::id::UserId;
@@ -12,20 +12,29 @@ use std::cmp::max;
 use std::cmp::Ordering;
 use std::collections::HashMap;
 
-#[derive(PartialEq, Eq, Clone)]
+/// We cache the call to the server (both the game itself and the snek api)
+/// but NOT the db call
+#[derive(PartialEq, Eq, Clone, Debug)]
+pub struct CacheEntry {
+    pub game_data: GameData,
+    pub option_snek_state: Option<SnekGameStatus>,
+}
+
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct GameDetails {
     pub alias: String,
     pub owner: Option<UserId>,
     pub description: Option<String>,
     pub nations: NationDetails,
+    pub cache_entry: Option<CacheEntry>,
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum NationDetails {
     Lobby(LobbyDetails),
     Started(StartedDetails),
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct StartedDetails {
     pub address: String,
     pub game_name: String,
@@ -45,23 +54,23 @@ pub fn get_nation_string(option_snek_state: &Option<SnekGameStatus>, nation_id: 
     }
 }
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum StartedStateDetails {
     Playing(PlayingState),
     Uploading(UploadingState),
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct UploadingState {
     pub uploading_players: Vec<UploadingPlayer>,
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct PlayingState {
     pub players: Vec<PotentialPlayer>,
     pub turn: u32,
     pub mins_remaining: i32,
     pub hours_remaining: i32,
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PotentialPlayer {
     RegisteredOnly(UserId, u32, String),
     RegisteredAndGame(UserId, PlayerDetails),
@@ -100,14 +109,14 @@ impl Ord for PotentialPlayer {
         self.nation_name().cmp(&other.nation_name())
     }
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct PlayerDetails {
     pub nation_id: u32,
     pub nation_name: String,
     pub submitted: SubmissionStatus,
     pub player_status: NationStatus,
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct UploadingPlayer {
     pub potential_player: PotentialPlayer,
     pub uploaded: bool,
@@ -123,13 +132,13 @@ impl UploadingPlayer {
         self.potential_player.option_player_id()
     }
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct LobbyDetails {
     pub players: Vec<LobbyPlayer>,
     pub era: Option<Era>,
     pub remaining_slots: u32,
 }
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct LobbyPlayer {
     pub player_id: UserId,
     pub nation_id: u32,
@@ -153,7 +162,7 @@ pub fn get_details_for_alias<C: ServerConnection>(
     Ok(details)
 }
 
-fn lobby_details(
+pub fn lobby_details(
     db_conn: &DbConnection,
     lobby_state: &LobbyState,
     alias: &str,
@@ -189,6 +198,7 @@ fn lobby_details(
         owner: Some(lobby_state.owner),
         description: lobby_state.description.clone(),
         nations: NationDetails::Lobby(lobby_details),
+        cache_entry: None, // lobbies have no cache entry
     })
 }
 
@@ -200,9 +210,27 @@ fn started_details<C: ServerConnection>(
 ) -> Result<GameDetails, CommandError> {
     let server_address = &started_state.address;
     let game_data = C::get_game_data(&server_address)?;
-
-    let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let option_snek_details = C::get_snek_data(server_address)?;
+
+    started_details_from_server(
+        db_conn,
+        started_state,
+        option_lobby_state,
+        alias,
+        game_data,
+        option_snek_details,
+    )
+}
+
+pub fn started_details_from_server(
+    db_conn: &DbConnection,
+    started_state: &StartedState,
+    option_lobby_state: Option<&LobbyState>,
+    alias: &str,
+    game_data: GameData,
+    option_snek_details: Option<SnekGameStatus>,
+) -> Result<GameDetails, CommandError> {
+    let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let player_details =
         join_players_with_nations(&game_data.nations, &id_player_nations, &option_snek_details)?;
 
@@ -249,7 +277,7 @@ fn started_details<C: ServerConnection>(
     };
 
     let started_details = StartedDetails {
-        address: server_address.clone(),
+        address: started_state.address.clone(),
         game_name: game_data.game_name.clone(),
         state: state_details,
     };
@@ -259,6 +287,10 @@ fn started_details<C: ServerConnection>(
         owner: option_lobby_state.map(|lobby_state| lobby_state.owner.clone()),
         description: option_lobby_state.and_then(|lobby_state| lobby_state.description.clone()),
         nations: NationDetails::Started(started_details),
+        cache_entry: Some(CacheEntry {
+            game_data: game_data.clone(),
+            option_snek_state: option_snek_details.clone(),
+        }),
     })
 }
 

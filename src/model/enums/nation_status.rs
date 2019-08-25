@@ -22,16 +22,23 @@ impl NationStatus {
         }
     }
 
-    pub fn from_int(i: u8) -> Self {
+    pub fn from_int(i: u8) -> Option<Self> {
         match i {
-            0 => NationStatus::Empty,
-            1 => NationStatus::Human,
-            2 => NationStatus::AI,
-            3 => NationStatus::Independent,
-            253 => NationStatus::Closed,
-            254 => NationStatus::DefeatedThisTurn,
-            255 => NationStatus::Defeated,
-            _ => panic!(),
+            0 => Some(NationStatus::Empty),
+            1 => Some(NationStatus::Human),
+            2 => Some(NationStatus::AI),
+            3 => Some(NationStatus::Independent),
+            253 => Some(NationStatus::Closed),
+            254 => Some(NationStatus::DefeatedThisTurn),
+            255 => Some(NationStatus::Defeated),
+            _ => None,
+        }
+    }
+
+    pub fn is_human(&self) -> bool {
+        match self {
+            NationStatus::Human | NationStatus::DefeatedThisTurn => true,
+            _ => false,
         }
     }
 }

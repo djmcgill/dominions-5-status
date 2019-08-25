@@ -35,7 +35,10 @@ fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
             let &(nation_name, era) = Nations::get_nation_desc(nation_id);
             let nation = Nation {
                 id: nation_id,
-                status: NationStatus::from_int(status_num),
+                status: NationStatus::from_int(status_num).ok_or(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unknown nation status {}", status_num),
+                ))?,
                 submitted: SubmissionStatus::from_int(submitted),
                 connected: connected == 1,
                 name: nation_name.to_owned(),

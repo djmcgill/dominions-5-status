@@ -66,3 +66,4 @@ MAYBE:
 * register channel for notifications
 * have docker volume/cache the crate registry (speed up builds)
 * bot create game channels
+* bot post samogging/stalls/deaths/ais in the channel with the same name as the alias

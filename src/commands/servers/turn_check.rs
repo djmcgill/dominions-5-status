@@ -1,8 +1,9 @@
 use crate::commands::servers::*;
 use crate::db::*;
 use crate::model::enums::*;
+use crate::model::GameServerState;
 use crate::server::RealServerConnection;
-use crate::WriteHandle;
+use crate::CacheWriteHandle;
 use chrono::Utc;
 use log::*;
 use serenity::framework::standard::CommandError;
@@ -14,7 +15,7 @@ use std::time;
 
 pub fn update_details_cache_loop(
     db_conn: DbConnection,
-    write_handle_mutex: Arc<Mutex<WriteHandle>>,
+    write_handle_mutex: Arc<Mutex<CacheWriteHandle>>,
 ) {
     loop {
         info!("Checking for new turns!");
@@ -48,15 +49,17 @@ pub fn notify_player_for_new_turn(new_turn: &NewTurnNation) -> Result<(), Comman
 fn update_details_cache_for_game(
     alias: &str,
     db_conn: &DbConnection,
-    write_handle: &mut WriteHandle,
+    write_handle: &mut CacheWriteHandle,
 ) -> Result<Vec<NewTurnNation>, CommandError> {
     info!("Checking turn for {}", alias);
     let mut ret = vec![];
 
-    let option_old_details: Option<Option<GameDetails>> =
-        write_handle.get_and(&alias.to_owned(), |results| (*results[0]).1.clone());
+    let option_old_cache: Option<Option<CacheEntry>> = write_handle
+        .0
+        .get_and(&alias.to_owned(), |results| (*results[0]).1.clone());
 
     let result_details = get_details_for_alias::<RealServerConnection>(db_conn, alias);
+
     let now = Utc::now();
     match result_details {
         Err(e) => {
@@ -64,7 +67,9 @@ fn update_details_cache_for_game(
                 "Got an error when checking for details for alias {}: {:?}",
                 alias, e
             );
-            write_handle.update(alias.to_owned(), Box::new((now, None)));
+            write_handle
+                .0
+                .update(alias.to_owned(), Box::new((now, None)));
         }
         Ok(details) => {
             // It's a bit of a hack to have 2 ways to check for turns
@@ -84,7 +89,25 @@ fn update_details_cache_for_game(
                     ret.extend(create_messages_for_new_turn(alias, started_details));
                 }
             } else {
-                for old_details in option_old_details.and_then(|x| x) {
+                for old_cache in option_old_cache.and_then(|x| x) {
+                    let server = db_conn.game_for_alias(&alias)?;
+                    let old_details = match server.state {
+                        GameServerState::Lobby(ref lobby_state) => {
+                            lobby_details(db_conn, lobby_state, alias)?
+                        }
+                        GameServerState::StartedState(
+                            ref started_state,
+                            ref option_lobby_state,
+                        ) => started_details_from_server(
+                            db_conn,
+                            started_state,
+                            option_lobby_state.as_ref(),
+                            alias,
+                            old_cache.game_data,
+                            old_cache.option_snek_state,
+                        )?,
+                    };
+
                     if was_updated(&old_details, &details) {
                         if let NationDetails::Started(started_details) = &details.nations {
                             ret.extend(create_messages_for_new_turn(alias, started_details));
@@ -93,7 +116,9 @@ fn update_details_cache_for_game(
                 }
             }
 
-            write_handle.update(alias.to_owned(), Box::new((now, Some(details))));
+            write_handle
+                .0
+                .update(alias.to_owned(), Box::new((now, details.cache_entry)));
         }
     }
 
@@ -111,7 +136,7 @@ pub struct NewTurnNation {
 
 fn update_details_cache_for_all_games(
     db_conn: &DbConnection,
-    write_handle: &mut WriteHandle,
+    write_handle: &mut CacheWriteHandle,
 ) -> Vec<NewTurnNation> {
     let mut ret = vec![];
     match db_conn.retrieve_all_servers() {
@@ -130,7 +155,7 @@ fn update_details_cache_for_all_games(
                     }
                 }
             }
-            write_handle.refresh();
+            write_handle.0.refresh();
         }
     }
     ret

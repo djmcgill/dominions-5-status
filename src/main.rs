@@ -20,13 +20,28 @@ use std::thread;
 use crate::db::*;
 use crate::server::RealServerConnection;
 
-use commands::servers::GameDetails;
+use commands::servers::CacheEntry;
 use evmap;
 
 use chrono::{DateTime, Utc};
 
-type WriteHandle = evmap::WriteHandle<String, Box<(DateTime<Utc>, Option<GameDetails>)>>;
-type ReadHandle = evmap::ReadHandleFactory<String, Box<(DateTime<Utc>, Option<GameDetails>)>>;
+pub struct CacheWriteHandle(
+    pub evmap::WriteHandle<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>,
+);
+pub struct CacheReadHandle(
+    pub evmap::ReadHandleFactory<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>,
+);
+impl CacheReadHandle {
+    fn get_clone(&self, alias: &str) -> Option<Option<CacheEntry>> {
+        self.0.handle().get_and(alias, |values| {
+            if values.len() != 1 {
+                panic!()
+            } else {
+                (*values[0]).1.clone()
+            }
+        })
+    }
+}
 
 struct Handler;
 impl EventHandler for Handler {}
@@ -60,7 +75,7 @@ fn read_token() -> Result<String, Error> {
 
 struct DetailsReadHandleKey;
 impl typemap::Key for DetailsReadHandleKey {
-    type Value = ReadHandle;
+    type Value = CacheReadHandle;
 }
 
 fn create_discord_client() -> Result<Client, Error> {
@@ -79,7 +94,7 @@ fn create_discord_client() -> Result<Client, Error> {
     {
         let mut data = discord_client.data.lock();
         data.insert::<DbConnectionKey>(db_conn.clone());
-        data.insert::<DetailsReadHandleKey>(reader.factory());
+        data.insert::<DetailsReadHandleKey>(CacheReadHandle(reader.factory()));
     }
 
     use crate::commands::servers::WithServersCommands;
@@ -106,7 +121,7 @@ fn create_discord_client() -> Result<Client, Error> {
     );
     info!("Configured discord client");
 
-    let writer_mutex = Arc::new(Mutex::new(write));
+    let writer_mutex = Arc::new(Mutex::new(CacheWriteHandle(write)));
     let writer_mutex_clone = writer_mutex.clone();
     thread::spawn(move || {
         crate::commands::servers::turn_check::update_details_cache_loop(

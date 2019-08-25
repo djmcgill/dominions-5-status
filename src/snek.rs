@@ -8,7 +8,7 @@ use serde::de;
 use serde::{Deserialize, Deserializer};
 use std::collections::HashMap;
 
-#[derive(PartialEq, Eq, Clone)]
+#[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SnekGameStatus {
     pub nations: HashMap<u32, SnekNation>,
 }

@@ -179,7 +179,7 @@ fn register_player_helper<C: ServerConnection>(
     alias: &str,
     db_conn: &DbConnection,
     message: &Message,
-    details_read_handle: &crate::ReadHandle,
+    details_read_handle: &crate::CacheReadHandle,
 ) -> Result<(), CommandError> {
     info!(
         "Registering player {} for nation {} in game {}",
@@ -220,17 +220,22 @@ fn register_player_helper<C: ServerConnection>(
             ))?;
             Ok(())
         }
-        GameServerState::StartedState(_, option_lobby_state) => {
+        GameServerState::StartedState(started_state, option_lobby_state) => {
             let started_details = details_read_handle
-                .handle()
-                .get_and(alias, |values| {
-                    if values.len() != 1 {
-                        panic!()
-                    } else {
-                        (*values[0]).1.clone()
-                    }
-                })
+                .get_clone(alias)
                 .and_then(|option| option)
+                .map(|cache| {
+                    let game_details: GameDetails = started_details_from_server(
+                        db_conn,
+                        &started_state,
+                        option_lobby_state.as_ref(),
+                        alias,
+                        cache.game_data,
+                        cache.option_snek_state,
+                    )
+                    .unwrap();
+                    game_details
+                })
                 .and_then(|game_details| match game_details.nations {
                     NationDetails::Lobby(_) => None,
                     NationDetails::Started(started_details) => Some(started_details.state),

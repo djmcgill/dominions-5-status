@@ -3,10 +3,13 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
+use crate::commands::servers::lobby_details;
 use crate::commands::servers::*;
 use crate::db::{DbConnection, DbConnectionKey};
 use crate::model::enums::{NationStatus, SubmissionStatus};
+use crate::model::{GameData, GameServerState};
 use crate::server::ServerConnection;
+use crate::snek::SnekGameStatus;
 
 pub fn details2<C: ServerConnection>(
     context: &mut Context,
@@ -39,34 +42,39 @@ pub fn details2<C: ServerConnection>(
 fn details_helper(
     alias: &str,
     db_conn: &DbConnection,
-    read_handle: &crate::ReadHandle,
+    read_handle: &crate::CacheReadHandle,
 ) -> Result<CreateEmbed, CommandError> {
-    let option_option_game_details = read_handle.handle().get_and(alias, |values| {
-        if values.len() != 1 {
-            panic!()
-        } else {
-            (*values[0]).1.clone()
+    let server = db_conn.game_for_alias(&alias)?;
+    match server.state {
+        GameServerState::Lobby(ref lobby_state) => {
+            let details: GameDetails = lobby_details(db_conn, lobby_state, alias)?;
+            let embed: CreateEmbed = details_to_embed(details)?;
+            Ok(embed)
         }
-    });
+        GameServerState::StartedState(ref started_state, ref option_lobby_state) => {
+            let option_option_game_cache = read_handle.get_clone(alias);
 
-    match option_option_game_details {
-        Some(Some(details)) => details_to_embed(details),
-        Some(None) => Err(CommandError::from("Failed to connect to the server.")),
-        None => {
-            if db_conn
-                .retrieve_all_servers()?
-                .into_iter()
-                .find(|server| &server.alias == alias)
-                .is_some()
-            {
-                Err(CommandError::from(
-                    "Server starting up, please try again in 1 min.",
-                ))
-            } else {
-                Err(CommandError::from(format!(
-                    "Game with alias '{}' not found.",
-                    alias
-                )))
+            match option_option_game_cache {
+                Some(Some(cache)) => {
+                    let CacheEntry {
+                        game_data,
+                        option_snek_state,
+                    } = cache;
+
+                    let details: GameDetails = started_details_from_server(
+                        db_conn,
+                        started_state,
+                        option_lobby_state.as_ref(),
+                        alias,
+                        game_data,
+                        option_snek_state,
+                    )?;
+
+                    let embed: CreateEmbed = details_to_embed(details)?;
+                    Ok(embed)
+                }
+                Some(None) => Err("Got an error when trying to connect to the server".into()),
+                None => Err("Not yet got a response from server, try again in 1 min".into()),
             }
         }
     }
