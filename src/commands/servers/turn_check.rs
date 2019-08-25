@@ -200,7 +200,7 @@ fn create_messages_for_new_turn(
                         // Only message them if they haven't submitted yet
                         if let SubmissionStatus::NotSubmitted = details.submitted {
                             // and if they're actually playing
-                            if let NationStatus::Human = details.player_status {
+                            if details.player_status.is_human() {
                                 ret.push(
                                     NewTurnNation {
                                         user_id: *user_id,

@@ -116,12 +116,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             player_details.player_status.show().to_owned()
                         };
 
-                        let submission_symbol =
-                            if let NationStatus::Human = player_details.player_status {
-                                player_details.submitted.show().to_owned()
-                            } else {
-                                SubmissionStatus::Submitted.show().to_owned()
-                            };
+                        let submission_symbol = if player_details.player_status.is_human() {
+                            player_details.submitted.show().to_owned()
+                        } else {
+                            SubmissionStatus::Submitted.show().to_owned()
+                        };
 
                         if ix % 20 == 0 {
                             embed_texts.push(String::new());
