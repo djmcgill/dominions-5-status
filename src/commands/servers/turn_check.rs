@@ -185,7 +185,7 @@ pub fn was_updated(old_details: &GameDetails, new_details: &GameDetails) -> bool
     }
 }
 
-fn create_messages_for_new_turn(
+pub fn create_messages_for_new_turn(
     alias: &str,
     new_started_details: &StartedDetails,
 ) -> Vec<NewTurnNation> {

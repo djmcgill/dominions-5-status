@@ -1,4 +1,4 @@
-use crate::server::ServerConnection;
+use crate::server::{ServerConnection, RealServerConnection};
 
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
@@ -7,6 +7,9 @@ use serenity::prelude::Context;
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
 use crate::model::*;
+use crate::commands::servers::{get_details_for_alias, StartedStateDetails, PotentialPlayer};
+use crate::commands::servers::NationDetails;
+use crate::commands::servers::turn_check::{create_messages_for_new_turn, notify_player_for_new_turn, NewTurnNation};
 
 fn start_helper<C: ServerConnection>(
     db_conn: &DbConnection,
@@ -31,6 +34,28 @@ fn start_helper<C: ServerConnection>(
             };
 
             db_conn.insert_started_state(&alias, &started_state)?;
+
+            // This is a bit of a hack, the turncheck should take care of it
+            let started_details = get_details_for_alias::<RealServerConnection>(db_conn, alias)?;
+            let mut new_turn_messages = vec![];
+            if let NationDetails::Started(started_details) = started_details.nations {
+                if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
+                    for player in uploading_details.uploading_players {
+                        if let PotentialPlayer::RegisteredOnly(user_id, _, nation_name) = player.potential_player {
+                            new_turn_messages.push(NewTurnNation {
+                                user_id,
+                                message: format!(
+                                    "Uploading has started in {}! You registered as {}. Server address is '{}'.",
+                                    alias, nation_name, started_details.address
+                                ),
+                            });
+                        }
+                    }
+                }
+            }
+            for new_turn_message in &new_turn_messages {
+                let _ = notify_player_for_new_turn(new_turn_message);
+            }
         }
     }
     Ok(())
