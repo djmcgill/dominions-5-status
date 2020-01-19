@@ -268,6 +268,9 @@ pub fn register_player_id<C: ServerConnection>(
     mut args: Args,
 ) -> Result<(), CommandError> {
     let arg_nation_id: u32 = args.single_quoted::<u32>()?;
+    if arg_nation_id >= std::i32::MAX as u32 {
+        return Err(format!("Nation ID {} too large. Your hilarious joke will have to be less than 2^32.", arg_nation_id).into());
+    }
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
     let data = context.data.lock();
