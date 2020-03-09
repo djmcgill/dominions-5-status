@@ -7,7 +7,7 @@ use hex_slice::AsHex;
 use log::*;
 use std::error::Error;
 use std::io;
-use std::io::{Cursor, Read, Write};
+use std::io::{Cursor, Read, Write, BufRead};
 use std::net;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
@@ -80,11 +80,26 @@ fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
             ))?;
     let mut stream = net::TcpStream::connect_timeout(&parsed_address, Duration::from_secs(30))?;
     debug!("connected");
+    // https://steamcommunity.com/app/722060/discussions/0/1749024748627269322/?ctp=2#c1749024925634051868
+    // (b'f', b'H', b'\a', b'\x00', b'\x00',
+    // b'\x00', b'=', b'\x1e', b'\x02', b'\x11', b'E', b'\x05', b'\x00')
+    // b'<ccssssccccccc'
     let mut wtr = vec![];
     wtr.write_u8(b'f')?;
     wtr.write_u8(b'H')?;
-    wtr.write_u32::<LittleEndian>(1)?;
-    wtr.write_u8(3)?;
+    // wtr.write_u32::<LittleEndian>(1)?;
+    // wtr.write_u8(3)?;
+    wtr.write_u8(0x07)?;
+    wtr.write_u8(0x00)?;
+    wtr.write_u8(0x00)?;
+    wtr.write_u8(0x00)?;
+    wtr.write_u8(b'=')?;
+    wtr.write_u8(0x1e)?;
+    wtr.write_u8(0x02)?;
+    wtr.write_u8(0x11)?;
+    wtr.write_u8(b'E')?;
+    wtr.write_u8(0x05)?;
+    wtr.write_u8(0x00)?;
 
     debug!("Sending {:x}", wtr.as_slice().as_hex());
     let _ = stream.write(&wtr)?;
@@ -120,7 +135,8 @@ fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
 }
 
 fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
-    let game_name_len = data.len() - 26 - 750;
+    let len = data.len();
+    debug!("done: data.len(): {}", len);
 
     let mut cursor = Cursor::new(data);
     let mut a = [0u8; 6];
@@ -131,10 +147,13 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
         cursor.get_ref().len()
     );
     debug!("parsing name");
-    // TODO: properly read until null terminator instead of this hack
-    let mut game_name_buff = vec![0u8; game_name_len];
-    cursor.read_exact(&mut game_name_buff)?;
-    let game_name = String::from_utf8_lossy(&game_name_buff[0..game_name_len - 1]).to_string();
+    let mut game_name_bytes = vec![];
+    let read_bytes = cursor.read_until(0, &mut game_name_bytes)?;
+    debug!("read_bytes: {}, game_name_len: {}", read_bytes, game_name_bytes.len());
+
+    // remove null terminator
+    let game_name = String::from_utf8_lossy(&game_name_bytes[0..read_bytes-1]).to_string();
+
     debug!("game name: {}", game_name);
     debug!(
         "cursor position: {}, cursor len: {}",
