@@ -1,24 +1,38 @@
-use serenity::builder::CreateEmbed;
-use serenity::framework::standard::CommandError;
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
+use serenity::{
+    builder::CreateEmbed, framework::standard::CommandError, model::channel::Message,
+    prelude::Context,
+};
 
-use crate::db::*;
+use crate::{
+    db::*,
+    model::game_server::{GameServer, GameServerState},
+};
 
-use crate::model::{GameServer, GameServerState};
-
-pub fn lobbies(context: &mut Context, message: &Message) -> Result<(), CommandError> {
-    let data = context.data.lock();
+pub async fn lobbies(context: &Context, message: &Message) -> Result<(), CommandError> {
+    let data = context.data.read().await;
     let db_conn = data
         .get::<DbConnectionKey>()
-        .ok_or_else(|| CommandError("No db connection".to_string()))?;
+        .ok_or_else(|| CommandError::from("No db connection"))?;
 
     let lobbies_and_player_count = db_conn.select_lobbies()?;
     if lobbies_and_player_count.is_empty() {
-        message.reply(&"No available lobbies")?;
+        message
+            .reply(
+                (&context.cache, context.http.as_ref()),
+                &"No available lobbies",
+            )
+            .await?;
     } else {
         let embed = lobbies_helper(lobbies_and_player_count)?;
-        message.channel_id.send_message(|m| m.embed(|_| embed))?;
+        message
+            .channel_id
+            .send_message(context.http.as_ref(), |m| {
+                m.embed(|e| {
+                    *e = embed;
+                    e
+                })
+            })
+            .await?;
     }
     Ok(())
 }
@@ -38,7 +52,8 @@ fn lobbies_helper(
         }
     }
 
-    let embed = CreateEmbed::default()
+    let mut embed = CreateEmbed::default();
+    embed
         .title("Lobbies")
         .field("Alias", aliases, true)
         .field("Players", player_counts, true);

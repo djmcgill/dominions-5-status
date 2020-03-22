@@ -1,69 +1,75 @@
 mod commands;
-#[cfg_attr(test, macro_use)]
+// #[cfg_attr(test, macro_use)]
 mod db;
 mod model;
 mod server;
 mod snek;
 
+use anyhow::{anyhow, Context as _};
+use chrono::{DateTime, Utc};
+use log::*;
 use serenity::framework::standard::StandardFramework;
 use serenity::prelude::*;
-use simplelog::{Config, LogLevelFilter, SimpleLogger};
-
-use failure::*;
-use log::*;
-use std::env;
-use std::fs::File;
-use std::io::Read;
-use std::sync::Arc;
-use std::thread;
+use simplelog::{Config, LevelFilter, SimpleLogger};
+use std::{env, fs::File, io::Read as _};
 
 use crate::db::*;
-use crate::server::RealServerConnection;
+use model::game_state::CacheEntry;
+use std::sync::Arc;
 
-use commands::servers::CacheEntry;
-use evmap;
+// TODO: should this be im-rc? Do I care really?
+pub type DetailsCache = im::HashMap<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>;
+struct DetailsCacheKey;
+impl TypeMapKey for DetailsCacheKey {
+    type Value = DetailsCache;
+}
+pub struct DetailsCacheHandle(Arc<RwLock<TypeMap>>);
+impl DetailsCacheHandle {
+    // FIXME: cannot return value referencing local variable `read_lock`
+    // async fn get(&self, alias: &str) -> anyhow::Result<&CacheEntry> {
+    //     let read_lock = self.0.read().await;
+    //     let details_cache = read_lock
+    //         .get::<DetailsCacheKey>()
+    //         .ok_or_else(|| anyhow!("Details cache initialisation error!!!"))?;
+    //     let (_, option_cache_entry) = &*details_cache
+    //         .get(alias)
+    //         .ok_or_else(|| anyhow!("Not yet got a response from server, try again in 1 min"))?
+    //         .as_ref();
+    //     option_cache_entry
+    //         .as_ref()
+    //         .ok_or_else(|| anyhow!("Got an error when trying to connect to the server"))
+    // }
 
-use chrono::{DateTime, Utc};
-
-pub struct CacheWriteHandle(
-    pub evmap::WriteHandle<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>,
-);
-pub struct CacheReadHandle(
-    pub evmap::ReadHandleFactory<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>,
-);
-impl CacheReadHandle {
-    fn get_clone(&self, alias: &str) -> Option<Option<CacheEntry>> {
-        self.0.handle().get_and(alias, |values| {
-            if values.len() != 1 {
-                panic!()
-            } else {
-                (*values[0]).1.clone()
-            }
-        })
+    // TODO: still feel like this could be done without cloning
+    async fn get_clone(&self, alias: &str) -> anyhow::Result<CacheEntry> {
+        let read_lock = self.0.read().await;
+        let details_cache = read_lock
+            .get::<DetailsCacheKey>()
+            .ok_or_else(|| anyhow!("Details cache initialisation error!!!"))?;
+        let (_, option_cache_entry) = details_cache
+            .get(alias)
+            .ok_or_else(|| anyhow!("Not yet got a response from server, try again in 1 min"))?
+            .as_ref()
+            .clone();
+        option_cache_entry
+            .ok_or_else(|| anyhow!("Got an error when trying to connect to the server"))
     }
 }
 
 struct Handler;
 impl EventHandler for Handler {}
 
-fn main() {
-    if let Err(e) = do_main() {
-        info!("server crashed with error {:?}", e)
-    }
-}
-
-fn do_main() -> Result<(), Error> {
-    SimpleLogger::init(LogLevelFilter::Info, Config::default())?;
+#[tokio::main]
+async fn main() -> anyhow::Result<()> {
+    SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
     info!("Logger initialised");
 
-    let mut discord_client = create_discord_client().context("Creating discord client")?;
-    if let Err(why) = discord_client.start() {
-        error!("Client error: {:?}", why);
-    }
+    let mut discord_client = create_discord_client().await.unwrap();
+    discord_client.start().await?;
     Ok(())
 }
 
-fn read_token() -> Result<String, Error> {
+fn read_token() -> anyhow::Result<String> {
     let mut token_file = File::open("resources/token").context("Opening file 'resources/token'")?;
     let mut temp_token = String::new();
     token_file
@@ -72,66 +78,64 @@ fn read_token() -> Result<String, Error> {
     info!("Read discord bot token");
     Ok(temp_token)
 }
+async fn create_discord_client() -> anyhow::Result<Client> {
+    let token = read_token().unwrap();
 
-struct DetailsReadHandleKey;
-impl typemap::Key for DetailsReadHandleKey {
-    type Value = CacheReadHandle;
-}
-
-fn create_discord_client() -> Result<Client, Error> {
-    let token = read_token().context("Reading token file")?;
-
-    let path = env::current_dir()?;
+    let path = env::current_dir().unwrap();
     let path = path.join("resources/dom5bot.db");
-    let db_conn =
-        DbConnection::new(&path).context(format!("Opening database '{}'", path.display()))?;
+    let db_conn = DbConnection::new(&path)
+        .context(format!("Opening database '{}'", path.display()))
+        .unwrap();
     info!("Opened database connection");
 
-    let (reader, write) = evmap::new();
-
-    let mut discord_client = Client::new(&token, Handler).map_err(SyncFailure::new)?;
-    info!("Created discord client");
-    {
-        let mut data = discord_client.data.lock();
-        data.insert::<DbConnectionKey>(db_conn.clone());
-        data.insert::<DetailsReadHandleKey>(CacheReadHandle(reader.factory()));
-    }
-
-    use crate::commands::servers::WithServersCommands;
-    use crate::commands::WithSearchCommands;
-    discord_client.with_framework(
-        StandardFramework::new()
-            .configure(|c| c.prefix("!"))
-            .simple_bucket("simple", 1)
-            .with_search_commands("simple")
-            .with_servers_commands::<RealServerConnection>("simple")
-            .help(|_, msg, _, _, _| commands::help(msg))
-            .before(|_, msg, _| {
+    let framework = StandardFramework::new()
+        .configure(|c| c.prefix("!"))
+        .bucket("simple", |b| b.delay(1))
+        .await
+        .help(&crate::commands::help::HELP)
+        .before(|_, msg, _| {
+            Box::pin(async move {
                 info!("received message {:?}", msg);
                 !msg.author.bot // ignore bots
             })
-            .after(|_ctx, msg, _cmd_name, result| {
+        })
+        .after(|ctx, msg, _cmd_name, result| {
+            Box::pin(async move {
                 if let Err(err) = result {
-                    print!("command error: ");
-                    let text = format!("ERROR: {}", err.0);
-                    info!("replying with {}", text);
-                    let _ = msg.reply(&text);
+                    let err = anyhow!(err);
+                    let text = format!("ERROR: {}", err);
+                    info!("command error: replying with '{}'", text);
+                    let _ = msg.reply((&ctx.cache, ctx.http.as_ref()), &text);
                 }
-            }),
-    );
-    info!("Configured discord client");
+            })
+        })
+        .group(&crate::commands::servers::SERVER_GROUP)
+        .group(&crate::commands::search::SEARCH_GROUP);
 
-    let writer_mutex = Arc::new(Mutex::new(CacheWriteHandle(write)));
-    let writer_mutex_clone = writer_mutex.clone();
-    thread::spawn(move || {
-        crate::commands::servers::turn_check::update_details_cache_loop(
-            db_conn.clone(),
-            writer_mutex_clone,
-        );
-    });
-    //    thread::spawn(move || {
-    //        crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
-    //    });
+    let discord_client = Client::builder(&token)
+        .event_handler(Handler)
+        .type_map_insert::<DetailsCacheKey>(im::HashMap::new())
+        .type_map_insert::<DbConnectionKey>(db_conn)
+        .framework(framework)
+        .await
+        .context("ClientBuilder::await")?;
+    info!("Created discord client");
+
+    //
+    //     let writer_mutex = Arc::new(Mutex::new(CacheWriteHandle(write)));
+    //     let writer_mutex_clone = writer_mutex.clone();
+    //
+    //     let cache_and_http = discord_client.cache_and_http.clone();
+    //     thread::spawn(move || {
+    //         crate::commands::servers::turn_check::update_details_cache_loop(
+    //             db_conn.clone(),
+    //             writer_mutex_clone,
+    //             cache_and_http,
+    //         );
+    //     });
+    //        thread::spawn(move || {
+    //            crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
+    //        });
 
     // start listening for events by starting a single shard
     Ok(discord_client)

@@ -1,12 +1,7 @@
-use reqwest;
 use reqwest::StatusCode;
-use std::error::Error;
-use std::str::FromStr;
+use serde::{de, Deserialize, Deserializer};
+use std::{collections::HashMap, str::FromStr};
 use url::Url;
-
-use serde::de;
-use serde::{Deserialize, Deserializer};
-use std::collections::HashMap;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct SnekGameStatus {
@@ -33,32 +28,34 @@ where
     u32::from_str(&s).map_err(de::Error::custom)
 }
 
-pub fn snek_details(address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Error>> {
+pub async fn snek_details_async(address: &str) -> anyhow::Result<Option<SnekGameStatus>> {
     let snek_url = Url::parse(&format!("https://{}", address)).or_else(|_| Url::parse(address))?;
 
-    let host_str = snek_url.host_str().ok_or_else(|| -> Box<dyn Error> {
-        format!("Url '{}' did not have host", address).into()
-    })?;
+    let host_str = snek_url
+        .host_str()
+        .ok_or_else(|| anyhow::anyhow!("Url '{}' did not have host", address))?;
+
     if host_str != "snek.earth" && host_str != "dom5.snek.earth" {
         return Ok(None);
     }
-    let port = snek_url.port().ok_or_else(|| -> Box<dyn Error> {
-        format!("Url '{}' did not have port", address).into()
-    })?;
+    let port = snek_url
+        .port()
+        .ok_or_else(|| anyhow::anyhow!("Url '{}' did not have port", address))?;
 
     if port <= 30_000 {
-        return Err("Url '{}' had an invalid port".into());
+        return Err(anyhow::anyhow!("Url '{}' had an invalid port"));
     };
     let game_id = port - 30_000;
 
-    let mut response = reqwest::get(&format!(
+    let response = reqwest::get(&format!(
         "https://dom5.snek.earth/api/games/{}/status",
         game_id
-    ))?;
+    ))
+    .await?;
     if response.status() != StatusCode::OK {
-        return Err("Snek did not respond with OK".into());
+        return Err(anyhow::anyhow!("Snek did not respond with OK"));
     }
-    let parsed_response = response.json::<RawSnekGameStatus>()?;
+    let parsed_response = response.json::<RawSnekGameStatus>().await?;
 
     let mut hash_map = HashMap::new();
     for nation in parsed_response.nations {

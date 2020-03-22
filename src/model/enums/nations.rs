@@ -235,7 +235,7 @@ fn find_nation_options_from_map(
             let sanitised_name = sanitise_text(name.to_owned().to_lowercase().into()); // todo: cow utils
             sanitised_name.starts_with(sanitised_prefix)
         })
-        .map({ |(&id, name)| StaticNation { id, name, era } })
+        .map(|(&id, name)| StaticNation { id, name, era })
         .collect::<Vec<_>>();
     if !vec.is_empty() {
         Some(vec)

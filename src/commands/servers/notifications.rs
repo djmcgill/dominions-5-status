@@ -14,19 +14,21 @@ fn notifications_helper(
     Ok(())
 }
 
-pub fn notifications(
-    context: &mut Context,
+pub async fn notifications(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
     let desired_turn_notifications = args.single_quoted::<bool>()?;
-    let data = context.data.lock();
+    let data = context.data.read().await;
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
 
     notifications_helper(db_conn, message.author.id, desired_turn_notifications)?;
-    message.reply(&format!(
-        "Set turn notifications to {}",
-        desired_turn_notifications
-    ))?;
+    message
+        .reply(
+            (&context.cache, context.http.as_ref()),
+            &format!("Set turn notifications to {}", desired_turn_notifications),
+        )
+        .await?;
     Ok(())
 }

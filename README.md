@@ -60,7 +60,9 @@ n.b. server alias is optional, defaults to channel name.
 * permissions for commands
 * more embed responses
 * db queries contain named arguments
-MAYBE:
+* BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
+
+##MAYBE:
 * easier nation selection - acronyms, nicknames, fuzzy search, etc
 * edit pinned post instead of new
 * register channel for notifications

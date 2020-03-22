@@ -1,7 +1,5 @@
-use crate::commands::servers::*;
 use crate::db::*;
 use crate::model::enums::*;
-use crate::model::GameServerState;
 use crate::server::RealServerConnection;
 use crate::snek::SnekGameStatus;
 use crate::CacheWriteHandle;
@@ -13,20 +11,26 @@ use serenity::prelude::*;
 use std::sync::Arc;
 use std::thread;
 use std::time;
+use crate::model::game_state::{GameDetails, NationDetails, StartedStateDetails, StartedDetails, PotentialPlayer, CacheEntry};
+use crate::model::game_server::GameServerState;
+use crate::commands::servers::details::{started_details_from_server, lobby_details, get_details_for_alias};
+use serenity::CacheAndHttp;
+use serenity::http::Http;
 
 pub fn update_details_cache_loop(
     db_conn: DbConnection,
     write_handle_mutex: Arc<Mutex<CacheWriteHandle>>,
+    cache_and_http: Arc<CacheAndHttp>,
 ) {
     loop {
         info!("Checking for new turns!");
         let mut option_new_turn_nations = None;
-        for mut write_handle in write_handle_mutex.try_lock() {
+        if let Some(mut write_handle) = write_handle_mutex.try_lock() {
             let new_turn_nations = update_details_cache_for_all_games(&db_conn, &mut write_handle);
             option_new_turn_nations = Some(new_turn_nations);
         }
         for new_turn_nation in option_new_turn_nations.unwrap_or(Vec::new()) {
-            match notify_player_for_new_turn(&new_turn_nation) {
+            match notify_player_for_new_turn(&new_turn_nation, cache_and_http.http.clone()) {
                 Ok(()) => {}
                 Err(e) => {
                     error!(
@@ -40,9 +44,11 @@ pub fn update_details_cache_loop(
     }
 }
 
-pub fn notify_player_for_new_turn(new_turn: &NewTurnNation) -> Result<(), CommandError> {
-    let private_channel = new_turn.user_id.create_dm_channel()?;
-    private_channel.say(&new_turn.message)?;
+pub fn notify_player_for_new_turn(new_turn: &NewTurnNation,
+                                  http: Arc<Http>,
+) -> Result<(), CommandError> {
+    let private_channel = new_turn.user_id.create_dm_channel(http.as_ref())?;
+    private_channel.say(http.as_ref(), &new_turn.message)?;
     Ok(())
 }
 

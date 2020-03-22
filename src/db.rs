@@ -1,28 +1,23 @@
-use failure::{err_msg, Error};
+use crate::model::enums::*;
+use crate::model::game_server::{GameServer, GameServerState, LobbyState, StartedState};
+use crate::model::player::Player;
+
+use anyhow::anyhow;
 use lazy_static::lazy_static;
 use log::*;
+use migrant_lib::{Config, EmbeddedMigration, Migratable, Migrator, Settings};
 use num_traits::{FromPrimitive, ToPrimitive};
 use r2d2::Pool;
 use r2d2_sqlite::SqliteConnectionManager;
 use rusqlite::params;
 use serenity::model::id::UserId;
-use typemap::Key;
 
-use crate::model::enums::*;
+use crate::model::nation::BotNationIdentifier;
+use serenity::prelude::TypeMapKey;
 use std::path::Path;
 
-use failure::SyncFailure;
-
-use crate::model::{
-    BotNationIdentifier, GameServer, GameServerState, LobbyState, Player, StartedState,
-};
-use migrant_lib::{list, Config, EmbeddedMigration, Migratable, Migrator, Settings};
-
-#[cfg(test)]
-pub mod test_helpers;
-
 pub struct DbConnectionKey;
-impl Key for DbConnectionKey {
+impl TypeMapKey for DbConnectionKey {
     type Value = DbConnection;
 }
 
@@ -40,10 +35,11 @@ lazy_static! {
         [m1, m2, m3]
     };
 }
+
 #[derive(Clone)]
 pub struct DbConnection(Pool<SqliteConnectionManager>);
 impl DbConnection {
-    pub fn new<P: AsRef<Path>>(path: P) -> Result<Self, Error> {
+    pub fn new<P: AsRef<Path>>(path: P) -> anyhow::Result<Self> {
         let manager = SqliteConnectionManager::file(&path);
         let pool = Pool::new(manager)?;
         let db_conn = DbConnection(pool);
@@ -51,15 +47,17 @@ impl DbConnection {
         Ok(db_conn)
     }
 
-    fn initialise<P: AsRef<Path>>(&self, path: P) -> Result<(), Error> {
+    fn initialise<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         info!("db::initialise");
         let settings = Settings::configure_sqlite()
             .database_path(path)
-            .map_err(SyncFailure::new)?
+            // https://github.com/dtolnay/anyhow/issues/72#issuecomment-599243682 lol
+            .map_err(|e| anyhow!(e.to_string()))?
             .build()
-            .map_err(SyncFailure::new)?;
+            .map_err(|e| anyhow!(e.to_string()))?;
+
         let mut config = Config::with_settings(&settings);
-        config.setup().map_err(SyncFailure::new)?;
+        config.setup().map_err(|e| anyhow!(e.to_string()))?;
 
         config
             .use_migrations(
@@ -70,24 +68,25 @@ impl DbConnection {
                     .map(|migration| -> Box<(dyn Migratable + 'static)> { Box::new(migration) })
                     .collect::<Vec<_>>(),
             )
-            .map_err(SyncFailure::new)?;
+            .map_err(|e| anyhow!(e.to_string()))?;
 
-        let config = config.reload().map_err(SyncFailure::new)?;
+        let config = config.reload().map_err(|e| anyhow!(e.to_string()))?;
 
         Migrator::with_config(&config)
             .all(true)
             .show_output(false)
             .swallow_completion(true)
             .apply()
-            .map_err(SyncFailure::new)?;
+            .map_err(|e| anyhow!(e.to_string()))?;
 
-        let config = config.reload().map_err(SyncFailure::new)?;
-        list(&config).map_err(SyncFailure::new)?;
+        // Used for debugging
+        // let config = config.reload().map_err(|e| anyhow!(e.to_string()))?;
+        // list(&config).map_err(|e| anyhow!(e.to_string()))?;
 
         Ok(())
     }
 
-    pub fn insert_game_server(&self, game_server: &GameServer) -> Result<(), Error> {
+    pub fn insert_game_server(&self, game_server: &GameServer) -> anyhow::Result<()> {
         info!("db::insert_game_server: {:?}", game_server);
         let conn = &mut *self.0.clone().get()?;
 
@@ -183,7 +182,7 @@ impl DbConnection {
         player: &Player,
         server_alias: &str,
         nation_identifier: BotNationIdentifier,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         // We actually still want custom_nation_name = None for static nations here even when we know the name
         let (nation_id, custom_nation_name) = match nation_identifier {
             BotNationIdentifier::CustomId(nation_id) => (Some(nation_id), None),
@@ -214,12 +213,12 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn retrieve_all_servers(&self) -> Result<Vec<GameServer>, Error> {
+    pub fn retrieve_all_servers(&self) -> anyhow::Result<Vec<GameServer>> {
         info!("db::retrieve_all_servers");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_game_servers.sql"))?;
         let foo = stmt
-            .query_and_then(params![], |ref row| -> Result<GameServer, Error> {
+            .query_and_then(params![], |ref row| -> anyhow::Result<GameServer> {
                 let maybe_address: Option<String> = row.get(1)?;
                 let maybe_last_seen_turn: Option<i32> = row.get(2)?;
                 let alias: String = row.get(0)?;
@@ -247,7 +246,7 @@ impl DbConnection {
     pub fn players_with_nations_for_game_alias(
         &self,
         game_alias: &str,
-    ) -> Result<Vec<(Player, BotNationIdentifier)>, Error> {
+    ) -> anyhow::Result<Vec<(Player, BotNationIdentifier)>> {
         info!("players_with_nations_for_game_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_players_nations.sql"))?;
@@ -268,7 +267,7 @@ impl DbConnection {
         Ok(vec)
     }
 
-    pub fn game_for_alias(&self, game_alias: &str) -> Result<GameServer, Error> {
+    pub fn game_for_alias(&self, game_alias: &str) -> anyhow::Result<GameServer> {
         info!("db::game_for_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_game_server_for_alias.sql"))?;
@@ -295,12 +294,9 @@ impl DbConnection {
             Ok(vec
                 .into_iter()
                 .next()
-                .ok_or(err_msg("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
+                .ok_or(anyhow!("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
         } else {
-            Err(err_msg(format!(
-                "could not find the game with alias {}",
-                game_alias
-            )))
+            Err(anyhow!("could not find the game with alias {}", game_alias))
         }
     }
 
@@ -308,7 +304,7 @@ impl DbConnection {
         &self,
         game_alias: &str,
         current_turn: i32,
-    ) -> Result<bool, Error> {
+    ) -> anyhow::Result<bool> {
         info!("db::update_game_with_possibly_new_turn");
         let conn = &mut *self.0.clone().get()?;
         let rows = conn.execute(
@@ -319,7 +315,7 @@ impl DbConnection {
         Ok(rows > 0)
     }
 
-    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> Result<usize, Error> {
+    pub fn remove_player_from_game(&self, game_alias: &str, user: UserId) -> anyhow::Result<usize> {
         info!("db::remove_player_from_game");
         let conn = &*self.0.clone().get()?;
         Ok(conn.execute(
@@ -328,7 +324,7 @@ impl DbConnection {
         )?)
     }
 
-    pub fn remove_server(&self, game_alias: &str) -> Result<(), Error> {
+    pub fn remove_server(&self, game_alias: &str) -> anyhow::Result<()> {
         info!("db::remove_server");
         let conn = &mut *self.0.clone().get()?;
         let tx = conn.transaction()?;
@@ -346,17 +342,14 @@ impl DbConnection {
             tx.commit()?;
             Ok(())
         } else {
-            Err(err_msg(format!(
-                "Could not find server with name {}",
-                game_alias
-            )))
+            Err(anyhow!("Could not find server with name {}", game_alias))
         }
     }
 
     pub fn servers_for_player(
         &self,
         user_id: UserId,
-    ) -> Result<Vec<(GameServer, BotNationIdentifier)>, Error> {
+    ) -> anyhow::Result<Vec<(GameServer, BotNationIdentifier)>> {
         info!("servers_for_player");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_servers_for_player.sql"))?;
@@ -400,10 +393,11 @@ impl DbConnection {
                 (None, Some(custom_nation_name)) => {
                     Ok(BotNationIdentifier::CustomName(custom_nation_name))
                 }
-                _ => Err(failure::err_msg(format!(
+                _ => Err(anyhow!(
                     "No nation info for user '{}' in game '{}'! This should not happen!",
-                    user_id, game_server.alias
-                ))),
+                    user_id,
+                    game_server.alias
+                )),
             }?;
 
             ret.push((game_server, nation_identifier));
@@ -416,7 +410,7 @@ impl DbConnection {
         &self,
         player: UserId,
         desired_turn_notifications: bool,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         info!("db::set_turn_notifications");
         let conn = &*self.0.clone().get()?;
         conn.execute(
@@ -426,7 +420,7 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn remove_started_state(&self, alias: &str) -> Result<(), Error> {
+    pub fn remove_started_state(&self, alias: &str) -> anyhow::Result<()> {
         info!("remove_started_state");
         let conn = &mut *self.0.clone().get()?;
         let tx = conn.transaction()?;
@@ -439,10 +433,10 @@ impl DbConnection {
         tx.commit()?;
 
         if rows_modified == 0 {
-            Err(err_msg(format!(
+            Err(anyhow!(
                 "Could not find started lobby with alias '{}'",
                 alias
-            )))?
+            ))?
         } else {
             Ok(())
         }
@@ -452,7 +446,7 @@ impl DbConnection {
         &self,
         alias: &str,
         started_state: &StartedState,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         info!("insert_started_state");
         let conn = &mut *self.0.clone().get()?;
         let tx = conn.transaction()?;
@@ -473,7 +467,7 @@ impl DbConnection {
         Ok(())
     }
 
-    pub fn select_lobbies(&self) -> Result<Vec<(GameServer, i32)>, Error> {
+    pub fn select_lobbies(&self) -> anyhow::Result<Vec<(GameServer, i32)>> {
         info!("select_lobbies");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_lobbies.sql"))?;
@@ -504,7 +498,7 @@ impl DbConnection {
         &self,
         alias: &str,
         description: &str,
-    ) -> Result<(), Error> {
+    ) -> anyhow::Result<()> {
         info!("update_lobby_with_description");
         let conn = &*self.0.clone().get()?;
         let rows_modified = conn.execute(
@@ -514,7 +508,7 @@ impl DbConnection {
         if rows_modified != 0 {
             Ok(())
         } else {
-            Err(err_msg(format!("Could not find lobby with name {}", alias)))
+            Err(anyhow!("Could not find lobby with name {}", alias))
         }
     }
 }
@@ -527,7 +521,7 @@ fn make_game_server(
     maybe_era: Option<i32>,
     maybe_player_count: Option<i32>,
     description: Option<String>,
-) -> Result<GameServer, Error> {
+) -> anyhow::Result<GameServer> {
     let state = match (
         maybe_address,
         maybe_last_seen_turn,
@@ -550,7 +544,7 @@ fn make_game_server(
                 },
                 Some(LobbyState {
                     owner: UserId(owner as u64),
-                    era: Era::from_i32(era).ok_or_else(|| err_msg("unknown era"))?,
+                    era: Era::from_i32(era).ok_or_else(|| anyhow!("unknown era"))?,
                     player_count,
                     description,
                 }),
@@ -559,12 +553,12 @@ fn make_game_server(
         (None, None, Some(owner), Some(player_count), Some(era)) => {
             GameServerState::Lobby(LobbyState {
                 owner: UserId(owner as u64),
-                era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
+                era: Era::from_i32(era).ok_or_else(|| anyhow!("unknown era"))?,
                 player_count,
                 description,
             })
         }
-        _ => return Err(err_msg(format!("invalid db state for {}", alias))),
+        _ => return Err(anyhow!("invalid db state for {}", alias)),
     };
 
     let server = GameServer { alias, state };

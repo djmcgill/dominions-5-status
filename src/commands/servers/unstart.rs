@@ -1,13 +1,12 @@
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::channel::Message,
+    prelude::Context,
+};
 
-use super::alias_from_arg_or_channel_name;
-use crate::db::*;
-use crate::model::*;
-
-#[cfg(test)]
-mod unstart_tests;
+use crate::{
+    commands::servers::alias_from_arg_or_channel_name, db::*, model::game_server::GameServerState,
+};
 
 fn unstart_helper(db_conn: &DbConnection, alias: &str) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
@@ -23,25 +22,27 @@ fn unstart_helper(db_conn: &DbConnection, alias: &str) -> Result<(), CommandErro
     Ok(())
 }
 
-pub fn unstart(
-    context: &mut Context,
+pub async fn unstart(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read().await;
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
     unstart_helper(db_conn, &alias)?;
-    message.reply(&format!(
-        "Successfully turned '{}' back into a lobby",
-        alias
-    ))?;
+    message
+        .reply(
+            (&context.cache, context.http.as_ref()),
+            &format!("Successfully turned '{}' back into a lobby", alias),
+        )
+        .await?;
     Ok(())
 }
