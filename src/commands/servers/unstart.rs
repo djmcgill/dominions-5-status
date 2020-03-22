@@ -4,7 +4,7 @@ use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
-use crate::model::*;
+use crate::model::game_server::GameServerState;
 
 #[cfg(test)]
 mod unstart_tests;
@@ -28,18 +28,18 @@ pub fn unstart(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context)?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
     unstart_helper(db_conn, &alias)?;
-    message.reply(&format!(
+    message.reply((&context.cache, context.http.as_ref()), &format!(
         "Successfully turned '{}' back into a lobby",
         alias
     ))?;

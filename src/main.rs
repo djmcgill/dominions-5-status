@@ -18,9 +18,8 @@ use std::sync::Arc;
 use std::thread;
 
 use crate::db::*;
-use crate::server::RealServerConnection;
 
-use commands::servers::CacheEntry;
+use model::game_state::CacheEntry;
 use evmap;
 
 use chrono::{DateTime, Utc};
@@ -92,30 +91,31 @@ fn create_discord_client() -> Result<Client, Error> {
     let mut discord_client = Client::new(&token, Handler).map_err(SyncFailure::new)?;
     info!("Created discord client");
     {
-        let mut data = discord_client.data.lock();
+        let mut data = discord_client.data.write();
         data.insert::<DbConnectionKey>(db_conn.clone());
         data.insert::<DetailsReadHandleKey>(CacheReadHandle(reader.factory()));
     }
 
-    use crate::commands::servers::WithServersCommands;
-    use crate::commands::WithSearchCommands;
+    // use crate::commands::servers::WithServersCommands;
+    // use crate::commands::WithSearchCommands;
     discord_client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("!"))
-            .simple_bucket("simple", 1)
-            .with_search_commands("simple")
-            .with_servers_commands::<RealServerConnection>("simple")
-            .help(|_, msg, _, _, _| commands::help(msg))
+            .bucket("simple", |b| b.delay(1))
+            .group(&crate::commands::search::SEARCH_GROUP)
+            .group(&crate::commands::servers::SERVER_GROUP)
+            // FIXME
+            // .help(|_, msg, _, _, _| commands::help(msg))
             .before(|_, msg, _| {
                 info!("received message {:?}", msg);
                 !msg.author.bot // ignore bots
             })
-            .after(|_ctx, msg, _cmd_name, result| {
+            .after(|ctx, msg, _cmd_name, result| {
                 if let Err(err) = result {
                     print!("command error: ");
                     let text = format!("ERROR: {}", err.0);
                     info!("replying with {}", text);
-                    let _ = msg.reply(&text);
+                    let _ = msg.reply((&ctx.cache, ctx.http.as_ref()), &text);
                 }
             }),
     );
@@ -123,10 +123,14 @@ fn create_discord_client() -> Result<Client, Error> {
 
     let writer_mutex = Arc::new(Mutex::new(CacheWriteHandle(write)));
     let writer_mutex_clone = writer_mutex.clone();
+
+    // FIXME
+    let cache_and_http = discord_client.cache_and_http.clone();
     thread::spawn(move || {
         crate::commands::servers::turn_check::update_details_cache_loop(
             db_conn.clone(),
             writer_mutex_clone,
+            cache_and_http,
         );
     });
     //    thread::spawn(move || {
@@ -136,3 +140,5 @@ fn create_discord_client() -> Result<Client, Error> {
     // start listening for events by starting a single shard
     Ok(discord_client)
 }
+
+

@@ -1,7 +1,3 @@
-mod search;
-pub use self::search::*;
-
-mod help;
-pub use self::help::*;
-
+// pub mod help;
+pub mod search;
 pub mod servers;

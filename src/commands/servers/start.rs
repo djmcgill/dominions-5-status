@@ -6,15 +6,16 @@ use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
-use crate::model::*;
-use crate::commands::servers::{get_details_for_alias, StartedStateDetails, PotentialPlayer};
-use crate::commands::servers::NationDetails;
-use crate::commands::servers::turn_check::{create_messages_for_new_turn, notify_player_for_new_turn, NewTurnNation};
+use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
+use crate::model::game_server::{StartedState, GameServerState};
+use crate::model::game_state::{NationDetails, StartedStateDetails, PotentialPlayer};
+use crate::commands::servers::details::get_details_for_alias;
 
 fn start_helper<C: ServerConnection>(
     db_conn: &DbConnection,
     address: &str,
     alias: &str,
+    context: &Context,
 ) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
@@ -54,7 +55,7 @@ fn start_helper<C: ServerConnection>(
                 }
             }
             for new_turn_message in &new_turn_messages {
-                let _ = notify_player_for_new_turn(new_turn_message);
+                let _ = notify_player_for_new_turn(new_turn_message, context.http.clone());
             }
         }
     }
@@ -62,22 +63,22 @@ fn start_helper<C: ServerConnection>(
 }
 
 pub fn start<C: ServerConnection>(
-    context: &mut Context,
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
     let address = args.single_quoted::<String>()?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context)?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
-    start_helper::<C>(db_conn, &address, &alias)?;
-    message.reply(&"started!")?;
+    start_helper::<C>(db_conn, &address, &alias, context)?;
+    message.reply((&context.cache, context.http.as_ref()), &"started!")?;
     Ok(())
 }

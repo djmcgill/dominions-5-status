@@ -6,12 +6,14 @@ use serenity::prelude::Context;
 use std::str::FromStr;
 
 use super::alias_from_arg_or_channel_name;
-use crate::commands::servers::*;
 use crate::db::{DbConnection, DbConnectionKey};
 use crate::model::enums::*;
-use crate::model::{GameServerState, Player};
 use crate::server::ServerConnection;
 use either::Either;
+use crate::model::game_server::GameServerState;
+use crate::model::player::Player;
+use crate::model::game_state::*;
+use crate::commands::servers::details::started_details_from_server;
 
 fn get_nation_for_started_server(
     arg_nation: Either<&str, u32>,
@@ -180,6 +182,7 @@ fn register_player_helper<C: ServerConnection>(
     db_conn: &DbConnection,
     message: &Message,
     details_read_handle: &crate::CacheReadHandle,
+    context: &Context,
 ) -> Result<(), CommandError> {
     info!(
         "Registering player {} for nation {} in game {}",
@@ -212,11 +215,11 @@ fn register_player_helper<C: ServerConnection>(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.id)
                 .map_err(CommandError::from)?;
-            message.reply(&format!(
+            message.reply((&context.cache, context.http.as_ref()), &format!(
                 "registering {} ({}) for {}",
                 nation.name,
                 nation.id,
-                user_id.to_user()?
+                user_id.to_user((&context.cache, context.http.as_ref()))?
             ))?;
             Ok(())
         }
@@ -256,7 +259,7 @@ fn register_player_helper<C: ServerConnection>(
                 "registering nation {} ({}) for user {}",
                 nation.name, nation.id, message.author
             );
-            let _ = message.reply(&text);
+            let _ = message.reply((&context.cache, context.http.as_ref()), &text);
             Ok(())
         }
     }
@@ -271,9 +274,9 @@ pub fn register_player_id<C: ServerConnection>(
     if arg_nation_id >= std::i32::MAX as u32 {
         return Err(format!("Nation ID {} too large. Your hilarious joke will have to be less than 2^32.", arg_nation_id).into());
     }
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context)?;
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
     let details_read_handle = data
         .get::<crate::DetailsReadHandleKey>()
@@ -286,6 +289,7 @@ pub fn register_player_id<C: ServerConnection>(
         db_conn,
         message,
         details_read_handle,
+        context,
     )?;
     Ok(())
 }
@@ -296,7 +300,7 @@ pub fn register_player<C: ServerConnection>(
     mut args: Args,
 ) -> Result<(), CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context)?;
     // FIXME: no idea why this isn't working
     //    if args.len() != 0 {
     //        return Err(CommandError::from(
@@ -304,7 +308,7 @@ pub fn register_player<C: ServerConnection>(
     //        ));
     //    }
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
     let details_read_handle = data
         .get::<crate::DetailsReadHandleKey>()
@@ -317,6 +321,7 @@ pub fn register_player<C: ServerConnection>(
         db_conn,
         message,
         details_read_handle,
+        context,
     )?;
     Ok(())
 }

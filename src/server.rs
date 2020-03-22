@@ -1,5 +1,4 @@
 use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
-use crate::model::{GameData, Nation, RawGameData};
 use crate::snek::{snek_details, SnekGameStatus};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use flate2::read::ZlibDecoder;
@@ -12,6 +11,9 @@ use std::net;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
 use std::time::Duration;
+use crate::model::game_data::GameData;
+use crate::model::raw_game_data::RawGameData;
+use crate::model::nation::Nation;
 
 pub trait ServerConnection {
     fn get_game_data(server_address: &str) -> io::Result<GameData>;

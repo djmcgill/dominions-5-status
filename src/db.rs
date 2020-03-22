@@ -9,12 +9,13 @@ use serenity::model::id::UserId;
 use typemap::Key;
 
 use crate::model::enums::*;
-use crate::model::*;
 use std::path::Path;
 
 use failure::SyncFailure;
 
 use migrant_lib::{list, Config, EmbeddedMigration, Migratable, Migrator, Settings};
+use crate::model::game_server::{GameServer, GameServerState, StartedState, LobbyState};
+use crate::model::player::Player;
 
 #[cfg(test)]
 pub mod test_helpers;

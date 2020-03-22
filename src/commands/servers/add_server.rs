@@ -4,9 +4,9 @@ use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::{DbConnection, DbConnectionKey};
-use crate::model::{GameServer, GameServerState, StartedState};
 use crate::server::ServerConnection;
 use log::*;
+use crate::model::game_server::{GameServer, GameServerState, StartedState};
 
 #[cfg(test)]
 mod tests;
@@ -45,13 +45,14 @@ fn add_server_helper<C: ServerConnection>(
 }
 
 pub fn add_server<C: ServerConnection>(
-    context: &mut Context,
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
+    info!("Adding server for {} with args {:?}", message.author, args);
     let server_address = args.single_quoted::<String>()?;
 
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context)?;
 
     if !args.is_empty() {
         return Err(CommandError::from(
@@ -59,13 +60,12 @@ pub fn add_server<C: ServerConnection>(
         ));
     }
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_connection = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
     add_server_helper::<C>(&server_address, &alias, db_connection)?;
     let text = format!("Successfully inserted with alias {}", alias);
-    let _ = message.reply(&text);
-    info!("{}", text);
+    message.reply((&context.cache, context.http.as_ref()), text)?;
     Ok(())
 }

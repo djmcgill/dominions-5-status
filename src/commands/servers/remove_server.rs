@@ -18,16 +18,16 @@ pub fn remove_server(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context)?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No DB connection")?;
     remove_server_helper(db_conn, &alias)?;
-    let _ = message.reply(&format!("successfully removed server {}", alias));
+    let _ = message.reply((&context.cache, context.http.as_ref()), &format!("successfully removed server {}", alias));
     Ok(())
 }

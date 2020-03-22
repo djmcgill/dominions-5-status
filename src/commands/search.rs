@@ -1,13 +1,57 @@
 use url::percent_encoding::{utf8_percent_encode, QUERY_ENCODE_SET};
 
-use log::*;
-use serenity::framework::standard::{Args, CommandError};
+use serenity::framework::standard::{Args, CommandError, macros::*, CommandResult};
 use serenity::model::channel::Message;
+use serenity::prelude::*;
 
-// enum InspectorCategoryV {Item, Spell, Unit, ...}
+#[group]
+#[commands(search_item, search_spell, search_unit, search_site, search_merc, search_event)]
+struct Search;
 
-// TODO: implement some kind of static enum macro or library
-// see https://users.rust-lang.org/t/enum-field-types-datasort-refinements/11323
+#[command]
+#[aliases("item")]
+fn search_item(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let response = search::<Item>(args)?;
+    msg.reply((&ctx.cache, ctx.http.as_ref()), response)?;
+    Ok(())
+}
+#[command]
+#[aliases("spell")]
+fn search_spell(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let response = search::<Spell>(args)?;
+    msg.reply((&ctx.cache, ctx.http.as_ref()), response)?;
+    Ok(())
+}
+#[command]
+#[aliases("unit")]
+fn search_unit(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let response = search::<Unit>(args)?;
+    msg.reply((&ctx.cache, ctx.http.as_ref()), response)?;
+    Ok(())
+}
+#[command]
+#[aliases("site")]
+fn search_site(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let response = search::<Site>(args)?;
+    msg.reply((&ctx.cache, ctx.http.as_ref()), response)?;
+    Ok(())
+}
+#[command]
+#[aliases("merc")]
+fn search_merc(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let response = search::<Merc>(args)?;
+    msg.reply((&ctx.cache, ctx.http.as_ref()), response)?;
+    Ok(())
+}
+#[command]
+#[aliases("event")]
+fn search_event(ctx: &mut Context, msg: &Message, args: Args) -> CommandResult {
+    let response = search::<Event>(args)?;
+    msg.reply((&ctx.cache, ctx.http.as_ref()), response)?;
+    Ok(())
+}
+
+// TODO: just turn this into an enum already
 trait InspectorCategory: Copy {
     fn show() -> &'static str;
     fn event_append() -> &'static str;
@@ -75,43 +119,10 @@ impl InspectorCategory for Event {
     }
 }
 
-fn search<I: InspectorCategory>(message: &Message, args: &Args) -> Result<(), CommandError> {
-    let search_term = utf8_percent_encode(&args.full(), QUERY_ENCODE_SET).to_string();
-    let response = format!(
-        "https://larzm42.github.io/dom5inspector/?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1{}",
-    I::show(), I::show(), search_term, I::event_append());
-    info!("responding with {}", response);
-    let _ = message.reply(&response);
-    Ok(())
-}
-
-use serenity::framework::standard::StandardFramework;
-pub trait WithSearchCommands: Sized {
-    fn get_standard_framework(self) -> StandardFramework;
-    fn with_search_commands(self, bucket: &str) -> StandardFramework {
-        self.get_standard_framework()
-            .command(Item::show(), |c| {
-                c.bucket(bucket).exec(|_, m, a| search::<Item>(m, &a))
-            })
-            .command(Spell::show(), |c| {
-                c.bucket(bucket).exec(|_, m, a| search::<Spell>(m, &a))
-            })
-            .command(Unit::show(), |c| {
-                c.bucket(bucket).exec(|_, m, a| search::<Unit>(m, &a))
-            })
-            .command(Site::show(), |c| {
-                c.bucket(bucket).exec(|_, m, a| search::<Site>(m, &a))
-            })
-            .command(Merc::show(), |c| {
-                c.bucket(bucket).exec(|_, m, a| search::<Merc>(m, &a))
-            })
-            .command(Event::show(), |c| {
-                c.bucket(bucket).exec(|_, m, a| search::<Event>(m, &a))
-            })
-    }
-}
-impl WithSearchCommands for StandardFramework {
-    fn get_standard_framework(self) -> StandardFramework {
-        self
-    }
+fn search<I: InspectorCategory>(args: Args) -> Result<String, CommandError> {
+    let search_term = utf8_percent_encode(&args.rest(), QUERY_ENCODE_SET).to_string();
+    Ok(format!(
+        "https://larzm42.github.io/dom5inspector/\
+        ?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1{}",
+    I::show(), I::show(), search_term, I::event_append()))
 }
