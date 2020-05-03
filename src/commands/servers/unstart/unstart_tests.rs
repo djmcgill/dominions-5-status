@@ -13,6 +13,7 @@ fn remove_started_server() {
                 StartedState {
                     address: "foo.bar:3000".to_owned(),
                     last_seen_turn: 23,
+                    era: Era::Early,
                 },
                 Some(LobbyState {
                     owner: UserId(0),
@@ -31,6 +32,7 @@ fn remove_started_server() {
                 StartedState {
                     address: "foo2.bar:3000".to_owned(),
                     last_seen_turn: 23,
+                    era: Era::Early,
                 },
                 Some(LobbyState {
                     owner: UserId(0),
@@ -66,6 +68,7 @@ fn should_error_when_game_not_found() {
                 StartedState {
                     address: "foo2.bar:3000".to_owned(),
                     last_seen_turn: 23,
+                    era: Era::Early,
                 },
                 Some(LobbyState {
                     owner: UserId(0),
@@ -95,6 +98,7 @@ fn should_error_when_game_not_lobby() {
                 StartedState {
                     address: "foo.bar:3000".to_owned(),
                     last_seen_turn: 23,
+                    era: Era::Early,
                 },
                 None,
             ),
@@ -108,6 +112,7 @@ fn should_error_when_game_not_lobby() {
                 StartedState {
                     address: "foo2.bar:3000".to_owned(),
                     last_seen_turn: 23,
+                    era: Era::Early,
                 },
                 Some(LobbyState {
                     owner: UserId(0),
@@ -149,6 +154,7 @@ fn should_not_error_when_game_not_started() {
                 StartedState {
                     address: "foo2.bar:3000".to_owned(),
                     last_seen_turn: 23,
+                    era: Era::Early,
                 },
                 Some(LobbyState {
                     owner: UserId(0),

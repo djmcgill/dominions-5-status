@@ -17,6 +17,7 @@ pub enum GameServerState {
 pub struct StartedState {
     pub address: String,
     pub last_seen_turn: i32,
+    pub era: Era,
 }
 
 #[derive(Debug, Clone, PartialEq)]

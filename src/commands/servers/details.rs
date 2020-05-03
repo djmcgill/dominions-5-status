@@ -3,13 +3,16 @@ use crate::server::ServerConnection;
 use serenity::framework::standard::CommandError;
 
 use crate::db::DbConnection;
-use crate::model::enums::{Era, NationStatus, Nations, SubmissionStatus};
-use crate::model::{GameData, GameServerState, LobbyState, Nation, Player, StartedState};
+use crate::model::enums::{Era, NationStatus, SubmissionStatus};
+use crate::model::{
+    BotNationIdentifier, GameData, GameNationIdentifier, GameServerState, LobbyState, Nation,
+    Player, StartedState,
+};
 use crate::snek::SnekGameStatus;
 use log::*;
 use serenity::model::id::UserId;
+use std::borrow::Cow;
 use std::cmp::max;
-use std::cmp::Ordering;
 use std::collections::HashMap;
 
 /// We cache the call to the server (both the game itself and the snek api)
@@ -41,19 +44,6 @@ pub struct StartedDetails {
     pub state: StartedStateDetails,
 }
 
-pub fn get_nation_string(option_snek_state: &Option<SnekGameStatus>, nation_id: u32) -> String {
-    let snek_nation_details = option_snek_state
-        .as_ref()
-        .and_then(|snek_details| snek_details.nations.get(&nation_id));
-    match snek_nation_details {
-        Some(snek_nation) => snek_nation.name.clone(),
-        None => {
-            let &(nation_name, _) = Nations::get_nation_desc(nation_id);
-            nation_name.to_owned()
-        }
-    }
-}
-
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum StartedStateDetails {
     Playing(PlayingState),
@@ -72,47 +62,40 @@ pub struct PlayingState {
 }
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PotentialPlayer {
-    RegisteredOnly(UserId, u32, String),
+    RegisteredOnly(UserId, BotNationIdentifier),
     RegisteredAndGame(UserId, PlayerDetails),
     GameOnly(PlayerDetails),
 }
 impl PotentialPlayer {
-    pub fn nation_name(&self) -> &String {
-        match &self {
-            PotentialPlayer::RegisteredOnly(_, _, nation_name) => nation_name,
-            PotentialPlayer::RegisteredAndGame(_, details) => &details.nation_name,
-            PotentialPlayer::GameOnly(details) => &details.nation_name,
+    pub fn nation_name(&self, option_snek_state: Option<&SnekGameStatus>) -> Cow<'static, str> {
+        match self {
+            PotentialPlayer::GameOnly(player_details) => {
+                player_details.nation_identifier.name(option_snek_state)
+            }
+            PotentialPlayer::RegisteredAndGame(_, player_details) => {
+                player_details.nation_identifier.name(option_snek_state)
+            }
+            PotentialPlayer::RegisteredOnly(_, bot_nation_identifier) => {
+                bot_nation_identifier.name(option_snek_state)
+            }
         }
     }
-    pub fn nation_id(&self) -> u32 {
-        match &self {
-            PotentialPlayer::RegisteredOnly(_, nation_id, _) => *nation_id,
-            PotentialPlayer::RegisteredAndGame(_, details) => details.nation_id,
-            PotentialPlayer::GameOnly(details) => details.nation_id,
-        }
-    }
-    pub fn option_player_id(&self) -> Option<&UserId> {
-        match &self {
-            PotentialPlayer::RegisteredOnly(player_id, _, _) => Some(player_id),
-            PotentialPlayer::RegisteredAndGame(player_id, _) => Some(player_id),
-            PotentialPlayer::GameOnly(_) => None,
+    pub fn nation_id(&self) -> Option<u32> {
+        match self {
+            PotentialPlayer::GameOnly(player_details) => {
+                Some(player_details.nation_identifier.id())
+            }
+            PotentialPlayer::RegisteredAndGame(_, player_details) => {
+                Some(player_details.nation_identifier.id())
+            }
+            PotentialPlayer::RegisteredOnly(_, bot_nation_identifier) => bot_nation_identifier.id(),
         }
     }
 }
-impl PartialOrd<Self> for PotentialPlayer {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
-    }
-}
-impl Ord for PotentialPlayer {
-    fn cmp(&self, other: &Self) -> Ordering {
-        self.nation_name().cmp(&other.nation_name())
-    }
-}
+
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct PlayerDetails {
-    pub nation_id: u32,
-    pub nation_name: String,
+    pub nation_identifier: GameNationIdentifier,
     pub submitted: SubmissionStatus,
     pub player_status: NationStatus,
 }
@@ -122,14 +105,25 @@ pub struct UploadingPlayer {
     pub uploaded: bool,
 }
 impl UploadingPlayer {
-    pub fn nation_name(&self) -> &String {
-        self.potential_player.nation_name()
-    }
-    pub fn nation_id(&self) -> u32 {
-        self.potential_player.nation_id()
+    pub fn nation_name(&self, option_snek_state: Option<&SnekGameStatus>) -> Cow<'static, str> {
+        match self.potential_player {
+            PotentialPlayer::RegisteredOnly(_, ref bot_nation_identifier) => {
+                bot_nation_identifier.name(option_snek_state)
+            }
+            PotentialPlayer::RegisteredAndGame(_, ref player_details) => {
+                player_details.nation_identifier.name(option_snek_state)
+            }
+            PotentialPlayer::GameOnly(ref player_details) => {
+                player_details.nation_identifier.name(option_snek_state)
+            }
+        }
     }
     pub fn option_player_id(&self) -> Option<&UserId> {
-        self.potential_player.option_player_id()
+        match self.potential_player {
+            PotentialPlayer::RegisteredOnly(ref user, _) => Some(&user),
+            PotentialPlayer::RegisteredAndGame(ref user, _) => Some(&user),
+            _ => None,
+        }
     }
 }
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -141,8 +135,8 @@ pub struct LobbyDetails {
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct LobbyPlayer {
     pub player_id: UserId,
-    pub nation_id: u32,
-    pub nation_name: String,
+    pub nation_identifier: BotNationIdentifier,
+    pub cached_name: Cow<'static, str>,
 }
 
 pub fn get_details_for_alias<C: ServerConnection>(
@@ -171,16 +165,18 @@ pub fn lobby_details(
 
     let mut player_nation_details: Vec<LobbyPlayer> = players_nations
         .into_iter()
-        .map(|(player, nation_id)| -> LobbyPlayer {
-            let &(nation_name, _) = Nations::get_nation_desc(nation_id);
-            LobbyPlayer {
+        .map(|(player, nation_identifier)| {
+            let name = nation_identifier.name(None);
+            let lobby_player = LobbyPlayer {
                 player_id: player.discord_user_id,
-                nation_id,
-                nation_name: nation_name.to_owned(),
-            }
+                nation_identifier,
+                cached_name: name,
+            };
+            lobby_player
         })
         .collect();
-    player_nation_details.sort_by(|n1, n2| n1.nation_name.cmp(&n2.nation_name));
+
+    player_nation_details.sort_by(|n1, n2| n1.cached_name.cmp(&n2.cached_name));
 
     let remaining_slots = max(
         0,
@@ -231,8 +227,7 @@ pub fn started_details_from_server(
     option_snek_details: Option<SnekGameStatus>,
 ) -> Result<GameDetails, CommandError> {
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
-    let player_details =
-        join_players_with_nations(&game_data.nations, &id_player_nations, &option_snek_details)?;
+    let player_details = join_players_with_nations(&game_data.nations, &id_player_nations)?;
 
     let state_details = if game_data.turn < 0 {
         let uploaded_players_detail: Vec<UploadingPlayer> = player_details
@@ -251,7 +246,7 @@ pub fn started_details_from_server(
                             uploaded: true, // all players we can see have uploaded
                         }
                     }
-                    potential_player @ PotentialPlayer::RegisteredOnly(_, _, _) => {
+                    potential_player @ PotentialPlayer::RegisteredOnly(_, _) => {
                         UploadingPlayer {
                             potential_player,
                             uploaded: false, // all players we can't see have not uploaded
@@ -294,24 +289,37 @@ pub fn started_details_from_server(
     })
 }
 
+/// Takes data from the three possible sources, and matches them together until we know
+/// 1) who is in the game and the bot's record
+/// 2) who is in the game but not the bot
+/// 3) who is NOT in the game but is in the bot
 fn join_players_with_nations(
+    // from game
     nations: &Vec<Nation>,
-    players_nations: &Vec<(Player, u32)>,
-    option_snek_details: &Option<SnekGameStatus>,
+    // from db
+    players_nations: &Vec<(Player, BotNationIdentifier)>,
 ) -> Result<Vec<PotentialPlayer>, CommandError> {
     let mut potential_players = vec![];
 
+    // Any players registered in the bot with a number go here
     let mut players_by_nation_id = HashMap::new();
-    for (player, nation_id) in players_nations {
-        players_by_nation_id.insert(*nation_id, player);
+    for (player, nation_identifier) in players_nations {
+        if let Some(nation_id) = nation_identifier.id() {
+            players_by_nation_id.insert(nation_id, (player, nation_identifier));
+        } else {
+            // The nation_identifier has no ID so it's a custom name so it's bot only
+            potential_players.push(PotentialPlayer::RegisteredOnly(
+                player.discord_user_id,
+                nation_identifier.clone(),
+            ));
+        }
     }
     for nation in nations {
-        match players_by_nation_id.remove(&nation.id) {
+        match players_by_nation_id.remove(&nation.identifier.id()) {
             // Lobby and game
-            Some(player) => {
+            Some((player, _)) => {
                 let player_details = PlayerDetails {
-                    nation_id: nation.id,
-                    nation_name: get_nation_string(option_snek_details, nation.id),
+                    nation_identifier: nation.identifier.clone(),
                     submitted: nation.submitted,
                     player_status: nation.status,
                 };
@@ -322,22 +330,18 @@ fn join_players_with_nations(
             }
             // Game only
             None => potential_players.push(PotentialPlayer::GameOnly(PlayerDetails {
-                nation_id: nation.id,
-                nation_name: get_nation_string(option_snek_details, nation.id),
+                nation_identifier: nation.identifier.clone(),
                 submitted: nation.submitted,
                 player_status: nation.status,
             })),
         }
     }
-    // Lobby only
-    for (nation_id, player) in players_by_nation_id {
-        let &(nation_name, _) = Nations::get_nation_desc(nation_id);
+    // Lobby only RegisteredOnly(UserId, BotNationIdentifier),
+    for (_, (player, bot_nation_identifier)) in players_by_nation_id {
         potential_players.push(PotentialPlayer::RegisteredOnly(
             player.discord_user_id,
-            nation_id,
-            nation_name.to_owned(),
+            bot_nation_identifier.clone(),
         ));
     }
-    potential_players.sort_unstable();
     Ok(potential_players)
 }

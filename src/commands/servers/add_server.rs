@@ -24,6 +24,7 @@ fn add_server_helper<C: ServerConnection>(
             StartedState {
                 address: server_address.to_string(),
                 last_seen_turn: game_data.turn,
+                era: game_data.era,
             },
             None,
         ),

@@ -1,6 +1,7 @@
 use super::*;
 
 use crate::model::GameData;
+use crate::model::enums::Era;
 use crate::{mock_conditional_server_connection, mock_server_connection};
 use lazy_static::lazy_static;
 use std::io;
@@ -24,6 +25,7 @@ fn should_insert_started_server_into_db() {
             nations: Vec::new(),
             turn: 32,
             turn_timer: 3 * 360,
+            era: Era::Early,
         };
     }
 
@@ -49,6 +51,7 @@ fn should_insert_started_server_into_db() {
             StartedState {
                 last_seen_turn: TEST_GAMEDATA.turn,
                 address: TEST_ADDRESS.to_owned(),
+                era: Era::Early,
             },
             None,
         ),

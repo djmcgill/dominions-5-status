@@ -59,6 +59,7 @@ impl DbConnection {
                     StartedState {
                         address: format!("test.server.address:{}", i),
                         last_seen_turn: i + 30,
+                        era: Era::Early,
                     },
                     None,
                 ),
@@ -74,7 +75,7 @@ impl DbConnection {
                     turn_notifications: false,
                 },
                 &format!("test server {}", i),
-                i,
+                BotNationIdentifier::from_id(i),
             )
             .unwrap();
         }

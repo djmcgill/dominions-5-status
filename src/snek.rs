@@ -36,7 +36,6 @@ where
 pub fn snek_details(address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Error>> {
     let snek_url = Url::parse(&format!("https://{}", address)).or_else(|_| Url::parse(address))?;
 
-    println!("SNEK URL: '{:?}'", snek_url.host_str());
     let host_str = snek_url.host_str().ok_or_else(|| -> Box<dyn Error> {
         format!("Url '{}' did not have host", address).into()
     })?;

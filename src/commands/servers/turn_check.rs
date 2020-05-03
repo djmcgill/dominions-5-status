@@ -3,6 +3,7 @@ use crate::db::*;
 use crate::model::enums::*;
 use crate::model::GameServerState;
 use crate::server::RealServerConnection;
+use crate::snek::SnekGameStatus;
 use crate::CacheWriteHandle;
 use chrono::Utc;
 use log::*;
@@ -86,7 +87,14 @@ fn update_details_cache_for_game(
 
             if updated {
                 if let NationDetails::Started(started_details) = &details.nations {
-                    ret.extend(create_messages_for_new_turn(alias, started_details));
+                    ret.extend(create_messages_for_new_turn(
+                        alias,
+                        started_details,
+                        details
+                            .cache_entry
+                            .as_ref()
+                            .and_then(|cache_entry| cache_entry.option_snek_state.as_ref())
+                    ));
                 }
             } else {
                 for old_cache in option_old_cache.and_then(|x| x) {
@@ -110,7 +118,14 @@ fn update_details_cache_for_game(
 
                     if was_updated(&old_details, &details) {
                         if let NationDetails::Started(started_details) = &details.nations {
-                            ret.extend(create_messages_for_new_turn(alias, started_details));
+                            ret.extend(create_messages_for_new_turn(
+                                alias,
+                                started_details,
+                                details
+                                    .cache_entry
+                                    .as_ref()
+                                    .and_then(|cache_entry| cache_entry.option_snek_state.as_ref()),
+                            ));
                         }
                     }
                 }
@@ -188,6 +203,7 @@ pub fn was_updated(old_details: &GameDetails, new_details: &GameDetails) -> bool
 pub fn create_messages_for_new_turn(
     alias: &str,
     new_started_details: &StartedDetails,
+    option_snek_state: Option<&SnekGameStatus>,
 ) -> Vec<NewTurnNation> {
     let mut ret = vec![];
     match new_started_details.state {
@@ -195,7 +211,7 @@ pub fn create_messages_for_new_turn(
             for potential_player in &new_playing_details.players {
                 match potential_player {
                     PotentialPlayer::GameOnly(_) => {} // Don't know who they are, can't message them
-                    PotentialPlayer::RegisteredOnly(_, _, _) => {} // Looks like they got left out, too bad
+                    PotentialPlayer::RegisteredOnly(_, _) => {} // Looks like they got left out, too bad
                     PotentialPlayer::RegisteredAndGame(user_id, details) => {
                         // Only message them if they haven't submitted yet
                         if let SubmissionStatus::NotSubmitted = details.submitted {
@@ -206,7 +222,7 @@ pub fn create_messages_for_new_turn(
                                         user_id: *user_id,
                                         message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
                                                          alias,
-                                                         details.nation_name,
+                                                         details.nation_identifier.name(option_snek_state),
                                                          new_playing_details.hours_remaining,
                                                          new_playing_details.mins_remaining,
                                                          new_playing_details.turn,
@@ -227,7 +243,7 @@ pub fn create_messages_for_new_turn(
                             user_id: *user_id,
                             message: format!(
                                 "Uploading has started in {}! You registered as {}. Server address is '{}'.",
-                                alias, player.nation_name(), new_started_details.address
+                                alias, player.nation_name(option_snek_state), new_started_details.address
                             ),
                         });
                     }

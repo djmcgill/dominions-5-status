@@ -7,9 +7,8 @@ use crate::commands::servers::lobby_details;
 use crate::commands::servers::*;
 use crate::db::{DbConnection, DbConnectionKey};
 use crate::model::enums::{NationStatus, SubmissionStatus};
-use crate::model::{GameData, GameServerState};
+use crate::model::GameServerState;
 use crate::server::ServerConnection;
-use crate::snek::SnekGameStatus;
 
 pub fn details2<C: ServerConnection>(
     context: &mut Context,
@@ -81,6 +80,10 @@ fn details_helper(
 }
 
 fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
+    let option_snek_state = details
+        .cache_entry
+        .and_then(|cache_entry| cache_entry.option_snek_state);
+
     let mut e = match details.nations {
         NationDetails::Started(started_details) => {
             match &started_details.state {
@@ -99,7 +102,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     for (ix, potential_player) in playing_state.players.iter().enumerate() {
                         let (option_user_id, player_details) = match potential_player {
                             // If the game has started and they're not in it, too bad
-                            PotentialPlayer::RegisteredOnly(_, _, _) => continue,
+                            PotentialPlayer::RegisteredOnly(_, _) => continue,
                             PotentialPlayer::RegisteredAndGame(user_id, player_details) => {
                                 (Some(user_id), player_details)
                             }
@@ -126,11 +129,13 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                             embed_texts.push(String::new());
                         }
                         let new_len = embed_texts.len();
+
                         embed_texts[new_len - 1].push_str(&format!(
-                            "`{}` {} ({}): {}\n",
+                            "`{}` {}: {}\n",
                             submission_symbol,
-                            player_details.nation_name,
-                            player_details.nation_id,
+                            player_details
+                                .nation_identifier
+                                .name(option_snek_state.as_ref()),
                             player_name,
                         ));
                     }
@@ -172,10 +177,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         }
                         let new_len = embed_texts.len();
                         embed_texts[new_len - 1].push_str(&format!(
-                            "`{}` {} ({}): {}\n",
+                            "`{}` {}: {}\n",
                             player_submitted_status,
-                            uploading_player.nation_name(),
-                            uploading_player.nation_id(),
+                            uploading_player.nation_name(option_snek_state.as_ref()),
                             player_name,
                         ));
                     }
@@ -206,10 +210,8 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         embed_texts.push(String::new());
                     }
                     let new_len = embed_texts.len();
-                    embed_texts[new_len - 1].push_str(&format!(
-                        "{} ({}): {}\n",
-                        lobby_player.nation_name, lobby_player.nation_id, discord_user,
-                    ));
+                    embed_texts[new_len - 1]
+                        .push_str(&format!("{}: {}\n", lobby_player.cached_name, discord_user,));
                 }
             } else {
                 embed_texts.push(String::new());
