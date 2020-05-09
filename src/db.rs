@@ -34,7 +34,7 @@ lazy_static! {
         let mut m2 = EmbeddedMigration::with_tag("002-lobby-description");
         m2.up(include_str!("db/sql/migrations/002_lobby_description.sql"));
 
-        let mut m3 = EmbeddedMigration::with_tag("003-register-custom.sql");
+        let mut m3 = EmbeddedMigration::with_tag("003-register-custom");
         m3.up(include_str!("db/sql/migrations/003_register_custom.sql"));
 
         [m1, m2, m3]
