@@ -25,17 +25,19 @@ impl GameNationIdentifier {
     }
     pub fn from_id(id: u32) -> Self {
         if let Some(static_nation) = Nations::from_id(id) {
-            Self::Existing(static_nation)
+            GameNationIdentifier::Existing(static_nation)
         } else {
-            Self::CustomId(id)
+            GameNationIdentifier::CustomId(id)
         }
     }
 }
 impl From<GameNationIdentifier> for BotNationIdentifier {
     fn from(other: GameNationIdentifier) -> Self {
         match other {
-            GameNationIdentifier::CustomId(custom_id) => Self::CustomId(custom_id),
-            GameNationIdentifier::Existing(static_nation) => Self::Existing(static_nation),
+            GameNationIdentifier::CustomId(custom_id) => BotNationIdentifier::CustomId(custom_id),
+            GameNationIdentifier::Existing(static_nation) => {
+                BotNationIdentifier::Existing(static_nation)
+            }
         }
     }
 }
@@ -52,21 +54,21 @@ impl BotNationIdentifier {
         GameNationIdentifier::from_id(id).into()
     }
     pub fn from_name(name: String) -> Self {
-        Self::CustomName(name)
+        BotNationIdentifier::CustomName(name)
     }
     pub fn from_id_and_name(option_id: Option<u32>, option_name: Option<String>) -> Option<Self> {
         match (option_id, option_name) {
-            (Some(id), None) => Some(Self::from_id(id)),
-            (None, Some(name)) => Some(Self::from_name(name)),
+            (Some(id), None) => Some(BotNationIdentifier::from_id(id)),
+            (None, Some(name)) => Some(BotNationIdentifier::from_name(name)),
             _ => None,
         }
     }
 
     pub fn id(&self) -> Option<u32> {
         match *self {
-            Self::Existing(StaticNation { id, .. }) => Some(id),
-            Self::CustomName(_) => None,
-            Self::CustomId(id) => Some(id),
+            BotNationIdentifier::Existing(StaticNation { id, .. }) => Some(id),
+            BotNationIdentifier::CustomName(_) => None,
+            BotNationIdentifier::CustomId(id) => Some(id),
         }
     }
 
