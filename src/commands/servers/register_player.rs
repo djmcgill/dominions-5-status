@@ -390,7 +390,7 @@ pub fn register_custom(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
+    let arg_nation_name: String = args.single_quoted::<String>()?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
     let data = context.data.lock();
