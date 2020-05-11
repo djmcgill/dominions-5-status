@@ -1,5 +1,4 @@
 use crate::model::enums::Era;
-use cow_utils::CowUtils;
 use lazy_static::lazy_static;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -16,7 +15,8 @@ impl Nations {
         name_prefix: &str,
         option_era_filter: Option<Era>,
     ) -> Vec<StaticNation> {
-        let name_prefix = name_prefix.cow_to_lowercase();
+        // todo: cow utils
+        let name_prefix = name_prefix.to_owned().to_lowercase().into();
 
         // okay we want to try with this era, and if it doesn't work we forget about it and try that
         let (name_prefix, option_specific_era) = extract_possible_nation_prefix(name_prefix);
@@ -231,7 +231,7 @@ fn find_nation_options_from_map(
     let vec = nations_by_id
         .iter()
         .filter(|(_, name)| {
-            let sanitised_name = sanitise_text(name.cow_to_lowercase());
+            let sanitised_name = sanitise_text(name.to_owned().to_lowercase().into()); // todo: cow utils
             sanitised_name.starts_with(sanitised_prefix)
         })
         .map({ |(&id, name)| StaticNation { id, name, era } })
