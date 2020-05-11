@@ -15,7 +15,6 @@ fn should_remove_started_server() {
                 StartedState {
                     address: "foo.bar:3000".to_owned(),
                     last_seen_turn: 23,
-                    era: Era::Early,
                 },
                 None,
             ),
@@ -85,7 +84,6 @@ fn should_remove_started_server_with_lobby() {
                 StartedState {
                     address: "foo.bar:3000".to_owned(),
                     last_seen_turn: 23,
-                    era: Era::Early,
                 },
                 Some(LobbyState {
                     owner: UserId(1),

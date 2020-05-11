@@ -61,13 +61,6 @@ impl BotNationIdentifier {
             _ => None,
         }
     }
-    pub fn to_id_and_name(self) -> (Option<u32>, Option<Cow<'static, str>>) {
-        match self {
-            Self::Existing(StaticNation { id, name, .. }) => (Some(id), Some(name.into())),
-            Self::CustomName(name) => (None, Some(name.into())),
-            Self::CustomId(id) => (Some(id), None),
-        }
-    }
 
     pub fn id(&self) -> Option<u32> {
         match *self {

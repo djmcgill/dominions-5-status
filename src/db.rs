@@ -184,7 +184,13 @@ impl DbConnection {
         server_alias: &str,
         nation_identifier: BotNationIdentifier,
     ) -> Result<(), Error> {
-        let (nation_id, custom_nation_name) = nation_identifier.to_id_and_name();
+        // We actually still want custom_nation_name = None for static nations here even when we know the name
+        let (nation_id, custom_nation_name) = match nation_identifier {
+            BotNationIdentifier::CustomId(nation_id) => (Some(nation_id), None),
+            BotNationIdentifier::Existing(existing) => (Some(existing.id), None),
+            BotNationIdentifier::CustomName(custom_name) => (None, Some(custom_name)),
+        };
+
         info!("db::insert_player_into_server");
         let conn = &mut *self.0.clone().get()?;
         let tx = conn.transaction()?;
@@ -218,7 +224,7 @@ impl DbConnection {
                 let maybe_last_seen_turn: Option<i32> = row.get(2)?;
                 let alias: String = row.get(0)?;
                 let maybe_owner: Option<i64> = row.get(3)?;
-                let era: i32 = row.get(4)?;
+                let lobby_era: Option<i32> = row.get(4)?;
                 let maybe_player_count: Option<i32> = row.get(5)?;
                 let description: Option<String> = row.get(6)?;
 
@@ -227,7 +233,7 @@ impl DbConnection {
                     maybe_address,
                     maybe_last_seen_turn,
                     maybe_owner,
-                    era,
+                    lobby_era,
                     maybe_player_count,
                     description,
                 )?;
@@ -270,7 +276,7 @@ impl DbConnection {
             let maybe_address: Option<String> = row.get(0).unwrap();
             let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
             let maybe_owner: Option<i64> = row.get(2).unwrap();
-            let era: i32 = row.get(3).unwrap();
+            let maybe_lobby_era: Option<i32> = row.get(3).unwrap();
             let maybe_player_count: Option<i32> = row.get(4).unwrap();
             let description: Option<String> = row.get(5).unwrap();
             Ok(make_game_server(
@@ -278,7 +284,7 @@ impl DbConnection {
                 maybe_address,
                 maybe_last_seen_turn,
                 maybe_owner,
-                era,
+                maybe_lobby_era,
                 maybe_player_count,
                 description,
             )
@@ -360,7 +366,7 @@ impl DbConnection {
             let maybe_address: Option<String> = row.get(0).unwrap();
             let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
             let maybe_owner: Option<i64> = row.get(5).unwrap();
-            let era: i32 = row.get(6).unwrap();
+            let maybe_lobby_era: Option<i32> = row.get(6).unwrap();
             let maybe_player_count: Option<i32> = row.get(7).unwrap();
             let description: Option<String> = row.get(8).unwrap();
             let server = make_game_server(
@@ -368,7 +374,7 @@ impl DbConnection {
                 maybe_address,
                 maybe_last_seen_turn,
                 maybe_owner,
-                era,
+                maybe_lobby_era,
                 maybe_player_count,
                 description,
             )
@@ -474,7 +480,7 @@ impl DbConnection {
         let foo = stmt.query_map(params![], |ref row| {
             let alias: String = row.get(0).unwrap();
             let maybe_owner: Option<i64> = row.get(1).unwrap();
-            let era: i32 = row.get(2).unwrap();
+            let maybe_lobby_era: Option<i32> = row.get(2).unwrap();
             let maybe_player_count: Option<i32> = row.get(3).unwrap();
             let registered_player_count: i32 = row.get(4).unwrap();
             let description: Option<String> = row.get(5).unwrap();
@@ -483,7 +489,7 @@ impl DbConnection {
                 None,
                 None,
                 maybe_owner,
-                era,
+                maybe_lobby_era,
                 maybe_player_count,
                 description,
             )
@@ -518,7 +524,7 @@ fn make_game_server(
     maybe_address: Option<String>,
     maybe_last_seen_turn: Option<i32>,
     maybe_owner: Option<i64>,
-    era: i32,
+    maybe_era: Option<i32>,
     maybe_player_count: Option<i32>,
     description: Option<String>,
 ) -> Result<GameServer, Error> {
@@ -527,21 +533,20 @@ fn make_game_server(
         maybe_last_seen_turn,
         maybe_owner,
         maybe_player_count,
+        maybe_era,
     ) {
-        (Some(address), Some(last_seen_turn), None, None) => GameServerState::StartedState(
+        (Some(address), Some(last_seen_turn), None, None, None) => GameServerState::StartedState(
             StartedState {
                 address,
                 last_seen_turn,
-                era: Era::from_i32(era).ok_or_else(|| err_msg("unknown era"))?,
             },
             None,
         ),
-        (Some(address), Some(last_seen_turn), Some(owner), Some(player_count)) => {
+        (Some(address), Some(last_seen_turn), Some(owner), Some(player_count), Some(era)) => {
             GameServerState::StartedState(
                 StartedState {
                     address,
                     last_seen_turn,
-                    era: Era::from_i32(era).ok_or_else(|| err_msg("unknown era"))?,
                 },
                 Some(LobbyState {
                     owner: UserId(owner as u64),
@@ -551,12 +556,14 @@ fn make_game_server(
                 }),
             )
         }
-        (None, None, Some(owner), Some(player_count)) => GameServerState::Lobby(LobbyState {
-            owner: UserId(owner as u64),
-            era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
-            player_count,
-            description,
-        }),
+        (None, None, Some(owner), Some(player_count), Some(era)) => {
+            GameServerState::Lobby(LobbyState {
+                owner: UserId(owner as u64),
+                era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
+                player_count,
+                description,
+            })
+        }
         _ => return Err(err_msg(format!("invalid db state for {}", alias))),
     };
 

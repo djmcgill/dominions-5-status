@@ -59,7 +59,6 @@ impl DbConnection {
                     StartedState {
                         address: format!("test.server.address:{}", i),
                         last_seen_turn: i + 30,
-                        era: Era::Early,
                     },
                     None,
                 ),

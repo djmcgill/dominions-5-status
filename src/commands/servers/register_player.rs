@@ -9,8 +9,7 @@ use super::alias_from_arg_or_channel_name;
 use crate::commands::servers::*;
 use crate::db::{DbConnection, DbConnectionKey};
 use crate::model::enums::*;
-use crate::model::{GameNationIdentifier, GameServerState, Player, BotNationIdentifier};
-use crate::server::ServerConnection;
+use crate::model::{BotNationIdentifier, GameNationIdentifier, GameServerState, Player};
 use crate::snek::SnekGameStatus;
 use either::Either;
 
@@ -18,7 +17,7 @@ use either::Either;
 fn get_nation_for_started_server(
     arg_nation: Either<&str, u32>,
     started_state_details: &StartedStateDetails,
-    era: Era,
+    era: Option<Era>,
     option_snek_state: Option<&SnekGameStatus>,
 ) -> Result<GameNationIdentifier, CommandError> {
     match arg_nation {
@@ -44,8 +43,33 @@ fn get_nation_for_started_server(
                     }
                     let possible_ingame_nations = possible_ingame_nations;
                     match possible_ingame_nations.len() {
-                        // Could not find nation. Error.
-                        0 => Err(CommandError::from(format!("Could not find nation starting with \"{}\"", arg_nation_name))),
+                        // Could not find nation. Check if it's a number.
+                        0 => {
+                            match u32::from_str(arg_nation_name) {
+                                Ok(nation_id) => {
+                                    if let Some(nation) = &playing_state.players.iter().find(|playing_nation| {
+                                        match playing_nation.nation_id() {
+                                            Some(playing_id) => playing_id == nation_id,
+                                            None => false,
+                                        }
+                                    }) {
+                                        match nation {
+                                            PotentialPlayer::GameOnly(player_details) =>
+                                                Ok(player_details.nation_identifier.clone()),
+                                            PotentialPlayer::RegisteredAndGame(_, _) =>
+                                                Err("Nation already registered".into()),
+                                            PotentialPlayer::RegisteredOnly(_, _) =>
+                                                Err("Nation already registered".into()),
+                                        }
+                                    } else {
+                                        Err(CommandError::from(format!("Could not find nation starting with \"{}\"", arg_nation_name)))
+                                    }
+                                }
+                                Err(_) => {
+                                    Err(CommandError::from(format!("Could not find nation starting with \"{}\"", arg_nation_name)))
+                                }
+                            }
+                        }
                         // Found nation!
                         1 => {
                             match possible_ingame_nations[0] {
@@ -166,7 +190,7 @@ fn get_nation_for_lobby(
 ) -> Result<GameNationIdentifier, CommandError> {
     match arg_nation {
         Either::Left(arg_nation_name) => {
-            let nations = Nations::from_name_prefix(arg_nation_name, era);
+            let nations = Nations::from_name_prefix(arg_nation_name, Some(era));
             let nations_len = nations.len();
             if nations_len > 1 {
                 return Err(CommandError::from(format!(
@@ -188,7 +212,50 @@ fn get_nation_for_lobby(
     }
 }
 
-fn register_player_helper<C: ServerConnection>(
+fn register_custom_helper(
+    user_id: UserId,
+    arg_custom_nation: String,
+    alias: String,
+    db_conn: &DbConnection,
+    message: &Message,
+) -> Result<(), CommandError> {
+    info!(
+        "Registering player {} for custom nation {} in game {}",
+        user_id, arg_custom_nation, alias
+    );
+
+    let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
+
+    match server.state {
+        GameServerState::Lobby(lobby_state) => {
+            let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+            if players_nations.len() as i32 >= lobby_state.player_count {
+                return Err(CommandError::from("lobby already full"));
+            };
+
+            let register_message = format!(
+                "registering {} for {}. You will have to reregister after uploading.",
+                arg_custom_nation,
+                user_id.to_user()?
+            );
+            let nation = BotNationIdentifier::CustomName(arg_custom_nation);
+            let player = Player {
+                discord_user_id: user_id,
+                turn_notifications: true,
+            };
+            db_conn
+                .insert_player_into_server(&player, &server.alias, nation)
+                .map_err(CommandError::from)?;
+            message.reply(&register_message)?;
+            Ok(())
+        }
+        GameServerState::StartedState(_, _) => {
+            Err("You cannot use \"register-custom\" during after uploads have started!".into())
+        }
+    }
+}
+
+fn register_player_helper(
     user_id: UserId,
     arg_nation: Either<&str, u32>,
     alias: &str,
@@ -211,13 +278,10 @@ fn register_player_helper<C: ServerConnection>(
 
             let nation = get_nation_for_lobby(arg_nation, lobby_state.era)?;
 
-            if players_nations
-                .iter()
-                .any(|&(_, ref player_nation_id)| {
-                    let nation_id: BotNationIdentifier = nation.clone().into();
-                    player_nation_id == &nation_id
-                })
-            {
+            if players_nations.iter().any(|&(_, ref player_nation_id)| {
+                let nation_id: BotNationIdentifier = nation.clone().into();
+                player_nation_id == &nation_id
+            }) {
                 return Err(CommandError::from("Nation already exists in lobby"));
             }
             let player = Player {
@@ -260,10 +324,11 @@ fn register_player_helper<C: ServerConnection>(
                 .ok_or(CommandError::from(
                     "Could not find game cache something is wrong",
                 ))?;
+            let option_era = option_lobby_state.map(|lobby_state| lobby_state.era);
             let nation = get_nation_for_started_server(
                 arg_nation,
                 &started_details,
-                started_state.era,
+                option_era,
                 option_snek_state.as_ref(),
             )?;
             let player = Player {
@@ -284,7 +349,7 @@ fn register_player_helper<C: ServerConnection>(
     }
 }
 
-pub fn register_player_id<C: ServerConnection>(
+pub fn register_player_id(
     context: &mut Context,
     message: &Message,
     mut args: Args,
@@ -305,7 +370,7 @@ pub fn register_player_id<C: ServerConnection>(
         .get::<crate::DetailsReadHandleKey>()
         .ok_or("No details cache")?;
 
-    register_player_helper::<C>(
+    register_player_helper(
         message.author.id,
         Either::Right(arg_nation_id),
         &alias,
@@ -316,19 +381,28 @@ pub fn register_player_id<C: ServerConnection>(
     Ok(())
 }
 
-pub fn register_player<C: ServerConnection>(
+pub fn register_custom(
     context: &mut Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
-    // FIXME: no idea why this isn't working
-    //    if args.len() != 0 {
-    //        return Err(CommandError::from(
-    //            "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
-    //        ));
-    //    }
+
+    let data = context.data.lock();
+    let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
+
+    register_custom_helper(message.author.id, arg_nation_name, alias, db_conn, message)?;
+    Ok(())
+}
+
+pub fn register_player(
+    context: &mut Context,
+    message: &Message,
+    mut args: Args,
+) -> Result<(), CommandError> {
+    let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
+    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
     let data = context.data.lock();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
@@ -336,7 +410,7 @@ pub fn register_player<C: ServerConnection>(
         .get::<crate::DetailsReadHandleKey>()
         .ok_or("No details cache")?;
 
-    register_player_helper::<C>(
+    register_player_helper(
         message.author.id,
         Either::Left(&arg_nation_name),
         &alias,

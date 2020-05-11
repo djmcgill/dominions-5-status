@@ -31,7 +31,6 @@ fn start_helper<C: ServerConnection>(
             let started_state = StartedState {
                 address: address.to_string(),
                 last_seen_turn: game_data.turn,
-                era: enums::Era::Early
             };
 
             db_conn.insert_started_state(&alias, &started_state)?;

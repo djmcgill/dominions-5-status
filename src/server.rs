@@ -1,4 +1,4 @@
-use crate::model::enums::{Era, NationStatus, SubmissionStatus};
+use crate::model::enums::{NationStatus, SubmissionStatus};
 use crate::model::{GameData, GameNationIdentifier, Nation, RawGameData};
 use crate::snek::{snek_details, SnekGameStatus};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
@@ -25,7 +25,6 @@ fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
         nations: vec![],
         turn: raw_data.h as i32,
         turn_timer: raw_data.d,
-        era: Era::Early, // FIXME - is this game_data.c? What's going on there?
     };
     for i in 0..250 {
         let status_num = raw_data.f[i];
@@ -170,9 +169,6 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     );
     let mut c = [0u8; 6];
     cursor.read_exact(&mut c)?;
-
-    // FIXME:
-    println!("C: {:?}", c);
 
     debug!("reading timer");
     let d = cursor.read_i32::<LittleEndian>()?;

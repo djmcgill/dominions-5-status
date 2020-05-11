@@ -7,54 +7,59 @@ use std::collections::HashMap;
 pub struct Nations;
 impl Nations {
     pub fn from_id(id: u32) -> Option<StaticNation> {
-        EA_NATIONS_BY_ID
-            .get(&id)
-            .map(|ea_nation_name| StaticNation {
-                id,
-                name: ea_nation_name,
-                era: Era::Early,
-            })
-            .or_else(|| {
-                MA_NATIONS_BY_ID
-                    .get(&id)
-                    .map(|ma_nation_name| StaticNation {
-                        id,
-                        name: ma_nation_name,
-                        era: Era::Middle,
-                    })
-            })
-            .or_else(|| {
-                LA_NATIONS_BY_ID
-                    .get(&id)
-                    .map(|la_nation_name| StaticNation {
-                        id,
-                        name: la_nation_name,
-                        era: Era::Late,
-                    })
-            })
+        from_id_from_map(id, Era::Early, &*EA_NATIONS_BY_ID)
+            .or_else(|| from_id_from_map(id, Era::Middle, &*MA_NATIONS_BY_ID))
+            .or_else(|| from_id_from_map(id, Era::Late, &*LA_NATIONS_BY_ID))
     }
 
-    pub fn from_name_prefix(name_prefix: &str, era_filter: Era) -> Vec<StaticNation> {
+    pub fn from_name_prefix(
+        name_prefix: &str,
+        option_era_filter: Option<Era>,
+    ) -> Vec<StaticNation> {
         let name_prefix = name_prefix.cow_to_lowercase();
+
+        // okay we want to try with this era, and if it doesn't work we forget about it and try that
         let (name_prefix, option_specific_era) = extract_possible_nation_prefix(name_prefix);
         let sanitised_prefix = sanitise_text(name_prefix);
 
-        let era = option_specific_era.unwrap_or(era_filter);
-        let nations_by_id: &'static HashMap<u32, &'static str> = match era {
-            Era::Early => &EA_NATIONS_BY_ID,
-            Era::Middle => &MA_NATIONS_BY_ID,
-            Era::Late => &LA_NATIONS_BY_ID,
-        };
+        let option_era = option_specific_era.or(option_era_filter);
 
-        // It's not like there's massive amounts of nations I guess
-        nations_by_id
-            .iter()
-            .filter(|(_, name)| {
-                let sanitised_name = sanitise_text(name.cow_to_lowercase());
-                sanitised_name.starts_with(sanitised_prefix.as_ref())
+        let option_nations_by_id: Option<(&'static HashMap<u32, &'static str>, Era)> =
+            match option_era {
+                Some(Era::Early) => Some((&EA_NATIONS_BY_ID, Era::Early)),
+                Some(Era::Middle) => Some((&MA_NATIONS_BY_ID, Era::Middle)),
+                Some(Era::Late) => Some((&LA_NATIONS_BY_ID, Era::Late)),
+                None => None,
+            };
+
+        match option_nations_by_id {
+            Some((nations_by_id, era)) => {
+                find_nation_options_from_map(nations_by_id, sanitised_prefix.as_ref(), era)
+            }
+            // guess we just have to look in all 3
+            None => {
+                find_nation_options_from_map(
+                    &*EA_NATIONS_BY_ID,
+                    sanitised_prefix.as_ref(),
+                    Era::Early,
+                )
+            }
+            .or_else(|| {
+                find_nation_options_from_map(
+                    &*MA_NATIONS_BY_ID,
+                    sanitised_prefix.as_ref(),
+                    Era::Middle,
+                )
             })
-            .map({ |(&id, name)| StaticNation { id, name, era } })
-            .collect::<Vec<_>>()
+            .or_else(|| {
+                find_nation_options_from_map(
+                    &*LA_NATIONS_BY_ID,
+                    sanitised_prefix.as_ref(),
+                    Era::Late,
+                )
+            }),
+        }
+        .unwrap_or(vec![])
     }
 }
 
@@ -206,5 +211,34 @@ fn cow_drop<'a>(cow: Cow<'a, str>, n: usize) -> Cow<'a, str> {
             let (_, ret) = b_str.split_at(n);
             ret.into()
         }
+    }
+}
+
+fn from_id_from_map(id: u32, era: Era, map: &HashMap<u32, &'static str>) -> Option<StaticNation> {
+    map.get(&id).map(|nation_name| StaticNation {
+        id,
+        name: nation_name,
+        era,
+    })
+}
+
+fn find_nation_options_from_map(
+    nations_by_id: &HashMap<u32, &'static str>,
+    sanitised_prefix: &str,
+    era: Era,
+) -> Option<Vec<StaticNation>> {
+    // It's not like there's massive amounts of nations I guess, so linear is fine
+    let vec = nations_by_id
+        .iter()
+        .filter(|(_, name)| {
+            let sanitised_name = sanitise_text(name.cow_to_lowercase());
+            sanitised_name.starts_with(sanitised_prefix)
+        })
+        .map({ |(&id, name)| StaticNation { id, name, era } })
+        .collect::<Vec<_>>();
+    if !vec.is_empty() {
+        Some(vec)
+    } else {
+        None
     }
 }
