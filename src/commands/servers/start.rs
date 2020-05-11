@@ -9,7 +9,7 @@ use crate::db::*;
 use crate::model::*;
 use crate::commands::servers::{get_details_for_alias, StartedStateDetails, PotentialPlayer};
 use crate::commands::servers::NationDetails;
-use crate::commands::servers::turn_check::{create_messages_for_new_turn, notify_player_for_new_turn, NewTurnNation};
+use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
 
 fn start_helper<C: ServerConnection>(
     db_conn: &DbConnection,
@@ -37,16 +37,17 @@ fn start_helper<C: ServerConnection>(
 
             // This is a bit of a hack, the turncheck should take care of it
             let started_details = get_details_for_alias::<RealServerConnection>(db_conn, alias)?;
+            let option_snek_state = crate::snek::snek_details(address).ok().and_then(|i| i);
             let mut new_turn_messages = vec![];
             if let NationDetails::Started(started_details) = started_details.nations {
                 if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
                     for player in uploading_details.uploading_players {
-                        if let PotentialPlayer::RegisteredOnly(user_id, _, nation_name) = player.potential_player {
+                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) = player.potential_player {
                             new_turn_messages.push(NewTurnNation {
                                 user_id,
                                 message: format!(
                                     "Uploading has started in {}! You registered as {}. Server address is '{}'.",
-                                    alias, nation_name, started_details.address
+                                    alias, nation_id.name(option_snek_state.as_ref()), started_details.address
                                 ),
                             });
                         }

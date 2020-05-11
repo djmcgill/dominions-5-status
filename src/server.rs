@@ -1,5 +1,5 @@
-use crate::model::enums::{NationStatus, Nations, SubmissionStatus};
-use crate::model::{GameData, Nation, RawGameData};
+use crate::model::enums::{NationStatus, SubmissionStatus};
+use crate::model::{GameData, GameNationIdentifier, Nation, RawGameData};
 use crate::snek::{snek_details, SnekGameStatus};
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use flate2::read::ZlibDecoder;
@@ -7,7 +7,7 @@ use hex_slice::AsHex;
 use log::*;
 use std::error::Error;
 use std::io;
-use std::io::{Cursor, Read, Write, BufRead};
+use std::io::{BufRead, Cursor, Read, Write};
 use std::net;
 use std::net::SocketAddr;
 use std::net::ToSocketAddrs;
@@ -32,17 +32,14 @@ fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
             let submitted = raw_data.f[i + 250];
             let connected = raw_data.f[i + 500];
             let nation_id = (i - 1) as u32; // why -1? No fucking idea
-            let &(nation_name, era) = Nations::get_nation_desc(nation_id);
             let nation = Nation {
-                id: nation_id,
+                identifier: GameNationIdentifier::from_id(nation_id),
                 status: NationStatus::from_int(status_num).ok_or(io::Error::new(
                     io::ErrorKind::Other,
                     format!("Unknown nation status {}", status_num),
                 ))?,
                 submitted: SubmissionStatus::from_int(submitted),
                 connected: connected == 1,
-                name: nation_name.to_owned(),
-                era: format!("{}", era),
             };
             game_data.nations.push(nation);
         }
@@ -149,10 +146,14 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     debug!("parsing name");
     let mut game_name_bytes = vec![];
     let read_bytes = cursor.read_until(0, &mut game_name_bytes)?;
-    debug!("read_bytes: {}, game_name_len: {}", read_bytes, game_name_bytes.len());
+    debug!(
+        "read_bytes: {}, game_name_len: {}",
+        read_bytes,
+        game_name_bytes.len()
+    );
 
     // remove null terminator
-    let game_name = String::from_utf8_lossy(&game_name_bytes[0..read_bytes-1]).to_string();
+    let game_name = String::from_utf8_lossy(&game_name_bytes[0..read_bytes - 1]).to_string();
 
     debug!("game name: {}", game_name);
     debug!(
@@ -168,6 +169,7 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
     );
     let mut c = [0u8; 6];
     cursor.read_exact(&mut c)?;
+
     debug!("reading timer");
     let d = cursor.read_i32::<LittleEndian>()?;
     debug!("timer value: {}", d);

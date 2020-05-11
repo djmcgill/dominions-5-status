@@ -74,7 +74,7 @@ impl DbConnection {
                     turn_notifications: false,
                 },
                 &format!("test server {}", i),
-                i,
+                BotNationIdentifier::from_id(i),
             )
             .unwrap();
         }

@@ -1,163 +1,244 @@
 use crate::model::enums::Era;
+use cow_utils::CowUtils;
 use lazy_static::lazy_static;
-use log::*;
+use std::borrow::Cow;
 use std::collections::HashMap;
 
 pub struct Nations;
 impl Nations {
-    pub fn get_nation_desc(n: u32) -> &'static NationEnum {
-        NATIONS_BY_ID.get(&n).unwrap_or_else(|| {
-            info!("unknown nation {}", n);
-            &("unknown nation", Era::Early) // FIXME
-        })
+    pub fn from_id(id: u32) -> Option<StaticNation> {
+        from_id_from_map(id, Era::Early, &*EA_NATIONS_BY_ID)
+            .or_else(|| from_id_from_map(id, Era::Middle, &*MA_NATIONS_BY_ID))
+            .or_else(|| from_id_from_map(id, Era::Late, &*LA_NATIONS_BY_ID))
     }
 
-    pub fn from_id(id: u32) -> Option<Nation> {
-        NATIONS_BY_ID.get(&id).map({
-            |&(name, era)| Nation {
-                id,
-                name: name.to_owned(),
-                era: Some(era),
+    pub fn from_name_prefix(
+        name_prefix: &str,
+        option_era_filter: Option<Era>,
+    ) -> Vec<StaticNation> {
+        let name_prefix = name_prefix.cow_to_lowercase();
+
+        // okay we want to try with this era, and if it doesn't work we forget about it and try that
+        let (name_prefix, option_specific_era) = extract_possible_nation_prefix(name_prefix);
+        let sanitised_prefix = sanitise_text(name_prefix);
+
+        let option_era = option_specific_era.or(option_era_filter);
+
+        let option_nations_by_id: Option<(&'static HashMap<u32, &'static str>, Era)> =
+            match option_era {
+                Some(Era::Early) => Some((&EA_NATIONS_BY_ID, Era::Early)),
+                Some(Era::Middle) => Some((&MA_NATIONS_BY_ID, Era::Middle)),
+                Some(Era::Late) => Some((&LA_NATIONS_BY_ID, Era::Late)),
+                None => None,
+            };
+
+        match option_nations_by_id {
+            Some((nations_by_id, era)) => {
+                find_nation_options_from_map(nations_by_id, sanitised_prefix.as_ref(), era)
             }
-        })
-    }
-
-    pub fn from_name_prefix(name_prefix: &str, era_filter: Option<Era>) -> Vec<Nation> {
-        let sanitised_prefix = name_prefix
-            .to_owned()
-            .to_lowercase()
-            .replace("'", "")
-            .replace(" ", "");
-        NATIONS_BY_ID
-            .iter()
-            .filter(|&(&_id, &(name, era))| {
-                let era_correct = match era_filter {
-                    Some(some_era_filter) => some_era_filter == era,
-                    None => true,
-                };
-                let sanitised_name = name
-                    .to_owned()
-                    .to_lowercase()
-                    .replace("'", "")
-                    .replace(" ", "");
-                era_correct && sanitised_name.starts_with(&sanitised_prefix)
+            // guess we just have to look in all 3
+            None => {
+                find_nation_options_from_map(
+                    &*EA_NATIONS_BY_ID,
+                    sanitised_prefix.as_ref(),
+                    Era::Early,
+                )
+            }
+            .or_else(|| {
+                find_nation_options_from_map(
+                    &*MA_NATIONS_BY_ID,
+                    sanitised_prefix.as_ref(),
+                    Era::Middle,
+                )
             })
-            .map({
-                |(&id, &(name, era))| Nation {
-                    id,
-                    name: name.to_owned(),
-                    era: Some(era),
-                }
-            })
-            .collect::<Vec<_>>()
+            .or_else(|| {
+                find_nation_options_from_map(
+                    &*LA_NATIONS_BY_ID,
+                    sanitised_prefix.as_ref(),
+                    Era::Late,
+                )
+            }),
+        }
+        .unwrap_or(vec![])
     }
 }
 
-#[derive(Clone)]
-pub struct Nation {
+fn extract_possible_nation_prefix<'a>(
+    lowercase_name_prefix: Cow<'a, str>,
+) -> (Cow<'a, str>, Option<Era>) {
+    if lowercase_name_prefix.starts_with("ea ") {
+        (cow_drop(lowercase_name_prefix, 3), Some(Era::Early))
+    } else if lowercase_name_prefix.starts_with("ma ") {
+        (cow_drop(lowercase_name_prefix, 3), Some(Era::Middle))
+    } else if lowercase_name_prefix.starts_with("la ") {
+        (cow_drop(lowercase_name_prefix, 3), Some(Era::Late))
+    } else {
+        (lowercase_name_prefix, None)
+    }
+}
+
+fn sanitise_text<'a>(lowercase_text: Cow<'a, str>) -> Cow<'a, str> {
+    lowercase_text
+        .to_owned()
+        .replace("'", "")
+        .replace(", ", "")
+        .into()
+    // FIXME: it's too late tonight to figure this stuff out
+    // lowercase_text.cow_replace("'", "").cow_replace(", ", "")
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct StaticNation {
     pub id: u32,
-    pub name: String, // Can be 'static str with refactoring
-    pub era: Option<Era>,
+    pub name: &'static str,
+    pub era: Era,
 }
-type NationEnum = (&'static str, Era);
 
-// TODO: actually make an enum
-lazy_static! { // TODO: replace with PHF crate?
-    pub static ref NATIONS_BY_ID: HashMap<u32, NationEnum> = {
+lazy_static! {
+    pub static ref EA_NATIONS_BY_ID: HashMap<u32, &'static str> = {
         let mut m = HashMap::new();
-        m.insert(5u32, ("Arcoscephale", Era::Early));
-        m.insert(6u32, ("Ermor", Era::Early));
-        m.insert(7u32, ("Ulm", Era::Early));
-        m.insert(8u32, ("Marverni", Era::Early));
-        m.insert(9u32, ("Sauromatia", Era::Early));
-        m.insert(10u32, ("T'ien Ch'i", Era::Early));
-        m.insert(11u32, ("Machaka", Era::Early));
-        m.insert(12u32, ("Mictlan", Era::Early));
-        m.insert(13u32, ("Abysia", Era::Early));
-        m.insert(14u32, ("Caelum", Era::Early));
-        m.insert(15u32, ("C'tis", Era::Early));
-        m.insert(16u32, ("Pangaea", Era::Early));
-        m.insert(17u32, ("Agartha", Era::Early));
-        m.insert(18u32, ("Tir na n'Og", Era::Early));
-        m.insert(19u32, ("Fomoria", Era::Early));
-        m.insert(20u32, ("Vanheim", Era::Early));
-        m.insert(21u32, ("Helheim", Era::Early));
-        m.insert(22u32, ("Niefelheim", Era::Early));
-        m.insert(24u32, ("Rus", Era::Early));
-        m.insert(25u32, ("Kailasa", Era::Early));
-        m.insert(26u32, ("Lanka", Era::Early));
-        m.insert(27u32, ("Yomi", Era::Early));
-        m.insert(28u32, ("Hinnom", Era::Early));
-        m.insert(29u32, ("Ur", Era::Early));
-        m.insert(30u32, ("Berytos", Era::Early));
-        m.insert(31u32, ("Xibalba", Era::Early));
-        m.insert(32u32, ("Mekone", Era::Early));
-        m.insert(36u32, ("Atlantis", Era::Early));
-        m.insert(37u32, ("R'lyeh", Era::Early));
-        m.insert(38u32, ("Pelagia", Era::Early));
-        m.insert(39u32, ("Oceania", Era::Early));
-        m.insert(40u32, ("Therodos", Era::Early));
-        m.insert(43u32, ("Arcoscephale", Era::Middle));
-        m.insert(44u32, ("Ermor", Era::Middle));
-        m.insert(45u32, ("Sceleria", Era::Middle));
-        m.insert(46u32, ("Pythium", Era::Middle));
-        m.insert(47u32, ("Man", Era::Middle));
-        m.insert(48u32, ("Eriu", Era::Middle));
-        m.insert(49u32, ("Ulm", Era::Middle));
-        m.insert(50u32, ("Marignon", Era::Middle));
-        m.insert(51u32, ("Mictlan", Era::Middle));
-        m.insert(52u32, ("T'ien Ch'i", Era::Middle));
-        m.insert(53u32, ("Machaka", Era::Middle));
-        m.insert(54u32, ("Agartha", Era::Middle));
-        m.insert(55u32, ("Abysia", Era::Middle));
-        m.insert(56u32, ("Caelum", Era::Middle));
-        m.insert(57u32, ("C'tis", Era::Middle));
-        m.insert(58u32, ("Pangaea", Era::Middle));
-        m.insert(59u32, ("Asphodel", Era::Middle));
-        m.insert(60u32, ("Vanheim", Era::Middle));
-        m.insert(61u32, ("Jotunheim", Era::Middle));
-        m.insert(62u32, ("Vanarus", Era::Middle));
-        m.insert(63u32, ("Bandar Log", Era::Middle));
-        m.insert(64u32, ("Shinuyama", Era::Middle));
-        m.insert(65u32, ("Ashdod", Era::Middle));
-        m.insert(66u32, ("Uruk", Era::Middle));
-        m.insert(67u32, ("Nazca", Era::Middle));
-        m.insert(68u32, ("Xibalba", Era::Middle));
-        m.insert(69u32, ("Phlegra", Era::Middle)); // nice
-        m.insert(70u32, ("Phaeacia", Era::Middle));
-        m.insert(71u32, ("Ind", Era::Middle));
-        m.insert(72u32, ("Na'ba", Era::Middle));
-        m.insert(73u32, ("Atlantis", Era::Middle));
-        m.insert(74u32, ("R'lyeh", Era::Middle));
-        m.insert(75u32, ("Pelagia", Era::Middle));
-        m.insert(76u32, ("Oceania", Era::Middle));
-        m.insert(77u32, ("Ys", Era::Middle));
-        m.insert(80u32, ("Arcoscephale", Era::Late));
-        m.insert(81u32, ("Pythium", Era::Late));
-        m.insert(82u32, ("Lemuria", Era::Late));
-        m.insert(83u32, ("Man", Era::Late));
-        m.insert(84u32, ("Ulm", Era::Late));
-        m.insert(85u32, ("Marignon", Era::Late));
-        m.insert(86u32, ("Mictlan", Era::Late));
-        m.insert(87u32, ("T'ien Ch'i", Era::Late));
-        m.insert(89u32, ("Jomon", Era::Late));
-        m.insert(90u32, ("Agartha", Era::Late));
-        m.insert(91u32, ("Abysia", Era::Late));
-        m.insert(92u32, ("Caelum", Era::Late));
-        m.insert(93u32, ("C'tis", Era::Late));
-        m.insert(94u32, ("Pangaea", Era::Late));
-        m.insert(95u32, ("Midgard", Era::Late));
-        m.insert(96u32, ("Utgard", Era::Late));
-        m.insert(97u32, ("Bogarus", Era::Late));
-        m.insert(98u32, ("Patala", Era::Late));
-        m.insert(99u32, ("Gath", Era::Late));
-        m.insert(100u32, ("Ragha", Era::Late));
-        m.insert(101u32, ("Xibalba", Era::Late));
-        m.insert(102u32, ("Phlegra", Era::Late));
-        m.insert(103u32, ("Vaettiheim", Era::Late));
-        m.insert(106u32, ("Atlantis", Era::Late));
-        m.insert(107u32, ("R'lyeh", Era::Late));
-        m.insert(108u32, ("Erytheia", Era::Late));
+        m.insert(5, "Arcoscephale");
+        m.insert(6, "Ermor");
+        m.insert(7, "Ulm");
+        m.insert(8, "Marverni");
+        m.insert(9, "Sauromatia");
+        m.insert(10, "T'ien Ch'i");
+        m.insert(11, "Machaka");
+        m.insert(12, "Mictlan");
+        m.insert(13, "Abysia");
+        m.insert(14, "Caelum");
+        m.insert(15, "C'tis");
+        m.insert(16, "Pangaea");
+        m.insert(17, "Agartha");
+        m.insert(18, "Tir na n'Og");
+        m.insert(19, "Fomoria");
+        m.insert(20, "Vanheim");
+        m.insert(21, "Helheim");
+        m.insert(22, "Niefelheim");
+        m.insert(24, "Rus");
+        m.insert(25, "Kailasa");
+        m.insert(26, "Lanka");
+        m.insert(27, "Yomi");
+        m.insert(28, "Hinnom");
+        m.insert(29, "Ur");
+        m.insert(30, "Berytos");
+        m.insert(31, "Xibalba");
+        m.insert(32, "Mekone");
+        m.insert(36, "Atlantis");
+        m.insert(37, "R'lyeh");
+        m.insert(38, "Pelagia");
+        m.insert(39, "Oceania");
+        m.insert(40, "Therodos");
         m
     };
+
+    pub static ref MA_NATIONS_BY_ID: HashMap<u32, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert(43, "Arcoscephale");
+        m.insert(44, "Ermor");
+        m.insert(45, "Sceleria");
+        m.insert(46, "Pythium");
+        m.insert(47, "Man");
+        m.insert(48, "Eriu");
+        m.insert(49, "Ulm");
+        m.insert(50, "Marignon");
+        m.insert(51, "Mictlan");
+        m.insert(52, "T'ien Ch'i");
+        m.insert(53, "Machaka");
+        m.insert(54, "Agartha");
+        m.insert(55, "Abysia");
+        m.insert(56, "Caelum");
+        m.insert(57, "C'tis");
+        m.insert(58, "Pangaea");
+        m.insert(59, "Asphodel");
+        m.insert(60, "Vanheim");
+        m.insert(61, "Jotunheim");
+        m.insert(62, "Vanarus");
+        m.insert(63, "Bandar Log");
+        m.insert(64, "Shinuyama");
+        m.insert(65, "Ashdod");
+        m.insert(66, "Uruk");
+        m.insert(67, "Nazca");
+        m.insert(68, "Xibalba");
+        m.insert(69, "Phlegra"); // nice
+        m.insert(70, "Phaeacia");
+        m.insert(71, "Ind");
+        m.insert(72, "Na'ba");
+        m.insert(73, "Atlantis");
+        m.insert(74, "R'lyeh");
+        m.insert(75, "Pelagia");
+        m.insert(76, "Oceania");
+        m.insert(77, "Ys");
+        m
+    };
+
+    pub static ref LA_NATIONS_BY_ID: HashMap<u32, &'static str> = {
+        let mut m = HashMap::new();
+        m.insert(80, "Arcoscephale");
+        m.insert(81, "Pythium");
+        m.insert(82, "Lemuria");
+        m.insert(83, "Man");
+        m.insert(84, "Ulm");
+        m.insert(85, "Marignon");
+        m.insert(86, "Mictlan");
+        m.insert(87, "T'ien Ch'i");
+        m.insert(89, "Jomon");
+        m.insert(90, "Agartha");
+        m.insert(91, "Abysia");
+        m.insert(92, "Caelum");
+        m.insert(93, "C'tis");
+        m.insert(94, "Pangaea");
+        m.insert(95, "Midgard");
+        m.insert(96, "Utgard");
+        m.insert(97, "Bogarus");
+        m.insert(98, "Patala");
+        m.insert(99, "Gath");
+        m.insert(100, "Ragha");
+        m.insert(101, "Xibalba");
+        m.insert(102, "Phlegra");
+        m.insert(103, "Vaettiheim");
+        m.insert(106, "Atlantis");
+        m.insert(107, "R'lyeh");
+        m.insert(108, "Erytheia");
+        m
+    };
+}
+
+fn cow_drop<'a>(cow: Cow<'a, str>, n: usize) -> Cow<'a, str> {
+    match cow {
+        Cow::Owned(mut string) => string.split_off(n).into(),
+        Cow::Borrowed(b_str) => {
+            let (_, ret) = b_str.split_at(n);
+            ret.into()
+        }
+    }
+}
+
+fn from_id_from_map(id: u32, era: Era, map: &HashMap<u32, &'static str>) -> Option<StaticNation> {
+    map.get(&id).map(|nation_name| StaticNation {
+        id,
+        name: nation_name,
+        era,
+    })
+}
+
+fn find_nation_options_from_map(
+    nations_by_id: &HashMap<u32, &'static str>,
+    sanitised_prefix: &str,
+    era: Era,
+) -> Option<Vec<StaticNation>> {
+    // It's not like there's massive amounts of nations I guess, so linear is fine
+    let vec = nations_by_id
+        .iter()
+        .filter(|(_, name)| {
+            let sanitised_name = sanitise_text(name.cow_to_lowercase());
+            sanitised_name.starts_with(sanitised_prefix)
+        })
+        .map({ |(&id, name)| StaticNation { id, name, era } })
+        .collect::<Vec<_>>();
+    if !vec.is_empty() {
+        Some(vec)
+    } else {
+        None
+    }
 }

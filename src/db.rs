@@ -9,11 +9,13 @@ use serenity::model::id::UserId;
 use typemap::Key;
 
 use crate::model::enums::*;
-use crate::model::*;
 use std::path::Path;
 
 use failure::SyncFailure;
 
+use crate::model::{
+    BotNationIdentifier, GameServer, GameServerState, LobbyState, Player, StartedState,
+};
 use migrant_lib::{list, Config, EmbeddedMigration, Migratable, Migrator, Settings};
 
 #[cfg(test)]
@@ -25,14 +27,17 @@ impl Key for DbConnectionKey {
 }
 
 lazy_static! {
-    static ref MIGRATIONS: [EmbeddedMigration; 2] = {
+    static ref MIGRATIONS: [EmbeddedMigration; 3] = {
         let mut m1 = EmbeddedMigration::with_tag("001-baseline");
         m1.up(include_str!("db/sql/migrations/001_baseline.sql"));
 
         let mut m2 = EmbeddedMigration::with_tag("002-lobby-description");
         m2.up(include_str!("db/sql/migrations/002_lobby_description.sql"));
 
-        [m1, m2]
+        let mut m3 = EmbeddedMigration::with_tag("003-register-custom");
+        m3.up(include_str!("db/sql/migrations/003_register_custom.sql"));
+
+        [m1, m2, m3]
     };
 }
 #[derive(Clone)]
@@ -177,8 +182,15 @@ impl DbConnection {
         &self,
         player: &Player,
         server_alias: &str,
-        nation_id: u32,
+        nation_identifier: BotNationIdentifier,
     ) -> Result<(), Error> {
+        // We actually still want custom_nation_name = None for static nations here even when we know the name
+        let (nation_id, custom_nation_name) = match nation_identifier {
+            BotNationIdentifier::CustomId(nation_id) => (Some(nation_id), None),
+            BotNationIdentifier::Existing(existing) => (Some(existing.id), None),
+            BotNationIdentifier::CustomName(custom_name) => (None, Some(custom_name)),
+        };
+
         info!("db::insert_player_into_server");
         let conn = &mut *self.0.clone().get()?;
         let tx = conn.transaction()?;
@@ -193,6 +205,7 @@ impl DbConnection {
             include_str!("db/sql/insert_server_player.sql"),
             params![
                 &nation_id,
+                &custom_nation_name,
                 &(player.discord_user_id.0 as i64),
                 &server_alias
             ],
@@ -211,7 +224,7 @@ impl DbConnection {
                 let maybe_last_seen_turn: Option<i32> = row.get(2)?;
                 let alias: String = row.get(0)?;
                 let maybe_owner: Option<i64> = row.get(3)?;
-                let maybe_era: Option<i32> = row.get(4)?;
+                let lobby_era: Option<i32> = row.get(4)?;
                 let maybe_player_count: Option<i32> = row.get(5)?;
                 let description: Option<String> = row.get(6)?;
 
@@ -220,7 +233,7 @@ impl DbConnection {
                     maybe_address,
                     maybe_last_seen_turn,
                     maybe_owner,
-                    maybe_era,
+                    lobby_era,
                     maybe_player_count,
                     description,
                 )?;
@@ -234,7 +247,7 @@ impl DbConnection {
     pub fn players_with_nations_for_game_alias(
         &self,
         game_alias: &str,
-    ) -> Result<Vec<(Player, u32)>, Error> {
+    ) -> Result<Vec<(Player, BotNationIdentifier)>, Error> {
         info!("players_with_nations_for_game_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_players_nations.sql"))?;
@@ -242,10 +255,14 @@ impl DbConnection {
             let discord_user_id: i64 = row.get(0).unwrap();
             let player = Player {
                 discord_user_id: UserId(discord_user_id as u64),
-                turn_notifications: row.get(2).unwrap(),
+                turn_notifications: row.get(3).unwrap(),
             };
-            let nation: i32 = row.get(1).unwrap();
-            Ok((player, nation as u32))
+            let nation_id_i32: Option<i32> = row.get(1).unwrap();
+            let nation_id_u32 = nation_id_i32.map(|id| id as u32);
+            let custom_nation_name: Option<String> = row.get(2).unwrap();
+            let nation_identifier =
+                BotNationIdentifier::from_id_and_name(nation_id_u32, custom_nation_name).unwrap();
+            Ok((player, nation_identifier))
         })?;
         let vec = foo.collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
@@ -259,7 +276,7 @@ impl DbConnection {
             let maybe_address: Option<String> = row.get(0).unwrap();
             let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
             let maybe_owner: Option<i64> = row.get(2).unwrap();
-            let maybe_era: Option<i32> = row.get(3).unwrap();
+            let maybe_lobby_era: Option<i32> = row.get(3).unwrap();
             let maybe_player_count: Option<i32> = row.get(4).unwrap();
             let description: Option<String> = row.get(5).unwrap();
             Ok(make_game_server(
@@ -267,7 +284,7 @@ impl DbConnection {
                 maybe_address,
                 maybe_last_seen_turn,
                 maybe_owner,
-                maybe_era,
+                maybe_lobby_era,
                 maybe_player_count,
                 description,
             )
@@ -336,7 +353,10 @@ impl DbConnection {
         }
     }
 
-    pub fn servers_for_player(&self, user_id: UserId) -> Result<Vec<(GameServer, u32)>, Error> {
+    pub fn servers_for_player(
+        &self,
+        user_id: UserId,
+    ) -> Result<Vec<(GameServer, BotNationIdentifier)>, Error> {
         info!("servers_for_player");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_servers_for_player.sql"))?;
@@ -345,28 +365,48 @@ impl DbConnection {
             let alias: String = row.get(1).unwrap();
             let maybe_address: Option<String> = row.get(0).unwrap();
             let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
-            let maybe_owner: Option<i64> = row.get(4).unwrap();
-            let maybe_era: Option<i32> = row.get(5).unwrap();
-            let maybe_player_count: Option<i32> = row.get(6).unwrap();
-            let description: Option<String> = row.get(7).unwrap();
+            let maybe_owner: Option<i64> = row.get(5).unwrap();
+            let maybe_lobby_era: Option<i32> = row.get(6).unwrap();
+            let maybe_player_count: Option<i32> = row.get(7).unwrap();
+            let description: Option<String> = row.get(8).unwrap();
             let server = make_game_server(
                 alias,
                 maybe_address,
                 maybe_last_seen_turn,
                 maybe_owner,
-                maybe_era,
+                maybe_lobby_era,
                 maybe_player_count,
                 description,
             )
             .unwrap();
 
-            let nation_id: i32 = row.get(3).unwrap();
-            Ok((server, nation_id as u32))
+            let nation_id_i32: Option<i32> = row.get(3).unwrap();
+            let nation_id_u32 = nation_id_i32.map(|id| id as u32);
+            let custom_nation_name: Option<String> = row.get(4).unwrap();
+            Ok((server, nation_id_u32, custom_nation_name))
         })?;
 
-        let mut ret: Vec<(GameServer, u32)> = vec![];
-        for pair in foo {
-            ret.push(pair?);
+        let mut ret: Vec<(GameServer, BotNationIdentifier)> = vec![];
+        for row_result in foo {
+            let (game_server, option_nation_id, option_custom_nation_name) = row_result?;
+            let nation_identifier = match (option_nation_id, option_custom_nation_name) {
+                (Some(nation_id), None) => {
+                    if let Some(static_nation) = Nations::from_id(nation_id) {
+                        Ok(BotNationIdentifier::Existing(static_nation))
+                    } else {
+                        Ok(BotNationIdentifier::CustomId(nation_id))
+                    }
+                }
+                (None, Some(custom_nation_name)) => {
+                    Ok(BotNationIdentifier::CustomName(custom_nation_name))
+                }
+                _ => Err(failure::err_msg(format!(
+                    "No nation info for user '{}' in game '{}'! This should not happen!",
+                    user_id, game_server.alias
+                ))),
+            }?;
+
+            ret.push((game_server, nation_identifier));
         }
 
         Ok(ret)
@@ -440,7 +480,7 @@ impl DbConnection {
         let foo = stmt.query_map(params![], |ref row| {
             let alias: String = row.get(0).unwrap();
             let maybe_owner: Option<i64> = row.get(1).unwrap();
-            let maybe_era: Option<i32> = row.get(2).unwrap();
+            let maybe_lobby_era: Option<i32> = row.get(2).unwrap();
             let maybe_player_count: Option<i32> = row.get(3).unwrap();
             let registered_player_count: i32 = row.get(4).unwrap();
             let description: Option<String> = row.get(5).unwrap();
@@ -449,7 +489,7 @@ impl DbConnection {
                 None,
                 None,
                 maybe_owner,
-                maybe_era,
+                maybe_lobby_era,
                 maybe_player_count,
                 description,
             )
@@ -492,8 +532,8 @@ fn make_game_server(
         maybe_address,
         maybe_last_seen_turn,
         maybe_owner,
-        maybe_era,
         maybe_player_count,
+        maybe_era,
     ) {
         (Some(address), Some(last_seen_turn), None, None, None) => GameServerState::StartedState(
             StartedState {
@@ -502,7 +542,7 @@ fn make_game_server(
             },
             None,
         ),
-        (Some(address), Some(last_seen_turn), Some(owner), Some(era), Some(player_count)) => {
+        (Some(address), Some(last_seen_turn), Some(owner), Some(player_count), Some(era)) => {
             GameServerState::StartedState(
                 StartedState {
                     address,
@@ -510,13 +550,13 @@ fn make_game_server(
                 },
                 Some(LobbyState {
                     owner: UserId(owner as u64),
-                    era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,
+                    era: Era::from_i32(era).ok_or_else(|| err_msg("unknown era"))?,
                     player_count,
                     description,
                 }),
             )
         }
-        (None, None, Some(owner), Some(era), Some(player_count)) => {
+        (None, None, Some(owner), Some(player_count), Some(era)) => {
             GameServerState::Lobby(LobbyState {
                 owner: UserId(owner as u64),
                 era: Era::from_i32(era).ok_or(err_msg("unknown era"))?,

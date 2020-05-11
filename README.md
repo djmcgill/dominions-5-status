@@ -58,10 +58,7 @@ n.b. server alias is optional, defaults to channel name.
 * more unit tests
 * permissions for commands
 * more embed responses
-* modded nations - snek.earth has an API
 * db queries contain named arguments
-* BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
-* registering as too high a number gets stored in the db but gives: IntegralValueOutOfRange(3, 4294967295 and it's real bad
 MAYBE:
 * easier nation selection - acronyms, nicknames, fuzzy search, etc
 * edit pinned post instead of new

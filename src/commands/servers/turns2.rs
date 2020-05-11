@@ -9,6 +9,7 @@ use crate::db::*;
 use crate::model::enums::*;
 use crate::model::GameServerState;
 use crate::server::ServerConnection;
+use crate::snek::SnekGameStatus;
 
 fn turns_helper<C: ServerConnection>(
     user_id: UserId,
@@ -19,7 +20,7 @@ fn turns_helper<C: ServerConnection>(
     let servers_and_nations_for_player = db_conn.servers_for_player(user_id)?;
 
     let mut text = "Your turns:\n".to_string();
-    for (server, nation_id) in servers_and_nations_for_player {
+    for (server, _) in servers_and_nations_for_player {
         if let GameServerState::StartedState(started_state, option_lobby_state) = server.state {
             let option_option_game_details = read_handle.get_clone(&server.alias);
             match option_option_game_details {
@@ -42,7 +43,10 @@ fn turns_helper<C: ServerConnection>(
                                     &uploading_state,
                                     user_id,
                                     &server.alias,
-                                    nation_id,
+                                    details
+                                        .cache_entry
+                                        .and_then(|cache_entry| cache_entry.option_snek_state)
+                                        .as_ref(),
                                 );
                             }
                             StartedStateDetails::Playing(playing_state) => {
@@ -51,7 +55,10 @@ fn turns_helper<C: ServerConnection>(
                                     &playing_state,
                                     user_id,
                                     &server.alias,
-                                    nation_id,
+                                    details
+                                        .cache_entry
+                                        .and_then(|cache_entry| cache_entry.option_snek_state)
+                                        .as_ref(),
                                 );
                             }
                         },
@@ -78,7 +85,7 @@ fn turns_for_uploading_state(
     uploading_state: &UploadingState,
     user_id: UserId,
     alias: &str,
-    nation_id: u32,
+    option_snek_state: Option<&SnekGameStatus>,
 ) {
     let player_count = uploading_state.uploading_players.len();
     let uploaded_player_count = uploading_state
@@ -87,7 +94,7 @@ fn turns_for_uploading_state(
         .filter(|uploading_player| match uploading_player.potential_player {
             PotentialPlayer::GameOnly(_) => true,
             PotentialPlayer::RegisteredAndGame(_, _) => true,
-            PotentialPlayer::RegisteredOnly(_, _, _) => false,
+            PotentialPlayer::RegisteredOnly(_, _) => false,
         })
         .count();
 
@@ -98,12 +105,13 @@ fn turns_for_uploading_state(
             PotentialPlayer::RegisteredAndGame(registered_user_id, player_details) =>
             // is this them?
             {
-                if *registered_user_id == user_id && player_details.nation_id == nation_id {
+                // FIXME: there used to be a nation_id check on here. What is this for?
+                //        does it fail only when people are registered multiple times?
+                if *registered_user_id == user_id {
                     let turn_str = format!(
-                        "{} uploading: {} ({}) (uploaded: {}, {}/{})\n",
+                        "{} uploading: {} (uploaded: {}, {}/{})\n",
                         alias,
-                        player_details.nation_name,
-                        player_details.nation_id,
+                        player_details.nation_identifier.name(option_snek_state),
                         SubmissionStatus::Submitted.show(),
                         uploaded_player_count,
                         player_count,
@@ -112,17 +120,14 @@ fn turns_for_uploading_state(
                 }
             }
             // If this is them, they haven't uploaded
-            PotentialPlayer::RegisteredOnly(
-                registered_user_id,
-                registered_nation_id,
-                registered_nation_name,
-            ) => {
-                if *registered_user_id == user_id && *registered_nation_id == nation_id {
+            PotentialPlayer::RegisteredOnly(registered_user_id, registered_nation_identifier) => {
+                // FIXME: there used to be a nation_id check on here. What is this for?
+                //        does it fail only when people are registered multiple times?
+                if *registered_user_id == user_id {
                     let turn_str = format!(
-                        "{} uploading: {} ({}) (uploaded: {}, {}/{})\n",
+                        "{} uploading: {} (uploaded: {}, {}/{})\n",
                         alias,
-                        registered_nation_name,
-                        registered_nation_id,
+                        registered_nation_identifier.name(option_snek_state),
                         SubmissionStatus::NotSubmitted.show(),
                         uploaded_player_count,
                         player_count,
@@ -139,31 +144,32 @@ fn turns_for_playing_state(
     playing_state: &PlayingState,
     user_id: UserId,
     alias: &str,
-    nation_id: u32,
+    option_snek_state: Option<&SnekGameStatus>,
 ) {
     let (playing_players, submitted_players) =
         count_playing_and_submitted_players(&playing_state.players);
 
     for playing_player in &playing_state.players {
         match playing_player {
-            PotentialPlayer::RegisteredOnly(_, _, _) => (),
+            PotentialPlayer::RegisteredOnly(_, _) => (),
             PotentialPlayer::GameOnly(_) => (),
             PotentialPlayer::RegisteredAndGame(
                 potential_player_user_id,
                 potential_player_details,
             ) => {
-                if *potential_player_user_id == user_id
-                    && potential_player_details.nation_id == nation_id
-                {
+                // FIXME: there used to be a nation_id check on here. What is this for?
+                //        does it fail only when people are registered multiple times?
+                if *potential_player_user_id == user_id {
                     if potential_player_details.player_status.is_human() {
                         let turn_str = format!(
-                            "{} turn {} ({}h {}m): {} ({}) (submitted: {}, {}/{})\n",
+                            "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
                             alias,
                             playing_state.turn,
                             playing_state.hours_remaining,
                             playing_state.mins_remaining,
-                            potential_player_details.nation_name,
-                            potential_player_details.nation_id,
+                            potential_player_details
+                                .nation_identifier
+                                .name(option_snek_state),
                             potential_player_details.submitted.show(),
                             submitted_players,
                             playing_players,
@@ -181,7 +187,7 @@ fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, 
     let mut submitted_players = 0;
     for playing_player in players {
         match playing_player {
-            PotentialPlayer::RegisteredOnly(_, _, _) => (),
+            PotentialPlayer::RegisteredOnly(_, _) => (),
             PotentialPlayer::RegisteredAndGame(_, player_details) => {
                 if player_details.player_status.is_human() {
                     playing_players += 1;
