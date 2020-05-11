@@ -224,6 +224,10 @@ fn register_custom_helper(
         user_id, arg_custom_nation, alias
     );
 
+    if arg_custom_nation.len() >= 100 {
+        return Err("Come now, let's not be silly. Please use a shorter nation name.".into());
+    }
+
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
     match server.state {
