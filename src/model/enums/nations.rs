@@ -124,7 +124,7 @@ lazy_static! {
         m.insert(30, "Berytos");
         m.insert(31, "Xibalba");
         m.insert(32, "Mekone");
-        m.insert(33, "Mekone");
+        m.insert(33, "Ubar");
         m.insert(36, "Atlantis");
         m.insert(37, "R'lyeh");
         m.insert(38, "Pelagia");
