@@ -42,6 +42,9 @@ pub use self::turns2::turns2;
 mod unstart;
 pub use self::unstart::unstart;
 
+mod update_game_name;
+pub use self::update_game_name::update_game_name;
+
 use crate::server::ServerConnection;
 use serenity::framework::standard::{Args, StandardFramework};
 use serenity::model::channel::Message;
@@ -111,6 +114,9 @@ pub trait WithServersCommands: Sized {
             })
             .command("unstart", |c| {
                 c.bucket(bucket).exec(|cx, m, a| unstart(cx, m, a))
+            })
+            .command("rename", |c| {
+                c.bucket(bucket).exec(|cx, m, a| update_game_name(cx, m, a))
             })
     }
 }

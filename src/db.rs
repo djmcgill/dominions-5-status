@@ -517,6 +517,24 @@ impl DbConnection {
             Err(err_msg(format!("Could not find lobby with name {}", alias)))
         }
     }
+
+    pub fn update_game_name(
+        &self,
+        old_alias: &str,
+        new_alias: &str,
+    )-> Result<(), Error> {
+        info!("update_game_name");
+        let conn = &*self.0.clone().get()?;
+        let rows_modified = conn.execute(
+            include_str!("db/sql/update_game_name.sql"),
+            &[&old_alias, &new_alias],
+        )?;
+        if rows_modified != 0 {
+            Ok(())
+        } else {
+            Err(err_msg(format!("Could not find game with name {}", alias)))
+        }
+    }
 }
 
 fn make_game_server(
