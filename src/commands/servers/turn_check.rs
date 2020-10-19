@@ -7,9 +7,9 @@ use crate::snek::SnekGameStatus;
 use crate::CacheWriteHandle;
 use chrono::Utc;
 use log::*;
-use serenity::{framework::standard::CommandError, http::Http};
 use serenity::model::id::UserId;
 use serenity::prelude::*;
+use serenity::{framework::standard::CommandError, http::Http};
 use std::sync::Arc;
 use std::thread;
 use std::time;
@@ -93,7 +93,7 @@ fn update_details_cache_for_game(
                         details
                             .cache_entry
                             .as_ref()
-                            .and_then(|cache_entry| cache_entry.option_snek_state.as_ref())
+                            .and_then(|cache_entry| cache_entry.option_snek_state.as_ref()),
                     ));
                 }
             } else {

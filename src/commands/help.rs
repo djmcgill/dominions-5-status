@@ -1,6 +1,9 @@
 use log::*;
-use serenity::{CacheAndHttp, framework::standard::{CommandError, HelpCommand, HelpOptions}};
 use serenity::model::channel::Message;
+use serenity::{
+    framework::standard::{CommandError, HelpCommand, HelpOptions},
+    CacheAndHttp,
+};
 
 // TODO: use the new HelpCommand API if necessary
 // pub struct Help {
@@ -10,7 +13,7 @@ use serenity::model::channel::Message;
 // const HELPCOMMAND: HelpCommand = HelpCommand {
 //     fun: |_, msg, _, _, _, _| help(msg),
 //     options: &HelpOptions {
-        
+
 //     }
 // };
 

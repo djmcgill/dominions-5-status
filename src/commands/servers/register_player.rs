@@ -1,8 +1,11 @@
 use log::*;
-use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    CacheAndHttp,
+};
 use std::str::FromStr;
 
 use super::alias_from_arg_or_channel_name;
@@ -295,11 +298,14 @@ fn register_player_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.clone().into())
                 .map_err(CommandError::from)?;
-            message.reply(CacheAndHttp::default(), &format!(
-                "registering {} for {}",
-                nation.name(None),
-                user_id.to_user(CacheAndHttp::default())?
-            ))?;
+            message.reply(
+                CacheAndHttp::default(),
+                &format!(
+                    "registering {} for {}",
+                    nation.name(None),
+                    user_id.to_user(CacheAndHttp::default())?
+                ),
+            )?;
             Ok(())
         }
         GameServerState::StartedState(started_state, option_lobby_state) => {

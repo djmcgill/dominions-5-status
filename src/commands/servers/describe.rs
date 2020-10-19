@@ -1,8 +1,11 @@
 use super::alias_from_arg_or_channel_name;
 
-use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    CacheAndHttp,
+};
 
 use crate::db::DbConnectionKey;
 
@@ -25,6 +28,9 @@ pub fn describe(
     }
 
     db_conn.update_lobby_with_description(&alias, &description)?;
-    message.reply(CacheAndHttp::default(), &format!("added description to {}", alias))?;
+    message.reply(
+        CacheAndHttp::default(),
+        &format!("added description to {}", alias),
+    )?;
     Ok(())
 }

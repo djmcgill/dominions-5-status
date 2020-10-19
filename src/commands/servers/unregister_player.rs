@@ -38,6 +38,6 @@ pub fn unregister_player(
         message.author, alias
     );
     info!("{}", text);
-    let _ = message.reply(context.http, &text);
+    let _ = message.reply(&context.http, &text);
     Ok(())
 }

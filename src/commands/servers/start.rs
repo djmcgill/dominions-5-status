@@ -1,15 +1,18 @@
-use crate::server::{ServerConnection, RealServerConnection};
+use crate::server::{RealServerConnection, ServerConnection};
 
-use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    CacheAndHttp,
+};
 
 use super::alias_from_arg_or_channel_name;
+use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
+use crate::commands::servers::NationDetails;
+use crate::commands::servers::{get_details_for_alias, PotentialPlayer, StartedStateDetails};
 use crate::db::*;
 use crate::model::*;
-use crate::commands::servers::{get_details_for_alias, StartedStateDetails, PotentialPlayer};
-use crate::commands::servers::NationDetails;
-use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
 
 fn start_helper<C: ServerConnection>(
     db_conn: &DbConnection,
@@ -42,7 +45,9 @@ fn start_helper<C: ServerConnection>(
             if let NationDetails::Started(started_details) = started_details.nations {
                 if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
                     for player in uploading_details.uploading_players {
-                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) = player.potential_player {
+                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) =
+                            player.potential_player
+                        {
                             new_turn_messages.push(NewTurnNation {
                                 user_id,
                                 message: format!(

@@ -1,16 +1,19 @@
-use serenity::{CacheAndHttp, builder::CreateEmbed, http::Http};
 use serenity::framework::standard::CommandError;
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use serenity::{builder::CreateEmbed, http::Http, CacheAndHttp};
 
 use crate::db::*;
 use crate::model::GameServerState;
 
-fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandError> {
+fn list_servers_helper<'a>(
+    db_conn: &DbConnection,
+    embed: &'a mut CreateEmbed,
+) -> Result<&'a mut CreateEmbed, CommandError> {
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;
 
     if server_list.is_empty() {
-        Ok(CreateEmbed::default().title("NO SERVERS").clone()) // TODO: can we avoid a clone here
+        Ok(embed.title("NO SERVERS"))
     } else {
         let embed_title = "Servers:";
         let mut server_aliases = String::new();
@@ -29,12 +32,12 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
             }
         }
 
-        let embed = CreateEmbed::default()
+        embed
             .title(embed_title)
             .field("Alias", server_aliases, true)
             .field("Address", server_addresses, true);
 
-        Ok(*embed)
+        Ok(embed)
     }
 }
 
@@ -43,7 +46,11 @@ pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), Comm
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
-    let embed = &mut list_servers_helper(db_conn)?;
-    message.channel_id.send_message(Http::default(), |m| m.embed(|_| embed))?;
+    // let mut embed = CreateEmbed::default();
+    // embed = list_servers_helper(db_conn, &mut embed)?;
+    // TODO: again, how do we preserve error handling here
+    message.channel_id.send_message(Http::default(), |m| {
+        m.embed(|emb| list_servers_helper(db_conn, emb).unwrap())
+    })?;
     Ok(())
 }

@@ -1,8 +1,8 @@
 use log::*;
-use serenity::{CacheAndHttp, framework::standard::CommandError, http::Http};
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
+use serenity::{framework::standard::CommandError, http::Http, CacheAndHttp};
 
 use crate::commands::servers::*;
 use crate::db::*;
@@ -223,7 +223,7 @@ pub fn turns2<C: ServerConnection>(
     let text = turns_helper::<C>(message.author.id, db_conn, read_handle)?;
     info!("turns: replying with: {}", text);
     // TODO: should i maybe just share a static CacheAndHttp across the app?
-    let private_channel = message.author.id.create_dm_channel(context.http)?;
-    private_channel.say(context.http, &text)?;
+    let private_channel = message.author.id.create_dm_channel(&context.http)?;
+    private_channel.say(&context.http, &text)?;
     Ok(())
 }

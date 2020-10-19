@@ -1,7 +1,7 @@
-use serenity::{CacheAndHttp, builder::CreateEmbed};
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use serenity::{builder::CreateEmbed, CacheAndHttp};
 
 use crate::commands::servers::lobby_details;
 use crate::commands::servers::*;
@@ -30,24 +30,37 @@ pub fn details2<C: ServerConnection>(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
-    let mut embed_response = details_helper(&alias, db_conn, read_handle)?;
+    // let mut embed = CreateEmbed::default();
+    // let mut embed_response = details_helper(&alias, db_conn, read_handle, &mut embed)?;
 
-    message
-        .channel_id
-        .send_message(context.http, |m| m.embed(|_| &mut embed_response))?;
+    // let mut err: Option<CommandError> = None;
+    message.channel_id.send_message(&context.http, |m| {
+        m.embed(
+            // TODO: need to figure out a way to handle errors and still get a mutable reference out of here
+            |embed| details_helper(&alias, db_conn, read_handle, embed).unwrap()
+            // |embed| match details_helper(&alias, db_conn, read_handle, embed) {
+            //     Ok(emb) => emb,
+            //     Err(e) => {
+            //         err = Some(e);
+            //         return embed;
+            //     }
+            // },
+        )
+    })?;
     Ok(())
 }
 
-fn details_helper(
+fn details_helper<'a>(
     alias: &str,
     db_conn: &DbConnection,
     read_handle: &crate::CacheReadHandle,
-) -> Result<CreateEmbed, CommandError> {
+    embed: &'a mut CreateEmbed,
+) -> Result<&'a mut CreateEmbed, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
     match server.state {
         GameServerState::Lobby(ref lobby_state) => {
             let details: GameDetails = lobby_details(db_conn, lobby_state, alias)?;
-            let embed: CreateEmbed = details_to_embed(details)?;
+            details_to_embed(details, embed)?;
             Ok(embed)
         }
         GameServerState::StartedState(ref started_state, ref option_lobby_state) => {
@@ -69,7 +82,8 @@ fn details_helper(
                         option_snek_state,
                     )?;
 
-                    let embed: CreateEmbed = details_to_embed(details)?;
+                    // let embed: CreateEmbed = details_to_embed(details)?;
+                    details_to_embed(details, embed)?;
                     Ok(embed)
                 }
                 Some(None) => Err("Got an error when trying to connect to the server".into()),
@@ -79,7 +93,10 @@ fn details_helper(
     }
 }
 
-fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
+fn details_to_embed(
+    details: GameDetails,
+    embed: &mut CreateEmbed,
+) -> Result<&mut CreateEmbed, CommandError> {
     let option_snek_state = details
         .cache_entry
         .and_then(|cache_entry| cache_entry.option_snek_state);
@@ -112,7 +129,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         let player_name = if let NationStatus::Human = player_details.player_status
                         {
                             match option_user_id {
-                                Some(user_id) => format!("**{}**", user_id.to_user(CacheAndHttp::default())?),
+                                Some(user_id) => {
+                                    format!("**{}**", user_id.to_user(CacheAndHttp::default())?)
+                                }
                                 None => player_details.player_status.show().to_owned(),
                             }
                         } else {
@@ -141,11 +160,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                     }
 
                     // This is pretty hacky
-                    let mut e = CreateEmbed::default().title("Details").field(
-                        embed_title,
-                        embed_texts[0].clone(),
-                        false,
-                    );
+                    // let mut embed = CreateEmbed::default();
+                    let mut e =
+                        embed
+                            .title("Details")
+                            .field(embed_title, embed_texts[0].clone(), false);
                     for embed_text in &embed_texts[1..] {
                         e = e.field("-----", embed_text, false);
                     }
@@ -162,7 +181,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         uploading_state.uploading_players.iter().enumerate()
                     {
                         let player_name = match uploading_player.option_player_id() {
-                            Some(user_id) => format!("**{}**", user_id.to_user(CacheAndHttp::default())?),
+                            Some(user_id) => {
+                                format!("**{}**", user_id.to_user(CacheAndHttp::default())?)
+                            }
                             None => NationStatus::Human.show().to_owned(),
                         };
 
@@ -184,11 +205,10 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         ));
                     }
                     // This is pretty hacky
-                    let mut e = CreateEmbed::default().title("Details").field(
-                        embed_title,
-                        embed_texts[0].clone(),
-                        false,
-                    );
+                    let mut e =
+                        embed
+                            .title("Details")
+                            .field(embed_title, embed_texts[0].clone(), false);
                     for embed_text in &embed_texts[1..] {
                         e = e.field("-----", embed_text, false);
                     }
@@ -223,11 +243,9 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                 embed_texts[new_len - 1].push_str("OPEN\n");
             }
             // This is pretty hacky
-            let mut e = CreateEmbed::default().title("Details").field(
-                embed_title,
-                embed_texts[0].clone(),
-                false,
-            );
+            let mut e = embed
+                .title("Details")
+                .field(embed_title, embed_texts[0].clone(), false);
             for embed_text in &embed_texts[1..] {
                 e = e.field("-----", embed_text, false);
             }
@@ -235,7 +253,11 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
         }
     };
     for owner in details.owner {
-        e = e.field("Owner", owner.to_user(CacheAndHttp::default())?.to_string(), false);
+        e = e.field(
+            "Owner",
+            owner.to_user(CacheAndHttp::default())?.to_string(),
+            false,
+        );
     }
 
     for description in details.description {
@@ -243,5 +265,5 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             e = e.field("Description", description, false);
         }
     }
-    Ok(e.clone()) // TODO: can we avoid a clone here
+    Ok(e) // TODO: can we avoid a clone here
 }

@@ -1,6 +1,9 @@
-use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    CacheAndHttp,
+};
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
@@ -41,9 +44,9 @@ pub fn unstart(
         ));
     }
     unstart_helper(db_conn, &alias)?;
-    message.reply(CacheAndHttp::default(), &format!(
-        "Successfully turned '{}' back into a lobby",
-        alias
-    ))?;
+    message.reply(
+        CacheAndHttp::default(),
+        &format!("Successfully turned '{}' back into a lobby", alias),
+    )?;
     Ok(())
 }

@@ -5,8 +5,11 @@ mod model;
 mod server;
 mod snek;
 
-use serenity::{CacheAndHttp, framework::standard::{HelpCommandFn, StandardFramework}};
 use serenity::prelude::*;
+use serenity::{
+    framework::standard::{HelpCommandFn, StandardFramework},
+    CacheAndHttp,
+};
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 
 use failure::*;
@@ -93,7 +96,7 @@ fn create_discord_client() -> Result<Client, Error> {
     info!("Created discord client");
     {
         // TODO: check if this is a suitable replacement for data.lock()
-        let mut data = discord_client.data.get_mut();
+        let mut data = discord_client.data.write();
         data.insert::<DbConnectionKey>(db_conn.clone());
         data.insert::<DetailsReadHandleKey>(CacheReadHandle(reader.factory()));
     }
@@ -108,19 +111,18 @@ fn create_discord_client() -> Result<Client, Error> {
             .with_search_commands("simple")
             .with_servers_commands::<RealServerConnection>("simple")
             .help(
-                todo!("Replace this with the new helpcommand API")
-                // HelpCommandFn {
+                todo!("Replace this with the new helpcommand API"), // HelpCommandFn {
 
-                // }
-                // |_, msg, _, _, _, _| commands::help(msg)
-                // fn(
-                //     &mut Context,
-                //     &Message,
-                //     Args,
-                //     &'static HelpOptions,
-                //     &[&'static CommandGroup],
-                //     HashSet<UserId>,
-                // ) -> CommandResult;
+                                                                    // }
+                                                                    // |_, msg, _, _, _, _| commands::help(msg)
+                                                                    // fn(
+                                                                    //     &mut Context,
+                                                                    //     &Message,
+                                                                    //     Args,
+                                                                    //     &'static HelpOptions,
+                                                                    //     &[&'static CommandGroup],
+                                                                    //     HashSet<UserId>,
+                                                                    // ) -> CommandResult;
             )
             // .help(|_, msg, _, _, _| commands::help(msg))
             .before(|_, msg, _| {
@@ -132,7 +134,7 @@ fn create_discord_client() -> Result<Client, Error> {
                     print!("command error: ");
                     let text = format!("ERROR: {}", err.0);
                     info!("replying with {}", text);
-                    let _ = msg.reply(_ctx.http, &text);
+                    let _ = msg.reply(&_ctx.http, &text);
                 }
             }),
     );

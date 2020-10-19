@@ -1,6 +1,9 @@
-use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{macros::command, Args, CommandError},
+    CacheAndHttp,
+};
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::{DbConnection, DbConnectionKey};
