@@ -1,4 +1,4 @@
-use serenity::builder::CreateEmbed;
+use serenity::{CacheAndHttp, builder::CreateEmbed};
 use serenity::framework::standard::{Args, CommandError};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
@@ -15,7 +15,7 @@ pub fn details2<C: ServerConnection>(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
@@ -30,11 +30,11 @@ pub fn details2<C: ServerConnection>(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
-    let embed_response = details_helper(&alias, db_conn, read_handle)?;
+    let mut embed_response = details_helper(&alias, db_conn, read_handle)?;
 
     message
         .channel_id
-        .send_message(|m| m.embed(|_| embed_response))?;
+        .send_message(todo!("satisfy this argument"), |m| m.embed(|_| &mut embed_response))?;
     Ok(())
 }
 
@@ -112,7 +112,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         let player_name = if let NationStatus::Human = player_details.player_status
                         {
                             match option_user_id {
-                                Some(user_id) => format!("**{}**", user_id.to_user()?),
+                                Some(user_id) => format!("**{}**", user_id.to_user(CacheAndHttp::default())?),
                                 None => player_details.player_status.show().to_owned(),
                             }
                         } else {
@@ -162,7 +162,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
                         uploading_state.uploading_players.iter().enumerate()
                     {
                         let player_name = match uploading_player.option_player_id() {
-                            Some(user_id) => format!("**{}**", user_id.to_user()?),
+                            Some(user_id) => format!("**{}**", user_id.to_user(CacheAndHttp::default())?),
                             None => NationStatus::Human.show().to_owned(),
                         };
 
@@ -205,7 +205,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
 
             if lobby_details.players.len() != 0 {
                 for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
-                    let discord_user = lobby_player.player_id.to_user()?;
+                    let discord_user = lobby_player.player_id.to_user(CacheAndHttp::default())?;
                     if ix % 20 == 0 {
                         embed_texts.push(String::new());
                     }
@@ -235,7 +235,7 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
         }
     };
     for owner in details.owner {
-        e = e.field("Owner", owner.to_user()?.to_string(), false);
+        e = e.field("Owner", owner.to_user(CacheAndHttp::default())?.to_string(), false);
     }
 
     for description in details.description {
@@ -243,5 +243,5 @@ fn details_to_embed(details: GameDetails) -> Result<CreateEmbed, CommandError> {
             e = e.field("Description", description, false);
         }
     }
-    Ok(e)
+    Ok(e.clone()) // TODO: can we avoid a clone here
 }

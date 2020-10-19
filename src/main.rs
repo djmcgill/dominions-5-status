@@ -5,7 +5,7 @@ mod model;
 mod server;
 mod snek;
 
-use serenity::framework::standard::StandardFramework;
+use serenity::{CacheAndHttp, framework::standard::{HelpCommandFn, StandardFramework}};
 use serenity::prelude::*;
 use simplelog::{Config, LogLevelFilter, SimpleLogger};
 
@@ -92,7 +92,8 @@ fn create_discord_client() -> Result<Client, Error> {
     let mut discord_client = Client::new(&token, Handler).map_err(SyncFailure::new)?;
     info!("Created discord client");
     {
-        let mut data = discord_client.data.lock();
+        // TODO: check if this is a suitable replacement for data.lock()
+        let mut data = discord_client.data.get_mut();
         data.insert::<DbConnectionKey>(db_conn.clone());
         data.insert::<DetailsReadHandleKey>(CacheReadHandle(reader.factory()));
     }
@@ -106,7 +107,21 @@ fn create_discord_client() -> Result<Client, Error> {
             // .simple_bucket("simple", 1)
             .with_search_commands("simple")
             .with_servers_commands::<RealServerConnection>("simple")
-            .help()
+            .help(
+                todo!("Replace this with the new helpcommand API")
+                // HelpCommandFn {
+
+                // }
+                // |_, msg, _, _, _, _| commands::help(msg)
+                // fn(
+                //     &mut Context,
+                //     &Message,
+                //     Args,
+                //     &'static HelpOptions,
+                //     &[&'static CommandGroup],
+                //     HashSet<UserId>,
+                // ) -> CommandResult;
+            )
             // .help(|_, msg, _, _, _| commands::help(msg))
             .before(|_, msg, _| {
                 info!("received message {:?}", msg);
@@ -117,7 +132,7 @@ fn create_discord_client() -> Result<Client, Error> {
                     print!("command error: ");
                     let text = format!("ERROR: {}", err.0);
                     info!("replying with {}", text);
-                    let _ = msg.reply(&text);
+                    let _ = msg.reply(CacheAndHttp::default(), &text);
                 }
             }),
     );

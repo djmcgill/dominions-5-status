@@ -1,10 +1,23 @@
 use log::*;
-use serenity::framework::standard::CommandError;
+use serenity::{CacheAndHttp, framework::standard::{CommandError, HelpCommand, HelpOptions}};
 use serenity::model::channel::Message;
+
+// TODO: use the new HelpCommand API if necessary
+// pub struct Help {
+//     cmd: HelpCommand
+// }
+
+// const HELPCOMMAND: HelpCommand = HelpCommand {
+//     fun: |_, msg, _, _, _, _| help(msg),
+//     options: &HelpOptions {
+        
+//     }
+// };
 
 pub fn help(message: &Message) -> Result<(), CommandError> {
     debug!("HELP COMMAND");
     let _ = message.reply(
+        CacheAndHttp::default(), // TODO: more research on if this is ok
         "Commands (server alias is optional, defaults to channel name): \n\
          - !add <address:port> <alias>: save the dom5 server address\n\
          - !list: return a list of the saved server addresses and aliases\n\

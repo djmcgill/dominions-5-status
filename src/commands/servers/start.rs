@@ -67,7 +67,7 @@ pub fn start<C: ServerConnection>(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;

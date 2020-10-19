@@ -29,7 +29,7 @@ pub fn unregister_player(
     mut args: Args,
 ) -> Result<(), CommandError> {
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
     unregister_player_helper(message.author.id, &alias, db_conn)?;
 

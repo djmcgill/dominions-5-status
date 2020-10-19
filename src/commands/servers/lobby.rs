@@ -35,7 +35,7 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
     let era = Era::from_string(&era_str).ok_or("unknown era")?;
     let player_count = args.single_quoted::<i32>()?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_connection = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;

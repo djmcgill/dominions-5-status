@@ -1,4 +1,4 @@
-use serenity::builder::CreateEmbed;
+use serenity::{CacheAndHttp, builder::CreateEmbed};
 use serenity::framework::standard::CommandError;
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
@@ -10,7 +10,7 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;
 
     if server_list.is_empty() {
-        Ok(CreateEmbed::default().title("NO SERVERS"))
+        Ok(CreateEmbed::default().title("NO SERVERS").clone()) // TODO: can we avoid a clone here
     } else {
         let embed_title = "Servers:";
         let mut server_aliases = String::new();
@@ -39,11 +39,11 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
 }
 
 pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
     let embed = list_servers_helper(db_conn)?;
-    message.channel_id.send_message(|m| m.embed(|_| embed))?;
+    message.channel_id.send_message(todo!("satisfy this argument"), |m| m.embed(|_| embed))?;
     Ok(())
 }

@@ -51,7 +51,7 @@ pub fn snek_details(address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Err
     };
     let game_id = port - 30_000;
 
-    let mut response = reqwest::get(&format!(
+    let mut response = reqwest::blocking::get(&format!(
         "https://dom5.snek.earth/api/games/{}/status",
         game_id
     ))?;

@@ -1,7 +1,7 @@
 use url::percent_encoding::{utf8_percent_encode, QUERY_ENCODE_SET};
 
 use log::*;
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 
 // enum InspectorCategoryV {Item, Spell, Unit, ...}
@@ -75,13 +75,16 @@ impl InspectorCategory for Event {
     }
 }
 
+use serenity::framework::standard::macros::command;
+
+#[command]
 fn search<I: InspectorCategory>(message: &Message, args: &Args) -> Result<(), CommandError> {
-    let search_term = utf8_percent_encode(&args.full(), QUERY_ENCODE_SET).to_string();
+    let search_term = utf8_percent_encode(&args.message(), QUERY_ENCODE_SET).to_string();
     let response = format!(
         "https://larzm42.github.io/dom5inspector/?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1{}",
     I::show(), I::show(), search_term, I::event_append());
     info!("responding with {}", response);
-    let _ = message.reply(&response);
+    let _ = message.reply(CacheAndHttp::default(), &response); // TODO: more research on wheter cache and http is fine for our use
     Ok(())
 }
 

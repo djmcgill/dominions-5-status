@@ -1,4 +1,4 @@
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
@@ -28,7 +28,9 @@ pub fn unstart(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    // TODO: make sure this is a suitable replacement for data.lock()
+    // let data = context.data.read();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
@@ -39,7 +41,7 @@ pub fn unstart(
         ));
     }
     unstart_helper(db_conn, &alias)?;
-    message.reply(&format!(
+    message.reply(CacheAndHttp::default(), &format!(
         "Successfully turned '{}' back into a lobby",
         alias
     ))?;

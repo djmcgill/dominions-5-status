@@ -1,5 +1,5 @@
 use log::*;
-use serenity::framework::standard::CommandError;
+use serenity::{CacheAndHttp, framework::standard::CommandError};
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
@@ -213,7 +213,7 @@ pub fn turns2<C: ServerConnection>(
     context: &mut Context,
     message: &Message,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
@@ -222,7 +222,8 @@ pub fn turns2<C: ServerConnection>(
         .ok_or("No ReadHandle was created on startup. This is a bug.")?;
     let text = turns_helper::<C>(message.author.id, db_conn, read_handle)?;
     info!("turns: replying with: {}", text);
-    let private_channel = message.author.id.create_dm_channel()?;
-    private_channel.say(&text)?;
+    // TODO: should i maybe just share a static CacheAndHttp across the app?
+    let private_channel = message.author.id.create_dm_channel(CacheAndHttp::default())?;
+    private_channel.say(CacheAndHttp::default(), &text)?;
     Ok(())
 }

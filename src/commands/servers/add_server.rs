@@ -1,4 +1,4 @@
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
@@ -59,13 +59,13 @@ pub fn add_server<C: ServerConnection>(
         ));
     }
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_connection = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
     add_server_helper::<C>(&server_address, &alias, db_connection)?;
     let text = format!("Successfully inserted with alias {}", alias);
-    let _ = message.reply(&text);
+    let _ = message.reply(CacheAndHttp::default(), &text);
     info!("{}", text);
     Ok(())
 }

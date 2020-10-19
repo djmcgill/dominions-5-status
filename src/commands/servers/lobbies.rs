@@ -1,4 +1,4 @@
-use serenity::builder::CreateEmbed;
+use serenity::{CacheAndHttp, builder::CreateEmbed};
 use serenity::framework::standard::CommandError;
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
@@ -8,14 +8,14 @@ use crate::db::*;
 use crate::model::{GameServer, GameServerState};
 
 pub fn lobbies(context: &mut Context, message: &Message) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
 
     let lobbies_and_player_count = db_conn.select_lobbies()?;
     if lobbies_and_player_count.is_empty() {
-        message.reply(&"No available lobbies")?;
+        message.reply(CacheAndHttp::default(), &"No available lobbies")?;
     } else {
         let embed = lobbies_helper(lobbies_and_player_count)?;
         message.channel_id.send_message(|m| m.embed(|_| embed))?;

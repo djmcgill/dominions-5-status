@@ -368,7 +368,7 @@ pub fn register_player_id(
     }
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
     let details_read_handle = data
         .get::<crate::DetailsReadHandleKey>()
@@ -393,7 +393,7 @@ pub fn register_custom(
     let arg_nation_name: String = args.single_quoted::<String>()?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
 
     register_custom_helper(message.author.id, arg_nation_name, alias, db_conn, message)?;
@@ -408,7 +408,7 @@ pub fn register_player(
     let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
     let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
 
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
     let details_read_handle = data
         .get::<crate::DetailsReadHandleKey>()

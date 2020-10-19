@@ -1,6 +1,6 @@
 use super::alias_from_arg_or_channel_name;
 
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
@@ -11,7 +11,7 @@ pub fn describe(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
+    let data = context.data.read();
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or("No DbConnection was created on startup. This is a bug.")?;
@@ -25,6 +25,6 @@ pub fn describe(
     }
 
     db_conn.update_lobby_with_description(&alias, &description)?;
-    message.reply(&format!("added description to {}", alias))?;
+    message.reply(CacheAndHttp::default(), &format!("added description to {}", alias))?;
     Ok(())
 }
