@@ -102,10 +102,12 @@ fn create_discord_client() -> Result<Client, Error> {
     discord_client.with_framework(
         StandardFramework::new()
             .configure(|c| c.prefix("!"))
-            .simple_bucket("simple", 1)
+            .bucket("simple", |b| b.delay(1))
+            // .simple_bucket("simple", 1)
             .with_search_commands("simple")
             .with_servers_commands::<RealServerConnection>("simple")
-            .help(|_, msg, _, _, _| commands::help(msg))
+            .help()
+            // .help(|_, msg, _, _, _| commands::help(msg))
             .before(|_, msg, _| {
                 info!("received message {:?}", msg);
                 !msg.author.bot // ignore bots
