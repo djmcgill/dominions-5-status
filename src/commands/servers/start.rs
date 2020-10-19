@@ -1,6 +1,6 @@
 use crate::server::{ServerConnection, RealServerConnection};
 
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
@@ -79,6 +79,6 @@ pub fn start<C: ServerConnection>(
         ));
     }
     start_helper::<C>(db_conn, &address, &alias)?;
-    message.reply(&"started!")?;
+    message.reply(CacheAndHttp::default(), &"started!")?;
     Ok(())
 }

@@ -1,5 +1,5 @@
 use log::*;
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
@@ -240,7 +240,7 @@ fn register_custom_helper(
             let register_message = format!(
                 "registering {} for {}. You will have to reregister after uploading.",
                 arg_custom_nation,
-                user_id.to_user()?
+                user_id.to_user(CacheAndHttp::default())?
             );
             let nation = BotNationIdentifier::CustomName(arg_custom_nation);
             let player = Player {
@@ -250,7 +250,7 @@ fn register_custom_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation)
                 .map_err(CommandError::from)?;
-            message.reply(&register_message)?;
+            message.reply(CacheAndHttp::default(), &register_message)?;
             Ok(())
         }
         GameServerState::StartedState(_, _) => {
@@ -295,10 +295,10 @@ fn register_player_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.clone().into())
                 .map_err(CommandError::from)?;
-            message.reply(&format!(
+            message.reply(CacheAndHttp::default(), &format!(
                 "registering {} for {}",
                 nation.name(None),
-                user_id.to_user()?
+                user_id.to_user(CacheAndHttp::default())?
             ))?;
             Ok(())
         }
@@ -347,7 +347,7 @@ fn register_player_helper(
                 nation.name(option_snek_state.as_ref()),
                 message.author
             );
-            let _ = message.reply(&text);
+            let _ = message.reply(CacheAndHttp::default(), &text);
             Ok(())
         }
     }

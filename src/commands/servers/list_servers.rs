@@ -1,4 +1,4 @@
-use serenity::{CacheAndHttp, builder::CreateEmbed};
+use serenity::{CacheAndHttp, builder::CreateEmbed, http::Http};
 use serenity::framework::standard::CommandError;
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
@@ -34,7 +34,7 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
             .field("Alias", server_aliases, true)
             .field("Address", server_addresses, true);
 
-        Ok(embed)
+        Ok(*embed)
     }
 }
 
@@ -43,7 +43,7 @@ pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), Comm
     let db_conn = data
         .get::<DbConnectionKey>()
         .ok_or_else(|| CommandError("No db connection".to_string()))?;
-    let embed = list_servers_helper(db_conn)?;
-    message.channel_id.send_message(todo!("satisfy this argument"), |m| m.embed(|_| embed))?;
+    let embed = &mut list_servers_helper(db_conn)?;
+    message.channel_id.send_message(Http::default(), |m| m.embed(|_| embed))?;
     Ok(())
 }

@@ -43,7 +43,7 @@ mod unstart;
 pub use self::unstart::unstart;
 
 use crate::server::ServerConnection;
-use serenity::framework::standard::{Args, StandardFramework};
+use serenity::{client::Cache, client::CacheRwLock, framework::standard::{Args, StandardFramework}};
 use serenity::model::channel::Message;
 
 pub trait WithServersCommands: Sized {
@@ -125,7 +125,7 @@ fn alias_from_arg_or_channel_name(args: &mut Args, message: &Message) -> Result<
     let result_alias = if !args.is_empty() {
         args.single_quoted::<String>().ok()
     } else {
-        message.channel_id.name()
+        message.channel_id.name(CacheRwLock::default()) // TODO: not sure if this is correct usage
     };
     result_alias
         .clone()

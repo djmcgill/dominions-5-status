@@ -1,4 +1,4 @@
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
@@ -42,6 +42,6 @@ pub fn lobby(context: &mut Context, message: &Message, mut args: Args) -> Result
 
     lobby_helper(db_connection, era, player_count, &alias, message.author.id)?;
 
-    message.reply(&format!("Creating game lobby with name {}", alias))?;
+    message.reply(CacheAndHttp::default(), &format!("Creating game lobby with name {}", alias))?;
     Ok(())
 }

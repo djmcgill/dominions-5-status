@@ -132,7 +132,7 @@ fn create_discord_client() -> Result<Client, Error> {
                     print!("command error: ");
                     let text = format!("ERROR: {}", err.0);
                     info!("replying with {}", text);
-                    let _ = msg.reply(_ctx., &text);
+                    let _ = msg.reply(_ctx.http, &text);
                 }
             }),
     );

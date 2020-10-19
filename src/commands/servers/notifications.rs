@@ -1,4 +1,4 @@
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
@@ -24,7 +24,7 @@ pub fn notifications(
     let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
 
     notifications_helper(db_conn, message.author.id, desired_turn_notifications)?;
-    message.reply(&format!(
+    message.reply(CacheAndHttp::default(), &format!(
         "Set turn notifications to {}",
         desired_turn_notifications
     ))?;

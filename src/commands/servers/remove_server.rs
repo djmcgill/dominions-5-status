@@ -1,4 +1,4 @@
-use serenity::framework::standard::{Args, CommandError};
+use serenity::{CacheAndHttp, framework::standard::{Args, CommandError}};
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
@@ -28,6 +28,6 @@ pub fn remove_server(
     let data = context.data.read();
     let db_conn = data.get::<DbConnectionKey>().ok_or("No DB connection")?;
     remove_server_helper(db_conn, &alias)?;
-    let _ = message.reply(&format!("successfully removed server {}", alias));
+    let _ = message.reply(CacheAndHttp::default(), &format!("successfully removed server {}", alias));
     Ok(())
 }

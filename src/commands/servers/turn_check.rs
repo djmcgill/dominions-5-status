@@ -7,7 +7,7 @@ use crate::snek::SnekGameStatus;
 use crate::CacheWriteHandle;
 use chrono::Utc;
 use log::*;
-use serenity::framework::standard::CommandError;
+use serenity::{framework::standard::CommandError, http::Http};
 use serenity::model::id::UserId;
 use serenity::prelude::*;
 use std::sync::Arc;
@@ -41,8 +41,8 @@ pub fn update_details_cache_loop(
 }
 
 pub fn notify_player_for_new_turn(new_turn: &NewTurnNation) -> Result<(), CommandError> {
-    let private_channel = new_turn.user_id.create_dm_channel()?;
-    private_channel.say(&new_turn.message)?;
+    let private_channel = new_turn.user_id.create_dm_channel(Http::default())?;
+    private_channel.say(Http::default(), &new_turn.message)?;
     Ok(())
 }
 

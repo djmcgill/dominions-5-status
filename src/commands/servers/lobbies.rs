@@ -1,4 +1,4 @@
-use serenity::{CacheAndHttp, builder::CreateEmbed};
+use serenity::{CacheAndHttp, builder::CreateEmbed, http::Http};
 use serenity::framework::standard::CommandError;
 use serenity::model::channel::Message;
 use serenity::prelude::Context;
@@ -17,8 +17,8 @@ pub fn lobbies(context: &mut Context, message: &Message) -> Result<(), CommandEr
     if lobbies_and_player_count.is_empty() {
         message.reply(CacheAndHttp::default(), &"No available lobbies")?;
     } else {
-        let embed = lobbies_helper(lobbies_and_player_count)?;
-        message.channel_id.send_message(|m| m.embed(|_| embed))?;
+        let embed = &mut lobbies_helper(lobbies_and_player_count)?;
+        message.channel_id.send_message(Http::default(), |m| m.embed(|_| embed))?;
     }
     Ok(())
 }
@@ -43,5 +43,5 @@ fn lobbies_helper(
         .field("Alias", aliases, true)
         .field("Players", player_counts, true);
 
-    Ok(embed)
+    Ok(*embed)
 }
