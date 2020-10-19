@@ -77,7 +77,7 @@ impl InspectorCategory for Event {
 
 use serenity::framework::standard::macros::command;
 
-#[command]
+// TODO: somehow convert this into a command?
 fn search<I: InspectorCategory>(message: &Message, args: &Args) -> Result<(), CommandError> {
     let search_term = utf8_percent_encode(&args.message(), QUERY_ENCODE_SET).to_string();
     let response = format!(

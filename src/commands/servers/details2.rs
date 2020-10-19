@@ -34,7 +34,7 @@ pub fn details2<C: ServerConnection>(
 
     message
         .channel_id
-        .send_message(todo!("satisfy this argument"), |m| m.embed(|_| &mut embed_response))?;
+        .send_message(context.http, |m| m.embed(|_| &mut embed_response))?;
     Ok(())
 }
 
