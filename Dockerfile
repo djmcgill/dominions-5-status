@@ -7,7 +7,7 @@ WORKDIR /usr/src
 ENV PKG_CONFIG_ALLOW_CROSS=1
 RUN apt-get update && \
     apt-get dist-upgrade -y && \
-    apt-get install -y musl-tools build-essentials && \
+    apt-get install -y musl-tools openssl openssl-devel && \
     rustup target add x86_64-unknown-linux-musl
 
 # 1b: Download and compile Rust dependencies (and store as a separate Docker layer)
