@@ -37,8 +37,8 @@ async fn turns_helper(
                 &started_state,
                 option_lobby_state.as_ref(),
                 &server.alias,
-                cache.game_data,
-                cache.option_snek_state,
+                &cache.game_data,
+                cache.option_snek_state.as_ref(),
             )
             .unwrap();
 

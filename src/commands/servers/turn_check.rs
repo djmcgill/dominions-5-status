@@ -1,152 +1,132 @@
-use crate::db::*;
-use crate::model::enums::*;
-use crate::server::RealServerConnection;
-use crate::snek::SnekGameStatus;
-use crate::CacheWriteHandle;
-use chrono::Utc;
-use log::*;
-use serenity::framework::standard::CommandError;
-use serenity::model::id::UserId;
-use serenity::prelude::*;
-use std::sync::Arc;
-use std::thread;
-use std::time;
-use crate::model::game_state::{GameDetails, NationDetails, StartedStateDetails, StartedDetails, PotentialPlayer, CacheEntry};
-use crate::model::game_server::GameServerState;
-use crate::commands::servers::details::{started_details_from_server, lobby_details, get_details_for_alias};
-use serenity::CacheAndHttp;
-use serenity::http::Http;
+use crate::commands::servers::details::{
+    get_details_for_alias, lobby_details, started_details_from_server,
+};
+use crate::{
+    db::*,
+    model::{
+        enums::*,
+        game_server::GameServerState,
+        game_state::{
+            CacheEntry, GameDetails, NationDetails, PotentialPlayer, StartedDetails,
+            StartedStateDetails,
+        },
+    },
+    server::get_game_data_async,
+    snek::{snek_details_async, SnekGameStatus},
+    DetailsCache, DetailsCacheHandle, DetailsCacheKey,
+};
 
-pub fn update_details_cache_loop(
+use anyhow::anyhow;
+use chrono::Utc;
+use futures::{
+    future::{self, FutureExt},
+    stream::{self, StreamExt},
+};
+use im::hashmap::Entry;
+use log::*;
+use serenity::{
+    framework::standard::CommandError, http::Http, model::id::UserId, prelude::*, CacheAndHttp,
+};
+use std::time::Duration;
+use std::{sync::Arc, thread, time};
+
+pub async fn update_details_cache_loop(
     db_conn: DbConnection,
-    write_handle_mutex: Arc<Mutex<CacheWriteHandle>>,
+    write_handle_mutex: DetailsCacheHandle,
     cache_and_http: Arc<CacheAndHttp>,
 ) {
-    loop {
-        info!("Checking for new turns!");
-        let mut option_new_turn_nations = None;
-        if let Some(mut write_handle) = write_handle_mutex.try_lock() {
-            let new_turn_nations = update_details_cache_for_all_games(&db_conn, &mut write_handle);
-            option_new_turn_nations = Some(new_turn_nations);
-        }
-        for new_turn_nation in option_new_turn_nations.unwrap_or(Vec::new()) {
-            match notify_player_for_new_turn(&new_turn_nation, cache_and_http.http.clone()) {
-                Ok(()) => {}
-                Err(e) => {
-                    error!(
-                        "Failed to notify new turn {:?} with error: {:?}",
-                        new_turn_nation, e
-                    );
-                }
+    stream::repeat(())
+        .for_each(|()| async {
+            info!("Checking for new turns!");
+
+            let new_turn_nations =
+                update_details_cache_for_all_games(&db_conn, write_handle_mutex.clone()).await;
+            let mut futures_vec = vec![];
+            for new_turn_nation in new_turn_nations {
+                let user_id = new_turn_nation.user_id;
+                // Intentionally no `await` or `?`
+                let future = notify_player_for_new_turn(new_turn_nation, cache_and_http.clone())
+                    .map(move |r| {
+                        r.unwrap_or_else(|e| {
+                            error!(
+                                "Failed to notify new turn for user {:?} with error: {:#?}",
+                                user_id, e
+                            );
+                        })
+                    });
+
+                futures_vec.push(future);
             }
-        }
-        thread::sleep(time::Duration::from_secs(60));
-    }
+            future::join_all(futures_vec).await;
+            tokio::time::sleep(Duration::from_secs(60)).await;
+        })
+        .await;
 }
 
-pub fn notify_player_for_new_turn(new_turn: &NewTurnNation,
-                                  http: Arc<Http>,
+pub async fn notify_player_for_new_turn(
+    new_turn: NewTurnNation,
+    cache_and_http: Arc<CacheAndHttp>,
 ) -> Result<(), CommandError> {
-    let private_channel = new_turn.user_id.create_dm_channel(http.as_ref())?;
-    private_channel.say(http.as_ref(), &new_turn.message)?;
+    let private_channel = new_turn
+        .user_id
+        .create_dm_channel(cache_and_http.as_ref())
+        .await?;
+    private_channel
+        .say(cache_and_http.http.as_ref(), &new_turn.message)
+        .await?;
     Ok(())
 }
 
-// FIXME: should just be regular error
-fn update_details_cache_for_game(
+async fn update_details_cache_for_game(
     alias: &str,
     db_conn: &DbConnection,
-    write_handle: &mut CacheWriteHandle,
-) -> Result<Vec<NewTurnNation>, CommandError> {
+    write_handle: &mut DetailsCache,
+) -> anyhow::Result<Vec<NewTurnNation>> {
     info!("Checking turn for {}", alias);
-    let mut ret = vec![];
 
-    let option_old_cache: Option<Option<CacheEntry>> = write_handle
-        .0
-        .get_and(&alias.to_owned(), |results| (*results[0]).1.clone());
+    let details = db_conn.game_for_alias(alias)?;
 
-    let result_details = get_details_for_alias::<RealServerConnection>(db_conn, alias);
+    let messages = if let GameServerState::StartedState(started_state, option_lobby_state) =
+        &details.state
+    {
+        let new_game_data = get_game_data_async(&started_state.address).await?;
+        let option_new_snek_data = snek_details_async(&started_state.address).await?;
 
-    let now = Utc::now();
-    match result_details {
-        Err(e) => {
-            error!(
-                "Got an error when checking for details for alias {}: {:?}",
-                alias, e
-            );
-            write_handle
-                .0
-                .update(alias.to_owned(), Box::new((now, None)));
-        }
-        Ok(details) => {
-            // It's a bit of a hack to have 2 ways to check for turns
-            let updated = if let NationDetails::Started(started) = &details.nations {
-                let turn = if let StartedStateDetails::Playing(playing) = &started.state {
-                    playing.turn as i32
-                } else {
-                    -1
-                };
-                db_conn.update_game_with_possibly_new_turn(alias, turn)?
+        let is_new_turn = db_conn.update_game_with_possibly_new_turn(alias, new_game_data.turn)?;
+        let messages = if is_new_turn {
+            let new_game_details: GameDetails = started_details_from_server(
+                db_conn,
+                started_state,
+                option_lobby_state.as_ref(),
+                alias,
+                &new_game_data,
+                option_new_snek_data.as_ref(),
+            )
+            .map_err(|e| anyhow!("Error when checking turn for {}: {:#?}", alias, e))?;
+            if let NationDetails::Started(new_started_details) = &new_game_details.nations {
+                create_messages_for_new_turn(
+                    alias,
+                    new_started_details,
+                    option_new_snek_data.as_ref(),
+                )
             } else {
-                false
-            };
-
-            if updated {
-                if let NationDetails::Started(started_details) = &details.nations {
-                    ret.extend(create_messages_for_new_turn(
-                        alias,
-                        started_details,
-                        details
-                            .cache_entry
-                            .as_ref()
-                            .and_then(|cache_entry| cache_entry.option_snek_state.as_ref())
-                    ));
-                }
-            } else {
-                for old_cache in option_old_cache.and_then(|x| x) {
-                    let server = db_conn.game_for_alias(&alias)?;
-                    let old_details = match server.state {
-                        GameServerState::Lobby(ref lobby_state) => {
-                            lobby_details(db_conn, lobby_state, alias)?
-                        }
-                        GameServerState::StartedState(
-                            ref started_state,
-                            ref option_lobby_state,
-                        ) => started_details_from_server(
-                            db_conn,
-                            started_state,
-                            option_lobby_state.as_ref(),
-                            alias,
-                            old_cache.game_data,
-                            old_cache.option_snek_state,
-                        )?,
-                    };
-
-                    if was_updated(&old_details, &details) {
-                        if let NationDetails::Started(started_details) = &details.nations {
-                            ret.extend(create_messages_for_new_turn(
-                                alias,
-                                started_details,
-                                details
-                                    .cache_entry
-                                    .as_ref()
-                                    .and_then(|cache_entry| cache_entry.option_snek_state.as_ref()),
-                            ));
-                        }
-                    }
-                }
+                vec![]
             }
+        } else {
+            vec![]
+        };
 
-            write_handle
-                .0
-                .update(alias.to_owned(), Box::new((now, details.cache_entry)));
-        }
-    }
-
-    // FIXME: might just want to store the hash instead of cloning the string a bunch
+        let cache_entry = CacheEntry {
+            game_data: new_game_data,
+            option_snek_state: option_new_snek_data,
+        };
+        write_handle.insert(alias.to_owned(), Box::new((Utc::now(), Some(cache_entry))));
+        messages
+    } else {
+        vec![]
+    };
     info!("Checking turn for {}: SUCCESS", alias);
-
-    Ok(ret)
+    Ok(messages)
 }
 
 #[derive(Debug)]
@@ -155,54 +135,40 @@ pub struct NewTurnNation {
     pub message: String,
 }
 
-fn update_details_cache_for_all_games(
+async fn update_details_cache_for_all_games(
     db_conn: &DbConnection,
-    write_handle: &mut CacheWriteHandle,
+    write_handle_mutex: DetailsCacheHandle,
 ) -> Vec<NewTurnNation> {
-    let mut ret = vec![];
-    match db_conn.retrieve_all_servers() {
-        Err(e) => {
-            error!("Could not query the db for all servers with error: {:?}", e);
+    let mut guard = write_handle_mutex.0.write().await;
+    match guard.get_mut::<DetailsCacheKey>() {
+        None => {
+            todo!()
         }
-        Ok(servers) => {
-            // FIXME: might want to parallelise
-            for server in servers {
-                match update_details_cache_for_game(&server.alias, db_conn, write_handle) {
-                    Ok(updates) => {
-                        ret.extend(updates.into_iter());
-                    }
-                    Err(e) => {
-                        error!("Could not update game {} with error {:?}", server.alias, e);
+        Some(details_cache) => {
+            let mut ret = vec![];
+            match db_conn.retrieve_all_servers() {
+                Err(e) => {
+                    error!("Could not query the db for all servers with error: {:?}", e);
+                }
+                Ok(servers) => {
+                    // TODO: might want to parallelise if I could figure out the parallel cache updates
+                    //        (partitioned by key) - or just await on the write handle when it comes in?
+                    for server in servers {
+                        match update_details_cache_for_game(&server.alias, db_conn, details_cache)
+                            .await
+                        {
+                            Ok(new_turns) => {
+                                ret.extend(new_turns.into_iter());
+                            }
+                            Err(e) => {
+                                error!("Could not update game {} with error {:?}", server.alias, e);
+                            }
+                        }
                     }
                 }
             }
-            write_handle.0.refresh();
+            ret
         }
-    }
-    ret
-}
-
-pub fn was_updated(old_details: &GameDetails, new_details: &GameDetails) -> bool {
-    match (&old_details.nations, &new_details.nations) {
-        (NationDetails::Lobby(_), NationDetails::Started(_)) => {
-            true // Lobby has started
-        }
-        (
-            NationDetails::Started(ref old_started_details),
-            NationDetails::Started(ref new_started_details),
-        ) => match (&old_started_details.state, &new_started_details.state) {
-            (StartedStateDetails::Uploading(_), StartedStateDetails::Playing(_)) => {
-                true // Pretender upload has finished
-            }
-            (
-                StartedStateDetails::Playing(ref old_playing_details),
-                StartedStateDetails::Playing(ref new_playing_details),
-            ) => {
-                old_playing_details.turn < new_playing_details.turn // New turn?
-            }
-            _ => false,
-        },
-        _ => false,
     }
 }
 
@@ -212,8 +178,8 @@ pub fn create_messages_for_new_turn(
     option_snek_state: Option<&SnekGameStatus>,
 ) -> Vec<NewTurnNation> {
     let mut ret = vec![];
-    match new_started_details.state {
-        StartedStateDetails::Playing(ref new_playing_details) => {
+    match &new_started_details.state {
+        StartedStateDetails::Playing(new_playing_details) => {
             for potential_player in &new_playing_details.players {
                 match potential_player {
                     PotentialPlayer::GameOnly(_) => {} // Don't know who they are, can't message them
@@ -224,17 +190,17 @@ pub fn create_messages_for_new_turn(
                             // and if they're actually playing
                             if details.player_status.is_human() {
                                 ret.push(
-                                    NewTurnNation {
-                                        user_id: *user_id,
-                                        message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
-                                                         alias,
-                                                         details.nation_identifier.name(option_snek_state),
-                                                         new_playing_details.hours_remaining,
-                                                         new_playing_details.mins_remaining,
-                                                         new_playing_details.turn,
-                                        )
-                                    }
-                                );
+                                        NewTurnNation {
+                                            user_id: *user_id,
+                                            message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
+                                                             alias,
+                                                             details.nation_identifier.name(option_snek_state),
+                                                             new_playing_details.hours_remaining,
+                                                             new_playing_details.mins_remaining,
+                                                             new_playing_details.turn,
+                                            )
+                                        }
+                                    );
                             }
                         }
                     }
@@ -242,16 +208,16 @@ pub fn create_messages_for_new_turn(
             }
         }
         StartedStateDetails::Uploading(ref new_uploading_details) => {
-            for ref player in &new_uploading_details.uploading_players {
+            for player in &new_uploading_details.uploading_players {
                 if let Some(user_id) = player.option_player_id() {
                     if !player.uploaded {
                         ret.push(NewTurnNation {
-                            user_id: *user_id,
-                            message: format!(
-                                "Uploading has started in {}! You registered as {}. Server address is '{}'.",
-                                alias, player.nation_name(option_snek_state), new_started_details.address
-                            ),
-                        });
+                                user_id: *user_id,
+                                message: format!(
+                                    "Uploading has started in {}! You registered as {}. Server address is '{}'.",
+                                    alias, player.nation_name(option_snek_state), new_started_details.address
+                                ),
+                            });
                     }
                 }
             }

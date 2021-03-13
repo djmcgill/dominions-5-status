@@ -8,7 +8,7 @@ pub mod notifications;
 pub mod register_player;
 pub mod remove_server;
 pub mod start;
-// pub mod turn_check;
+pub mod turn_check;
 pub mod turns;
 pub mod unregister_player;
 pub mod unstart;

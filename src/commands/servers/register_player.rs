@@ -333,8 +333,8 @@ async fn register_player_helper(
                         &started_state,
                         option_lobby_state.as_ref(),
                         alias,
-                        cache.game_data,
-                        cache.option_snek_state,
+                        &cache.game_data,
+                        cache.option_snek_state.as_ref(),
                     )
                     .unwrap();
                     game_details

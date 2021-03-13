@@ -88,8 +88,8 @@ async fn started_details(
         started_state,
         option_lobby_state,
         alias,
-        game_data,
-        option_snek_details,
+        &game_data,
+        option_snek_details.as_ref(),
     )
 }
 
@@ -100,13 +100,13 @@ async fn details_helper(
     context: &Context,
 ) -> Result<CreateEmbed, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
-    match server.state {
-        GameServerState::Lobby(ref lobby_state) => {
+    match &server.state {
+        GameServerState::Lobby(lobby_state) => {
             let details: GameDetails = lobby_details(db_conn, lobby_state, alias)?;
             let embed: CreateEmbed = details_to_embed(details, context).await?;
             Ok(embed)
         }
-        GameServerState::StartedState(ref started_state, ref option_lobby_state) => {
+        GameServerState::StartedState(started_state, option_lobby_state) => {
             let cache = read_handle.get_clone(alias).await?;
             let CacheEntry {
                 game_data,
@@ -118,8 +118,8 @@ async fn details_helper(
                 started_state,
                 option_lobby_state.as_ref(),
                 alias,
-                game_data,
-                option_snek_state,
+                &game_data,
+                option_snek_state.as_ref(),
             )?;
 
             let embed: CreateEmbed = details_to_embed(details, context).await?;
@@ -232,8 +232,8 @@ pub fn started_details_from_server(
     started_state: &StartedState,
     option_lobby_state: Option<&LobbyState>,
     alias: &str,
-    game_data: GameData,
-    option_snek_details: Option<SnekGameStatus>,
+    game_data: &GameData,
+    option_snek_details: Option<&SnekGameStatus>,
 ) -> Result<GameDetails, CommandError> {
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
     let player_details = join_players_with_nations(&game_data.nations, &id_player_nations)?;
@@ -293,7 +293,7 @@ pub fn started_details_from_server(
         nations: NationDetails::Started(started_details),
         cache_entry: Some(CacheEntry {
             game_data: game_data.clone(),
-            option_snek_state: option_snek_details.clone(),
+            option_snek_state: option_snek_details.cloned(),
         }),
     })
 }

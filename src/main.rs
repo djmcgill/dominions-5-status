@@ -13,6 +13,7 @@ use serenity::prelude::*;
 use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::{env, fs::File, io::Read as _};
 
+use crate::commands::servers::turn_check::update_details_cache_loop;
 use crate::db::*;
 use model::game_state::CacheEntry;
 use std::sync::Arc;
@@ -23,6 +24,7 @@ struct DetailsCacheKey;
 impl TypeMapKey for DetailsCacheKey {
     type Value = DetailsCache;
 }
+#[derive(Clone)]
 pub struct DetailsCacheHandle(Arc<RwLock<TypeMap>>);
 impl DetailsCacheHandle {
     // FIXME: cannot return value referencing local variable `read_lock`
@@ -112,6 +114,8 @@ async fn create_discord_client() -> anyhow::Result<Client> {
         .group(&crate::commands::servers::SERVER_GROUP)
         .group(&crate::commands::search::SEARCH_GROUP);
 
+    let cache_loop_db_conn = db_conn.clone();
+
     let discord_client = Client::builder(&token)
         .event_handler(Handler)
         .type_map_insert::<DetailsCacheKey>(im::HashMap::new())
@@ -120,6 +124,10 @@ async fn create_discord_client() -> anyhow::Result<Client> {
         .await
         .context("ClientBuilder::await")?;
     info!("Created discord client");
+
+    tokio::spawn(Box::pin(async move {
+        update_details_cache_loop(cache_loop_db_conn, todo!(), todo!()).await;
+    }));
 
     //
     //     let writer_mutex = Arc::new(Mutex::new(CacheWriteHandle(write)));
