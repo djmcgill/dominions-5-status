@@ -14,6 +14,7 @@ To run natively with Rust:
 - The bot should now show as online in your server and "dom-5-bot is connected!" should show in the console.
 
 To run in docker:
+- Follow the first 3 steps about setting up the bot
 - Make a folder on the host called "resources" containing the `token` file as before. This is also where the db file will be created.
 - Run the command: `docker run -it -d --restart unless-stopped -v /home/dmcgill9071/dom-5-bot/resources:/usr/src/myapp/resources --log-opt max-size=10m --log-opt max-file=5 eu.gcr.io/dom-5-status/dom-5-status` except replace `/home/dmcgill9071/dom-5-bot/resources` with the location of your resource folder.
 
