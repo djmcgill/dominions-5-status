@@ -18,7 +18,7 @@ async fn add_server_helper(
     db_connection: &DbConnection,
 ) -> Result<(), CommandError> {
     let game_data = get_game_data_async(server_address).await?;
-
+    // FIXME: add to cache
     let server = GameServer {
         alias: game_alias.to_string(),
         state: GameServerState::StartedState(

@@ -64,10 +64,17 @@ async fn call_server_for_info_async(server_address: &str) -> anyhow::Result<Vec<
 
     stream.write_all(&request).await?;
 
-    let mut buffer = Vec::with_capacity(2048);
+    let mut header_buffer = [0; 6];
     debug!("trying to receive");
-    let bytes_read = stream.read_to_end(&mut buffer).await?;
-    debug!("received {} bytes", bytes_read);
+    let header_bytes_read = stream.read_exact(&mut header_buffer).await?;
+    debug!(
+        "received {} header bytes, byte 2 is {}",
+        header_bytes_read, header_buffer[2],
+    );
+
+    let mut body_buffer = vec![0; header_buffer[2] as usize];
+    let body_bytes_read = stream.read_exact(&mut body_buffer).await?;
+    debug!("received {} body bytes", body_bytes_read);
 
     debug!("sending close");
     let close_request = [
@@ -76,7 +83,10 @@ async fn call_server_for_info_async(server_address: &str) -> anyhow::Result<Vec<
     ];
     stream.write_all(&close_request).await?;
 
-    Ok(buffer)
+    let mut buffer = header_buffer.to_vec();
+    buffer.append(&mut body_buffer);
+
+    Ok(buffer.to_vec()) // fixme
 }
 fn decompress_server_info(raw: &[u8]) -> anyhow::Result<Vec<u8>> {
     debug!("HEADER {:?}", &raw[0..10]);
@@ -103,6 +113,9 @@ fn parse_data(data: &[u8]) -> anyhow::Result<RawGameData> {
         cursor.position(),
         cursor.get_ref().len()
     );
+    // debug!("A: {:#?}", a);
+    // debug!("Au32b: {}", u32::from_be_bytes([a[0], a[1]]));
+    // debug!("Au32l: {}", u32::from_le_bytes([a[0], a[1]]));
     debug!("parsing name");
     let mut game_name_bytes = vec![];
     let read_bytes = cursor.read_until(0, &mut game_name_bytes)?;
