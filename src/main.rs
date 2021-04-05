@@ -63,11 +63,13 @@ impl EventHandler for Handler {}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    SimpleLogger::init(LevelFilter::Info, Config::default()).unwrap();
+    SimpleLogger::init(LevelFilter::Debug, Config::default()).unwrap();
     info!("Logger initialised");
 
     let mut discord_client = create_discord_client().await.unwrap();
+    info!("Starting discord client");
     discord_client.start().await?;
+    error!("Finished discord client");
     Ok(())
 }
 
@@ -125,25 +127,12 @@ async fn create_discord_client() -> anyhow::Result<Client> {
         .context("ClientBuilder::await")?;
     info!("Created discord client");
 
-    tokio::spawn(Box::pin(async move {
-        update_details_cache_loop(cache_loop_db_conn, todo!(), todo!()).await;
-    }));
+    let write_handle_mutex = DetailsCacheHandle(Arc::clone(&discord_client.data));
+    let cache_and_http = Arc::clone(&discord_client.cache_and_http);
 
-    //
-    //     let writer_mutex = Arc::new(Mutex::new(CacheWriteHandle(write)));
-    //     let writer_mutex_clone = writer_mutex.clone();
-    //
-    //     let cache_and_http = discord_client.cache_and_http.clone();
-    //     thread::spawn(move || {
-    //         crate::commands::servers::turn_check::update_details_cache_loop(
-    //             db_conn.clone(),
-    //             writer_mutex_clone,
-    //             cache_and_http,
-    //         );
-    //     });
-    //        thread::spawn(move || {
-    //            crate::commands::servers::turn_check::remove_old_entries_from_cache_loop(writer_mutex);
-    //        });
+    let _ = tokio::spawn(async move {
+        update_details_cache_loop(cache_loop_db_conn, write_handle_mutex, cache_and_http).await;
+    });
 
     // start listening for events by starting a single shard
     Ok(discord_client)

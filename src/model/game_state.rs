@@ -1,10 +1,9 @@
-use crate::model::enums::{Era, NationStatus, Nations, SubmissionStatus};
+use crate::model::enums::{Era, NationStatus, SubmissionStatus};
 use crate::model::game_data::GameData;
 use crate::model::nation::{BotNationIdentifier, GameNationIdentifier};
 use crate::snek::SnekGameStatus;
 use serenity::model::id::UserId;
 use std::borrow::Cow;
-use std::cmp::Ordering;
 
 /// We cache the call to the server (both the game itself and the snek api)
 /// but NOT the db call

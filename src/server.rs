@@ -1,5 +1,5 @@
 use crate::model::{
-    enums::{NationStatus, Nations, SubmissionStatus},
+    enums::{NationStatus, SubmissionStatus},
     game_data::GameData,
     nation::{GameNationIdentifier, Nation},
     raw_game_data::RawGameData,

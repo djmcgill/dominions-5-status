@@ -1,6 +1,4 @@
-use crate::commands::servers::details::{
-    get_details_for_alias, lobby_details, started_details_from_server,
-};
+use crate::commands::servers::details::started_details_from_server;
 use crate::{
     db::*,
     model::{
@@ -16,19 +14,17 @@ use crate::{
     DetailsCache, DetailsCacheHandle, DetailsCacheKey,
 };
 
+use crate::model::game_state::{PlayerDetails, PlayingState};
 use anyhow::anyhow;
 use chrono::Utc;
 use futures::{
     future::{self, FutureExt},
     stream::{self, StreamExt},
 };
-use im::hashmap::Entry;
 use log::*;
-use serenity::{
-    framework::standard::CommandError, http::Http, model::id::UserId, prelude::*, CacheAndHttp,
-};
+use serenity::{model::id::UserId, CacheAndHttp};
+use std::sync::Arc;
 use std::time::Duration;
-use std::{sync::Arc, thread, time};
 
 pub async fn update_details_cache_loop(
     db_conn: DbConnection,
@@ -40,7 +36,8 @@ pub async fn update_details_cache_loop(
             info!("Checking for new turns!");
 
             let new_turn_nations =
-                update_details_cache_for_all_games(&db_conn, write_handle_mutex.clone()).await;
+                update_details_cache_for_all_games(&db_conn.clone(), write_handle_mutex.clone())
+                    .await;
             let mut futures_vec = vec![];
             for new_turn_nation in new_turn_nations {
                 let user_id = new_turn_nation.user_id;
@@ -66,7 +63,7 @@ pub async fn update_details_cache_loop(
 pub async fn notify_player_for_new_turn(
     new_turn: NewTurnNation,
     cache_and_http: Arc<CacheAndHttp>,
-) -> Result<(), CommandError> {
+) -> anyhow::Result<()> {
     let private_channel = new_turn
         .user_id
         .create_dm_channel(cache_and_http.as_ref())
@@ -142,7 +139,8 @@ async fn update_details_cache_for_all_games(
     let mut guard = write_handle_mutex.0.write().await;
     match guard.get_mut::<DetailsCacheKey>() {
         None => {
-            todo!()
+            error!("Cache not initialised!!!! This should NOT happen!");
+            vec![]
         }
         Some(details_cache) => {
             let mut ret = vec![];
@@ -153,7 +151,9 @@ async fn update_details_cache_for_all_games(
                 Ok(servers) => {
                     // TODO: might want to parallelise if I could figure out the parallel cache updates
                     //        (partitioned by key) - or just await on the write handle when it comes in?
+                    info!("retrieve_all_servers done, found {} entries", servers.len());
                     for server in servers {
+                        debug!("starting to update: '{}'", server.alias);
                         match update_details_cache_for_game(&server.alias, db_conn, details_cache)
                             .await
                         {
@@ -185,23 +185,14 @@ pub fn create_messages_for_new_turn(
                     PotentialPlayer::GameOnly(_) => {} // Don't know who they are, can't message them
                     PotentialPlayer::RegisteredOnly(_, _) => {} // Looks like they got left out, too bad
                     PotentialPlayer::RegisteredAndGame(user_id, details) => {
-                        // Only message them if they haven't submitted yet
-                        if let SubmissionStatus::NotSubmitted = details.submitted {
-                            // and if they're actually playing
-                            if details.player_status.is_human() {
-                                ret.push(
-                                        NewTurnNation {
-                                            user_id: *user_id,
-                                            message: format!("New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
-                                                             alias,
-                                                             details.nation_identifier.name(option_snek_state),
-                                                             new_playing_details.hours_remaining,
-                                                             new_playing_details.mins_remaining,
-                                                             new_playing_details.turn,
-                                            )
-                                        }
-                                    );
-                            }
+                        if let Some(new_turn_message) = create_playing_message(
+                            alias,
+                            new_playing_details,
+                            option_snek_state,
+                            user_id,
+                            details,
+                        ) {
+                            ret.push(new_turn_message);
                         }
                     }
                 }
@@ -224,4 +215,31 @@ pub fn create_messages_for_new_turn(
         }
     }
     ret
+}
+
+fn create_playing_message(
+    alias: &str,
+    new_playing_details: &PlayingState,
+    option_snek_state: Option<&SnekGameStatus>,
+    user_id: &UserId,
+    details: &PlayerDetails,
+) -> Option<NewTurnNation> {
+    // Only message them if they haven't submitted yet
+    if let SubmissionStatus::NotSubmitted = details.submitted {
+        // and if they're actually playing
+        if details.player_status.is_human() {
+            return Some(NewTurnNation {
+                user_id: *user_id,
+                message: format!(
+                    "New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
+                    alias,
+                    details.nation_identifier.name(option_snek_state),
+                    new_playing_details.hours_remaining,
+                    new_playing_details.mins_remaining,
+                    new_playing_details.turn,
+                ),
+            });
+        }
+    }
+    None
 }
