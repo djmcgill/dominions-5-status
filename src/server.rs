@@ -86,7 +86,7 @@ async fn call_server_for_info_async(server_address: &str) -> anyhow::Result<Vec<
     let mut buffer = header_buffer.to_vec();
     buffer.append(&mut body_buffer);
 
-    Ok(buffer.to_vec()) // fixme
+    Ok(buffer)
 }
 fn decompress_server_info(raw: &[u8]) -> anyhow::Result<Vec<u8>> {
     debug!("HEADER {:?}", &raw[0..10]);

@@ -52,7 +52,7 @@ async fn start_helper(
             if let NationDetails::Started(started_details) = started_details.nations {
                 if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
                     for player in uploading_details.uploading_players {
-                        if let PotentialPlayer::RegisteredOnly(user_id, nation_oid) =
+                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) =
                             player.potential_player
                         {
                             // FIXME

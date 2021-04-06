@@ -11,7 +11,7 @@ use crate::{
     },
     server::get_game_data_async,
     snek::{snek_details_async, SnekGameStatus},
-    DetailsCache, DetailsCacheHandle, DetailsCacheKey,
+    DetailsCacheHandle, DetailsCacheKey,
 };
 
 use crate::model::game_state::{PlayerDetails, PlayingState};
@@ -77,7 +77,7 @@ pub async fn notify_player_for_new_turn(
 async fn update_details_cache_for_game(
     alias: &str,
     db_conn: &DbConnection,
-    write_handle: &mut DetailsCache,
+    write_handle_mutex: DetailsCacheHandle,
 ) -> anyhow::Result<Vec<NewTurnNation>> {
     info!("Checking turn for {}", alias);
 
@@ -117,7 +117,16 @@ async fn update_details_cache_for_game(
             game_data: new_game_data,
             option_snek_state: option_new_snek_data,
         };
-        write_handle.insert(alias.to_owned(), Box::new((Utc::now(), Some(cache_entry))));
+        let mut guard = write_handle_mutex.0.write().await;
+        match guard.get_mut::<DetailsCacheKey>() {
+            Some(write_handle) => {
+                write_handle.insert(alias.to_owned(), Box::new((Utc::now(), Some(cache_entry))));
+            }
+            None => {
+                error!("Cache somehow not initialised, this should never happen!!");
+            }
+        }
+
         messages
     } else {
         vec![]
@@ -136,40 +145,37 @@ async fn update_details_cache_for_all_games(
     db_conn: &DbConnection,
     write_handle_mutex: DetailsCacheHandle,
 ) -> Vec<NewTurnNation> {
-    let mut guard = write_handle_mutex.0.write().await;
-    match guard.get_mut::<DetailsCacheKey>() {
-        None => {
-            error!("Cache not initialised!!!! This should NOT happen!");
-            vec![]
+    let mut ret = vec![];
+    match db_conn.retrieve_all_servers() {
+        Err(e) => {
+            error!("Could not query the db for all servers with error: {:?}", e);
         }
-        Some(details_cache) => {
-            let mut ret = vec![];
-            match db_conn.retrieve_all_servers() {
-                Err(e) => {
-                    error!("Could not query the db for all servers with error: {:?}", e);
-                }
-                Ok(servers) => {
-                    // TODO: might want to parallelise if I could figure out the parallel cache updates
-                    //        (partitioned by key) - or just await on the write handle when it comes in?
-                    info!("retrieve_all_servers done, found {} entries", servers.len());
-                    for server in servers {
-                        debug!("starting to update: '{}'", server.alias);
-                        match update_details_cache_for_game(&server.alias, db_conn, details_cache)
-                            .await
-                        {
-                            Ok(new_turns) => {
-                                ret.extend(new_turns.into_iter());
-                            }
-                            Err(e) => {
-                                error!("Could not update game {} with error {:?}", server.alias, e);
-                            }
-                        }
+        Ok(servers) => {
+            info!("retrieve_all_servers done, found {} entries", servers.len());
+            let write_handle_mutex = &write_handle_mutex;
+            let futs = servers.into_iter().map(|server| async move {
+                debug!("starting to update: '{}'", server.alias);
+                match update_details_cache_for_game(
+                    &server.alias,
+                    db_conn,
+                    write_handle_mutex.clone(),
+                )
+                .await
+                {
+                    Ok(new_turns) => new_turns,
+                    Err(e) => {
+                        error!("Could not update game {} with error {:?}", server.alias, e);
+                        vec![]
                     }
                 }
+            });
+            let new_turns_for_games = future::join_all(futs).await;
+            for mut new_turns in new_turns_for_games {
+                ret.append(&mut new_turns);
             }
-            ret
         }
     }
+    ret
 }
 
 pub fn create_messages_for_new_turn(
