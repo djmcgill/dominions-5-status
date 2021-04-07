@@ -22,6 +22,7 @@ use futures::{
     stream::{self, StreamExt},
 };
 use log::*;
+use serenity::http::CacheHttp;
 use serenity::{model::id::UserId, CacheAndHttp};
 use std::sync::Arc;
 use std::time::Duration;
@@ -62,14 +63,14 @@ pub async fn update_details_cache_loop(
 
 pub async fn notify_player_for_new_turn(
     new_turn: NewTurnNation,
-    cache_and_http: Arc<CacheAndHttp>,
+    cache_and_http: impl CacheHttp + Clone,
 ) -> anyhow::Result<()> {
     let private_channel = new_turn
         .user_id
-        .create_dm_channel(cache_and_http.as_ref())
+        .create_dm_channel(cache_and_http.clone())
         .await?;
     private_channel
-        .say(cache_and_http.http.as_ref(), &new_turn.message)
+        .say(cache_and_http.http(), &new_turn.message)
         .await?;
     Ok(())
 }

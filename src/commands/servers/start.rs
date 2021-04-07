@@ -1,3 +1,4 @@
+use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
 use crate::{
     commands::servers::{
         alias_from_arg_or_channel_name,
@@ -43,34 +44,35 @@ async fn start_helper(
 
             db_conn.insert_started_state(&alias, &started_state)?;
 
-            // This is a bit of a hack, the turncheck should take care of it
-
             let started_details = get_details_for_alias(db_conn, alias).await?;
             let option_snek_state = snek_details_async(address).await.ok().and_then(|i| i);
-            // FIXME
-            // let mut new_turn_messages = vec![];
+
             if let NationDetails::Started(started_details) = started_details.nations {
                 if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
                     for player in uploading_details.uploading_players {
                         if let PotentialPlayer::RegisteredOnly(user_id, nation_id) =
                             player.potential_player
                         {
-                            // FIXME
-                            // new_turn_messages.push(NewTurnNation {
-                            //     user_id,
-                            //     message: format!(
-                            //         "Uploading has started in {}! You registered as {}. Server address is '{}'.",
-                            //         alias, nation_id.name(option_snek_state.as_ref()), started_details.address
-                            //     ),
-                            // });
+                            let message = NewTurnNation {
+                                    user_id,
+                                    message: format!(
+                                        "Uploading has started in {}! You registered as {}. Server address is '{}'.",
+                                        alias, nation_id.name(option_snek_state.as_ref()), started_details.address
+                                    ),
+                                };
+
+                            let cache = context.cache.clone();
+                            let http = context.http.clone();
+                            let _ = tokio::spawn(async move {
+                                // fixme: error handling
+                                let _ =
+                                    notify_player_for_new_turn(message, (&cache, http.as_ref()))
+                                        .await;
+                            });
                         }
                     }
                 }
             }
-            // FIXME: this should be pushing messages into the queue
-            // for new_turn_message in &new_turn_messages {
-            //     let _ = notify_player_for_new_turn(new_turn_message, context.http.clone());
-            // }
         }
     }
     Ok(())
