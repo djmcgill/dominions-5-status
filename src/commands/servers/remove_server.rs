@@ -4,10 +4,31 @@ use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
+use crate::{DetailsCacheHandle, DetailsCacheKey};
+use log::error;
+use std::sync::Arc;
 
-fn remove_server_helper(db_conn: DbConnection, alias: &str) -> Result<(), CommandError> {
+async fn remove_server_helper(
+    details_cache_handle: DetailsCacheHandle,
+    db_conn: DbConnection,
+    alias: &str,
+) -> Result<(), CommandError> {
+    // Okay there is a bit of a race condition here, where if the turn check gets the alias,
+    // then this runs and deletes it from the db and cache, and then the turn check finishes
+    // it'll re-add it to the cache BUT that only means that there's a now-useless cache entry
+    // that is ignored so I'm going to go with: don't care.
     db_conn.remove_server(&alias).map_err(CommandError::from)?;
-    Ok(())
+    let mut guard = details_cache_handle.0.write().await;
+    match guard.get_mut::<DetailsCacheKey>() {
+        Some(handle) => {
+            handle.remove(alias);
+            Ok(())
+        }
+        None => {
+            error!("Cache somehow not initialised, this should never happen!!");
+            Err("Cache somehow not initialised, this should never happen!!".into())
+        }
+    }
 }
 
 pub async fn remove_server(
@@ -22,13 +43,14 @@ pub async fn remove_server(
         ));
     }
 
+    let write_handle_mutex = DetailsCacheHandle(Arc::clone(&context.data));
     let db_conn = {
         let data = context.data.read().await;
         data.get::<DbConnectionKey>()
             .ok_or("No DB connection")?
             .clone()
     };
-    remove_server_helper(db_conn, &alias)?;
+    remove_server_helper(write_handle_mutex, db_conn, &alias).await?;
     let _ = message
         .reply(
             (&context.cache, context.http.as_ref()),
