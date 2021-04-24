@@ -4,15 +4,27 @@ use crate::model::{
     nation::{GameNationIdentifier, Nation},
     raw_game_data::RawGameData,
 };
-
+use anyhow::Context;
 use byteorder::{LittleEndian, ReadBytesExt};
 use flate2::read::ZlibDecoder;
 use log::*;
-use std::io::{self, BufRead, Cursor, Read};
-use tokio::io::{AsyncReadExt, AsyncWriteExt};
+use std::{
+    io::{self, BufRead, Cursor, Read},
+    time::Duration,
+};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    time,
+};
 
 pub async fn get_game_data_async(server_address: &str) -> anyhow::Result<GameData> {
-    let raw_data = get_raw_game_data_async(server_address).await?;
+    let raw_data = time::timeout(
+        Duration::from_secs(5),
+        get_raw_game_data_async(server_address),
+    )
+    .await
+    .context("retrieving info from the server timed out")?
+    .context("cannot retrieve info from the server")?;
     let game_data = interpret_raw_data(raw_data)?;
     Ok(game_data)
 }

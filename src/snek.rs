@@ -1,6 +1,8 @@
+use anyhow::Context;
 use reqwest::StatusCode;
 use serde::{de, Deserialize, Deserializer};
-use std::{collections::HashMap, str::FromStr};
+use std::{collections::HashMap, str::FromStr, time::Duration};
+use tokio::time;
 use url::Url;
 
 #[derive(PartialEq, Eq, Clone, Debug)]
@@ -47,11 +49,16 @@ pub async fn snek_details_async(address: &str) -> anyhow::Result<Option<SnekGame
     };
     let game_id = port - 30_000;
 
-    let response = reqwest::get(&format!(
-        "https://dom5.snek.earth/api/games/{}/status",
-        game_id
-    ))
-    .await?;
+    let response = time::timeout(
+        Duration::from_secs(5),
+        reqwest::get(&format!(
+            "https://dom5.snek.earth/api/games/{}/status",
+            game_id
+        )),
+    )
+    .await
+    .context("timed out getting snek info")?
+    .context("failed to get snek info")?;
     if response.status() != StatusCode::OK {
         return Err(anyhow::anyhow!("Snek did not respond with OK"));
     }
