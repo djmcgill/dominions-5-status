@@ -109,8 +109,7 @@ async fn create_discord_client() -> anyhow::Result<Client> {
                     let err = anyhow!(err);
                     let text = format!("ERROR: {}", err);
                     info!("command error: replying with '{}'", text);
-                    // FIXME: isn't replying
-                    let _ = msg.reply((&ctx.cache, ctx.http.as_ref()), &text);
+                    let _ = msg.reply((&ctx.cache, ctx.http.as_ref()), &text).await;
                 }
             })
         })
