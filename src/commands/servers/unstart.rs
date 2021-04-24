@@ -8,7 +8,7 @@ use crate::{
     commands::servers::alias_from_arg_or_channel_name, db::*, model::game_server::GameServerState,
 };
 
-fn unstart_helper(db_conn: &DbConnection, alias: &str) -> Result<(), CommandError> {
+fn unstart_helper(db_conn: DbConnection, alias: &str) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
     match server.state {
@@ -27,10 +27,12 @@ pub async fn unstart(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.read().await;
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
     let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
     if !args.is_empty() {
         return Err(CommandError::from(

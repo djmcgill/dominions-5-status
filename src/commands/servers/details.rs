@@ -31,10 +31,12 @@ pub async fn details2(
 ) -> Result<(), CommandError> {
     // TODO: It's a bit weird to pass the arc here and use it elsewhere
     let data_handle = DetailsCacheHandle(Arc::clone(&context.data));
-    let data = context.data.read().await;
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
 
     let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
     if !args.is_empty() {
@@ -57,7 +59,7 @@ pub async fn details2(
 }
 
 pub async fn get_details_for_alias(
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     alias: &str,
 ) -> Result<GameDetails, CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
@@ -74,7 +76,7 @@ pub async fn get_details_for_alias(
 }
 
 async fn started_details(
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     started_state: &StartedState,
     option_lobby_state: Option<&LobbyState>,
     alias: &str,
@@ -95,7 +97,7 @@ async fn started_details(
 
 async fn details_helper(
     alias: &str,
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     read_handle: DetailsCacheHandle,
     context: &Context,
 ) -> Result<CreateEmbed, CommandError> {
@@ -129,7 +131,7 @@ async fn details_helper(
 }
 
 pub fn lobby_details(
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     lobby_state: &LobbyState,
     alias: &str,
 ) -> Result<GameDetails, CommandError> {
@@ -228,7 +230,7 @@ fn join_players_with_nations(
 }
 
 pub fn started_details_from_server(
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     started_state: &StartedState,
     option_lobby_state: Option<&LobbyState>,
     alias: &str,

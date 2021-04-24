@@ -22,18 +22,19 @@ use std::sync::Arc;
 
 async fn turns_helper(
     user_id: UserId,
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     read_handle: DetailsCacheHandle,
 ) -> Result<String, CommandError> {
     debug!("Starting !turns");
     let servers_and_nations_for_player = db_conn.servers_for_player(user_id)?;
 
     let mut text = "Your turns:\n".to_string();
+    let db_conn = &db_conn;
     for (server, _) in servers_and_nations_for_player {
         if let GameServerState::StartedState(started_state, option_lobby_state) = server.state {
             let cache = read_handle.get_clone(&server.alias).await?;
             let details: GameDetails = started_details_from_server(
-                db_conn,
+                db_conn.clone(),
                 &started_state,
                 option_lobby_state.as_ref(),
                 &server.alias,
@@ -207,10 +208,12 @@ fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, 
 
 pub async fn turns2(context: &Context, message: &Message) -> Result<(), CommandError> {
     let read_handle = DetailsCacheHandle(Arc::clone(&context.data));
-    let data = context.data.read().await;
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or_else(|| CommandError::from("No db connection"))?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or_else(|| CommandError::from("No db connection"))?
+            .clone()
+    };
     let text = turns_helper(message.author.id, db_conn, read_handle).await?;
     info!("turns: replying with: {}", text);
     let private_channel = message.author.id.create_dm_channel(&context.http).await?;

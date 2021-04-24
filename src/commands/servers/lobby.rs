@@ -9,7 +9,7 @@ use crate::model::enums::Era;
 use crate::model::game_server::{GameServer, GameServerState, LobbyState};
 
 fn lobby_helper(
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     era: Era,
     player_count: i32,
     alias: &str,
@@ -36,10 +36,12 @@ pub async fn lobby(
     let era = Era::from_string(&era_str).ok_or("unknown era")?;
     let player_count = args.single_quoted::<i32>()?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
-    let data = context.data.read().await;
-    let db_connection = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let db_connection = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
 
     lobby_helper(db_connection, era, player_count, &alias, message.author.id)?;
 

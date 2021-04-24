@@ -4,21 +4,27 @@ use serenity::{
     prelude::Context,
 };
 
+use crate::model::game_state::CacheEntry;
 use crate::{
     commands::servers::alias_from_arg_or_channel_name,
     db::{DbConnection, DbConnectionKey},
     model::game_server::{GameServer, GameServerState, StartedState},
     server::get_game_data_async,
+    snek::snek_details_async,
+    DetailsCacheHandle, DetailsCacheKey,
 };
+use chrono::Utc;
 use log::*;
+use std::sync::Arc;
 
 async fn add_server_helper(
     server_address: &str,
     game_alias: &str,
-    db_connection: &DbConnection,
+    db_connection: DbConnection,
+    write_handle_mutex: DetailsCacheHandle,
 ) -> Result<(), CommandError> {
     let game_data = get_game_data_async(server_address).await?;
-    // FIXME: add to cache
+    let option_snek_state = snek_details_async(server_address).await?;
     let server = GameServer {
         alias: game_alias.to_string(),
         state: GameServerState::StartedState(
@@ -42,6 +48,24 @@ async fn add_server_helper(
             CommandError::from(e)
         }
     })?;
+
+    let cache_entry = CacheEntry {
+        game_data,
+        option_snek_state,
+    };
+    let mut guard = write_handle_mutex.0.write().await;
+    match guard.get_mut::<DetailsCacheKey>() {
+        Some(write_handle) => {
+            write_handle.insert(
+                game_alias.to_owned(),
+                Box::new((Utc::now(), Some(cache_entry))),
+            );
+        }
+        None => {
+            error!("Cache somehow not initialised, this should never happen!!");
+        }
+    }
+
     Ok(())
 }
 
@@ -61,11 +85,14 @@ pub async fn add_server(
         ));
     }
 
-    let data = context.data.read().await;
-    let db_connection = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
-    add_server_helper(&server_address, &alias, db_connection).await?;
+    let write_handle_mutex = DetailsCacheHandle(Arc::clone(&context.data));
+    let db_connection = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
+    add_server_helper(&server_address, &alias, db_connection, write_handle_mutex).await?;
     let text = format!("Successfully inserted with alias {}", alias);
     message
         .reply((&context.cache, context.http.as_ref()), text)

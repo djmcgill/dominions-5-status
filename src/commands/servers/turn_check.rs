@@ -37,7 +37,7 @@ pub async fn update_details_cache_loop(
             info!("Checking for new turns!");
 
             let new_turn_nations =
-                update_details_cache_for_all_games(&db_conn.clone(), write_handle_mutex.clone())
+                update_details_cache_for_all_games(db_conn.clone(), write_handle_mutex.clone())
                     .await;
             let mut futures_vec = vec![];
             for new_turn_nation in new_turn_nations {
@@ -77,7 +77,7 @@ pub async fn notify_player_for_new_turn(
 
 async fn update_details_cache_for_game(
     alias: &str,
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     write_handle_mutex: DetailsCacheHandle,
 ) -> anyhow::Result<Vec<NewTurnNation>> {
     info!("Checking turn for {}", alias);
@@ -143,7 +143,7 @@ pub struct NewTurnNation {
 }
 
 async fn update_details_cache_for_all_games(
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     write_handle_mutex: DetailsCacheHandle,
 ) -> Vec<NewTurnNation> {
     let mut ret = vec![];
@@ -154,11 +154,12 @@ async fn update_details_cache_for_all_games(
         Ok(servers) => {
             info!("retrieve_all_servers done, found {} entries", servers.len());
             let write_handle_mutex = &write_handle_mutex;
+            let db_conn = &db_conn;
             let futs = servers.into_iter().map(|server| async move {
                 debug!("starting to update: '{}'", server.alias);
                 match update_details_cache_for_game(
                     &server.alias,
-                    db_conn,
+                    db_conn.clone(),
                     write_handle_mutex.clone(),
                 )
                 .await

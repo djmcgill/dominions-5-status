@@ -5,7 +5,7 @@ use serenity::prelude::Context;
 use super::alias_from_arg_or_channel_name;
 use crate::db::*;
 
-fn remove_server_helper(db_conn: &DbConnection, alias: &str) -> Result<(), CommandError> {
+fn remove_server_helper(db_conn: DbConnection, alias: &str) -> Result<(), CommandError> {
     db_conn.remove_server(&alias).map_err(CommandError::from)?;
     Ok(())
 }
@@ -22,8 +22,12 @@ pub async fn remove_server(
         ));
     }
 
-    let data = context.data.read().await;
-    let db_conn = data.get::<DbConnectionKey>().ok_or("No DB connection")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DB connection")?
+            .clone()
+    };
     remove_server_helper(db_conn, &alias)?;
     let _ = message
         .reply(

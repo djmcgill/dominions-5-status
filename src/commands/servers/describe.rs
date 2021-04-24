@@ -11,10 +11,12 @@ pub async fn describe(
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.read().await;
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
 
     let description = args.single_quoted::<String>()?;
     let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;

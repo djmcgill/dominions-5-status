@@ -9,10 +9,12 @@ use crate::{
 };
 
 pub async fn lobbies(context: &Context, message: &Message) -> Result<(), CommandError> {
-    let data = context.data.read().await;
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or_else(|| CommandError::from("No db connection"))?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or_else(|| CommandError::from("No db connection"))?
+            .clone()
+    };
 
     let lobbies_and_player_count = db_conn.select_lobbies()?;
     if lobbies_and_player_count.is_empty() {
