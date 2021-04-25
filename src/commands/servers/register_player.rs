@@ -1,17 +1,24 @@
-use log::*;
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
-use serenity::prelude::Context;
-use std::str::FromStr;
-
-use super::alias_from_arg_or_channel_name;
-use crate::commands::servers::*;
-use crate::db::{DbConnection, DbConnectionKey};
-use crate::model::enums::*;
-use crate::model::{BotNationIdentifier, GameNationIdentifier, GameServerState, Player};
-use crate::snek::SnekGameStatus;
+use crate::{
+    commands::servers::{alias_from_arg_or_channel_name, details::started_details_from_server},
+    db::{DbConnection, DbConnectionKey},
+    model::{
+        enums::*,
+        game_server::GameServerState,
+        game_state::*,
+        nation::{BotNationIdentifier, GameNationIdentifier},
+        player::Player,
+    },
+    snek::SnekGameStatus,
+    DetailsCacheHandle,
+};
 use either::Either;
+use log::*;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::{channel::Message, id::UserId},
+    prelude::Context,
+};
+use std::{str::FromStr, sync::Arc};
 
 // Find an uploaded/playing nation
 fn get_nation_for_started_server(
@@ -212,12 +219,13 @@ fn get_nation_for_lobby(
     }
 }
 
-fn register_custom_helper(
+async fn register_custom_helper(
     user_id: UserId,
     arg_custom_nation: String,
     alias: String,
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     message: &Message,
+    context: &Context,
 ) -> Result<(), CommandError> {
     info!(
         "Registering player {} for custom nation {} in game {}",
@@ -240,7 +248,9 @@ fn register_custom_helper(
             let register_message = format!(
                 "registering {} for {}. You will have to reregister after uploading.",
                 arg_custom_nation,
-                user_id.to_user()?
+                user_id
+                    .to_user((&context.cache, context.http.as_ref()))
+                    .await?
             );
             let nation = BotNationIdentifier::CustomName(arg_custom_nation);
             let player = Player {
@@ -250,7 +260,9 @@ fn register_custom_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation)
                 .map_err(CommandError::from)?;
-            message.reply(&register_message)?;
+            message
+                .reply((&context.cache, context.http.as_ref()), &register_message)
+                .await?;
             Ok(())
         }
         GameServerState::StartedState(_, _) => {
@@ -259,13 +271,14 @@ fn register_custom_helper(
     }
 }
 
-fn register_player_helper(
+async fn register_player_helper(
     user_id: UserId,
     arg_nation: Either<&str, u32>,
     alias: &str,
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
     message: &Message,
-    details_read_handle: &crate::CacheReadHandle,
+    details_read_handle: DetailsCacheHandle,
+    context: &Context,
 ) -> Result<(), CommandError> {
     info!(
         "Registering player {} for nation {} in game {}",
@@ -295,40 +308,50 @@ fn register_player_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.clone().into())
                 .map_err(CommandError::from)?;
-            message.reply(&format!(
-                "registering {} for {}",
-                nation.name(None),
-                user_id.to_user()?
-            ))?;
+            message
+                .reply(
+                    (&context.cache, context.http.as_ref()),
+                    &format!(
+                        "registering {} for {}",
+                        nation.name(None),
+                        user_id
+                            .to_user((&context.cache, context.http.as_ref()))
+                            .await?
+                    ),
+                )
+                .await?;
+
             Ok(())
         }
         GameServerState::StartedState(started_state, option_lobby_state) => {
+            let option_lobby_state_ref = &option_lobby_state;
+            let started_db_conn = db_conn.clone();
             let (started_details, option_snek_state) = details_read_handle
                 .get_clone(alias)
-                .and_then(|option| option)
-                .map(|cache| {
+                .await
+                .map(move |cache| {
                     let game_details: GameDetails = started_details_from_server(
-                        db_conn,
+                        started_db_conn,
                         &started_state,
-                        option_lobby_state.as_ref(),
+                        option_lobby_state_ref.as_ref(),
                         alias,
-                        cache.game_data,
-                        cache.option_snek_state,
+                        &cache.game_data,
+                        cache.option_snek_state.as_ref(),
                     )
                     .unwrap();
                     game_details
                 })
+                .map_err(|e| CommandError::from(e))
                 .and_then(|game_details| match game_details.nations {
-                    NationDetails::Lobby(_) => None,
-                    NationDetails::Started(started_details) => Some((
+                    NationDetails::Lobby(_) => Err(CommandError::from("Somehow found lobby details in a started server? This should never happen!!!")),
+                    NationDetails::Started(started_details) => Ok((
                         started_details.state,
                         game_details.cache_entry.and_then(|i| i.option_snek_state),
                     )),
-                })
-                .ok_or(CommandError::from(
-                    "Could not find game cache something is wrong",
-                ))?;
-            let option_era = option_lobby_state.map(|lobby_state| lobby_state.era);
+                })?;
+            let option_era = option_lobby_state_ref
+                .as_ref()
+                .map(|lobby_state| lobby_state.era);
             let nation = get_nation_for_started_server(
                 arg_nation,
                 &started_details,
@@ -347,14 +370,16 @@ fn register_player_helper(
                 nation.name(option_snek_state.as_ref()),
                 message.author
             );
-            let _ = message.reply(&text);
+            let _ = message
+                .reply((&context.cache, context.http.as_ref()), &text)
+                .await;
             Ok(())
         }
     }
 }
 
-pub fn register_player_id(
-    context: &mut Context,
+pub async fn register_player_id(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
@@ -366,13 +391,15 @@ pub fn register_player_id(
         )
         .into());
     }
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let details_read_handle = DetailsCacheHandle(Arc::clone(&context.data));
 
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
-    let details_read_handle = data
-        .get::<crate::DetailsReadHandleKey>()
-        .ok_or("No details cache")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("no db connection")?
+            .clone()
+    };
 
     register_player_helper(
         message.author.id,
@@ -381,38 +408,60 @@ pub fn register_player_id(
         db_conn,
         message,
         details_read_handle,
-    )?;
+        context,
+    )
+    .await?;
     Ok(())
 }
 
-pub fn register_custom(
-    context: &mut Context,
+pub async fn register_player_custom(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
 
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("no db connection")?
+            .clone()
+    };
 
-    register_custom_helper(message.author.id, arg_nation_name, alias, db_conn, message)?;
+    register_custom_helper(
+        message.author.id,
+        arg_nation_name,
+        alias,
+        db_conn,
+        message,
+        context,
+    )
+    .await?;
     Ok(())
 }
 
-pub fn register_player(
-    context: &mut Context,
+pub async fn register_player(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    // FIXME: no idea why this isn't working
+    //    if args.len() != 0 {
+    //        return Err(CommandError::from(
+    //            "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
+    //        ));
+    //    }
 
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("no db connection")?;
-    let details_read_handle = data
-        .get::<crate::DetailsReadHandleKey>()
-        .ok_or("No details cache")?;
+    let details_read_handle = DetailsCacheHandle(Arc::clone(&context.data));
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("no db connection")?
+            .clone()
+    };
 
     register_player_helper(
         message.author.id,
@@ -421,6 +470,8 @@ pub fn register_player(
         db_conn,
         message,
         details_read_handle,
-    )?;
+        context,
+    )
+    .await?;
     Ok(())
 }

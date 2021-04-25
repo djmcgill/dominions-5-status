@@ -1,20 +1,29 @@
-use crate::server::{ServerConnection, RealServerConnection};
-
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
-
-use super::alias_from_arg_or_channel_name;
-use crate::db::*;
-use crate::model::*;
-use crate::commands::servers::{get_details_for_alias, StartedStateDetails, PotentialPlayer};
-use crate::commands::servers::NationDetails;
 use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
+use crate::{
+    commands::servers::{
+        alias_from_arg_or_channel_name,
+        details::get_details_for_alias,
+        // turn_check::{notify_player_for_new_turn, NewTurnNation},
+    },
+    db::*,
+    model::{
+        game_server::{GameServerState, StartedState},
+        game_state::{NationDetails, PotentialPlayer, StartedStateDetails},
+    },
+    server::get_game_data_async,
+    snek::snek_details_async,
+};
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::channel::Message,
+    prelude::Context,
+};
 
-fn start_helper<C: ServerConnection>(
-    db_conn: &DbConnection,
+async fn start_helper(
+    db_conn: DbConnection,
     address: &str,
     alias: &str,
+    context: &Context,
 ) -> Result<(), CommandError> {
     let server = db_conn.game_for_alias(&alias)?;
 
@@ -23,7 +32,7 @@ fn start_helper<C: ServerConnection>(
             return Err(CommandError::from("game already started"))
         }
         GameServerState::Lobby(lobby_state) => {
-            let game_data = C::get_game_data(&address)?;
+            let game_data = get_game_data_async(&address).await?;
             if game_data.nations.len() as i32 > lobby_state.player_count {
                 return Err(CommandError::from("game has more players than the lobby"));
             }
@@ -35,50 +44,61 @@ fn start_helper<C: ServerConnection>(
 
             db_conn.insert_started_state(&alias, &started_state)?;
 
-            // This is a bit of a hack, the turncheck should take care of it
-            let started_details = get_details_for_alias::<RealServerConnection>(db_conn, alias)?;
-            let option_snek_state = crate::snek::snek_details(address).ok().and_then(|i| i);
-            let mut new_turn_messages = vec![];
+            let started_details = get_details_for_alias(db_conn, alias).await?;
+            let option_snek_state = snek_details_async(address).await.ok().and_then(|i| i);
+
             if let NationDetails::Started(started_details) = started_details.nations {
                 if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
                     for player in uploading_details.uploading_players {
-                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) = player.potential_player {
-                            new_turn_messages.push(NewTurnNation {
-                                user_id,
-                                message: format!(
-                                    "Uploading has started in {}! You registered as {}. Server address is '{}'.",
-                                    alias, nation_id.name(option_snek_state.as_ref()), started_details.address
-                                ),
+                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) =
+                            player.potential_player
+                        {
+                            let message = NewTurnNation {
+                                    user_id,
+                                    message: format!(
+                                        "Uploading has started in {}! You registered as {}. Server address is '{}'.",
+                                        alias, nation_id.name(option_snek_state.as_ref()), started_details.address
+                                    ),
+                                };
+
+                            let cache = context.cache.clone();
+                            let http = context.http.clone();
+                            let _ = tokio::spawn(async move {
+                                // fixme: error handling
+                                let _ =
+                                    notify_player_for_new_turn(message, (&cache, http.as_ref()))
+                                        .await;
                             });
                         }
                     }
                 }
-            }
-            for new_turn_message in &new_turn_messages {
-                let _ = notify_player_for_new_turn(new_turn_message);
             }
         }
     }
     Ok(())
 }
 
-pub fn start<C: ServerConnection>(
-    context: &mut Context,
+pub async fn start(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let data = context.data.lock();
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
     let address = args.single_quoted::<String>()?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
-    start_helper::<C>(db_conn, &address, &alias)?;
-    message.reply(&"started!")?;
+    start_helper(db_conn, &address, &alias, context).await?;
+    message
+        .reply((&context.cache, context.http.as_ref()), &"started!")
+        .await?;
     Ok(())
 }

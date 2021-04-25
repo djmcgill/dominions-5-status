@@ -10,7 +10,7 @@ use crate::db::{DbConnection, DbConnectionKey};
 fn unregister_player_helper(
     user_id: UserId,
     alias: &str,
-    db_conn: &DbConnection,
+    db_conn: DbConnection,
 ) -> Result<(), CommandError> {
     let rows_affected = db_conn
         .remove_player_from_game(&alias, user_id)
@@ -23,14 +23,18 @@ fn unregister_player_helper(
     }
 }
 
-pub fn unregister_player(
-    context: &mut Context,
+pub async fn unregister_player(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
-    let data = context.data.lock();
-    let db_conn = data.get::<DbConnectionKey>().ok_or("No db connection")?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No db connection")?
+            .clone()
+    };
     unregister_player_helper(message.author.id, &alias, db_conn)?;
 
     let text = format!(
@@ -38,6 +42,6 @@ pub fn unregister_player(
         message.author, alias
     );
     info!("{}", text);
-    let _ = message.reply(&text);
+    let _ = message.reply((&context.cache, context.http.as_ref()), &text);
     Ok(())
 }

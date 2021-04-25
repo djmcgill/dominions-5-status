@@ -4,13 +4,15 @@ use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
 use crate::db::*;
-use crate::model::GameServerState;
+use crate::model::game_server::GameServerState;
 
-fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandError> {
+fn list_servers_helper(db_conn: DbConnection) -> Result<CreateEmbed, CommandError> {
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;
 
     if server_list.is_empty() {
-        Ok(CreateEmbed::default().title("NO SERVERS"))
+        let mut embed = CreateEmbed::default();
+        embed.title("NO SERVERS");
+        Ok(embed)
     } else {
         let embed_title = "Servers:";
         let mut server_aliases = String::new();
@@ -29,7 +31,8 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
             }
         }
 
-        let embed = CreateEmbed::default()
+        let mut embed = CreateEmbed::default();
+        embed
             .title(embed_title)
             .field("Alias", server_aliases, true)
             .field("Address", server_addresses, true);
@@ -38,12 +41,22 @@ fn list_servers_helper(db_conn: &DbConnection) -> Result<CreateEmbed, CommandErr
     }
 }
 
-pub fn list_servers(context: &mut Context, message: &Message) -> Result<(), CommandError> {
-    let data = context.data.lock();
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or_else(|| CommandError("No db connection".to_string()))?;
+pub async fn list_servers(context: &Context, message: &Message) -> Result<(), CommandError> {
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or_else(|| CommandError::from("No db connection".to_string()))?
+            .clone()
+    };
     let embed = list_servers_helper(db_conn)?;
-    message.channel_id.send_message(|m| m.embed(|_| embed))?;
+    message
+        .channel_id
+        .send_message(&context.http, |m| {
+            m.embed(|message_embed| {
+                *message_embed = embed;
+                message_embed
+            })
+        })
+        .await?;
     Ok(())
 }

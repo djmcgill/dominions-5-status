@@ -4,76 +4,73 @@ use serenity::model::channel::Message;
 use serenity::model::id::UserId;
 use serenity::prelude::Context;
 
-use crate::commands::servers::*;
-use crate::db::*;
-use crate::model::enums::*;
-use crate::model::GameServerState;
-use crate::server::ServerConnection;
-use crate::snek::SnekGameStatus;
+use crate::DetailsCacheHandle;
+use crate::{
+    commands::servers::details::started_details_from_server,
+    db::*,
+    model::{
+        enums::*,
+        game_server::GameServerState,
+        game_state::{
+            GameDetails, NationDetails, PlayingState, PotentialPlayer, StartedStateDetails,
+            UploadingState,
+        },
+    },
+    snek::SnekGameStatus,
+};
+use std::sync::Arc;
 
-fn turns_helper<C: ServerConnection>(
+async fn turns_helper(
     user_id: UserId,
-    db_conn: &DbConnection,
-    read_handle: &crate::CacheReadHandle,
+    db_conn: DbConnection,
+    read_handle: DetailsCacheHandle,
 ) -> Result<String, CommandError> {
     debug!("Starting !turns");
     let servers_and_nations_for_player = db_conn.servers_for_player(user_id)?;
 
     let mut text = "Your turns:\n".to_string();
+    let db_conn = &db_conn;
     for (server, _) in servers_and_nations_for_player {
         if let GameServerState::StartedState(started_state, option_lobby_state) = server.state {
-            let option_option_game_details = read_handle.get_clone(&server.alias);
-            match option_option_game_details {
-                Some(Some(cache)) => {
-                    let details: GameDetails = started_details_from_server(
-                        db_conn,
-                        &started_state,
-                        option_lobby_state.as_ref(),
-                        &server.alias,
-                        cache.game_data,
-                        cache.option_snek_state,
-                    )
-                    .unwrap();
+            let cache = read_handle.get_clone(&server.alias).await?;
+            let details: GameDetails = started_details_from_server(
+                db_conn.clone(),
+                &started_state,
+                option_lobby_state.as_ref(),
+                &server.alias,
+                &cache.game_data,
+                cache.option_snek_state.as_ref(),
+            )
+            .unwrap();
 
-                    match details.nations {
-                        NationDetails::Started(started_state) => match started_state.state {
-                            StartedStateDetails::Uploading(uploading_state) => {
-                                turns_for_uploading_state(
-                                    &mut text,
-                                    &uploading_state,
-                                    user_id,
-                                    &server.alias,
-                                    details
-                                        .cache_entry
-                                        .and_then(|cache_entry| cache_entry.option_snek_state)
-                                        .as_ref(),
-                                );
-                            }
-                            StartedStateDetails::Playing(playing_state) => {
-                                turns_for_playing_state(
-                                    &mut text,
-                                    &playing_state,
-                                    user_id,
-                                    &server.alias,
-                                    details
-                                        .cache_entry
-                                        .and_then(|cache_entry| cache_entry.option_snek_state)
-                                        .as_ref(),
-                                );
-                            }
-                        },
-                        NationDetails::Lobby(_) => continue,
+            match details.nations {
+                NationDetails::Started(started_state) => match started_state.state {
+                    StartedStateDetails::Uploading(uploading_state) => {
+                        turns_for_uploading_state(
+                            &mut text,
+                            &uploading_state,
+                            user_id,
+                            &server.alias,
+                            details
+                                .cache_entry
+                                .and_then(|cache_entry| cache_entry.option_snek_state)
+                                .as_ref(),
+                        );
                     }
-                }
-                Some(None) => {
-                    text.push_str(&format!("{}: Cannot connect to server!\n", server.alias));
-                }
-                None => {
-                    text.push_str(&format!(
-                        "{}: Server starting up, please try again in 1 min.\n",
-                        server.alias
-                    ));
-                }
+                    StartedStateDetails::Playing(playing_state) => {
+                        turns_for_playing_state(
+                            &mut text,
+                            &playing_state,
+                            user_id,
+                            &server.alias,
+                            details
+                                .cache_entry
+                                .and_then(|cache_entry| cache_entry.option_snek_state)
+                                .as_ref(),
+                        );
+                    }
+                },
+                NationDetails::Lobby(_) => continue,
             }
         }
     }
@@ -209,20 +206,17 @@ fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, 
     (playing_players, submitted_players)
 }
 
-pub fn turns2<C: ServerConnection>(
-    context: &mut Context,
-    message: &Message,
-) -> Result<(), CommandError> {
-    let data = context.data.lock();
-    let db_conn = data
-        .get::<DbConnectionKey>()
-        .ok_or_else(|| CommandError("No db connection".to_string()))?;
-    let read_handle = data
-        .get::<crate::DetailsReadHandleKey>()
-        .ok_or("No ReadHandle was created on startup. This is a bug.")?;
-    let text = turns_helper::<C>(message.author.id, db_conn, read_handle)?;
+pub async fn turns2(context: &Context, message: &Message) -> Result<(), CommandError> {
+    let read_handle = DetailsCacheHandle(Arc::clone(&context.data));
+    let db_conn = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or_else(|| CommandError::from("No db connection"))?
+            .clone()
+    };
+    let text = turns_helper(message.author.id, db_conn, read_handle).await?;
     info!("turns: replying with: {}", text);
-    let private_channel = message.author.id.create_dm_channel()?;
-    private_channel.say(&text)?;
+    let private_channel = message.author.id.create_dm_channel(&context.http).await?;
+    private_channel.say(&context.http, &text).await?;
     Ok(())
 }

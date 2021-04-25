@@ -1,23 +1,30 @@
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::channel::Message,
+    prelude::Context,
+};
 
-use super::alias_from_arg_or_channel_name;
-use crate::db::{DbConnection, DbConnectionKey};
-use crate::model::{GameServer, GameServerState, StartedState};
-use crate::server::ServerConnection;
+use crate::model::game_state::CacheEntry;
+use crate::{
+    commands::servers::alias_from_arg_or_channel_name,
+    db::{DbConnection, DbConnectionKey},
+    model::game_server::{GameServer, GameServerState, StartedState},
+    server::get_game_data_async,
+    snek::snek_details_async,
+    DetailsCacheHandle, DetailsCacheKey,
+};
+use chrono::Utc;
 use log::*;
+use std::sync::Arc;
 
-#[cfg(test)]
-mod tests;
-
-fn add_server_helper<C: ServerConnection>(
+async fn add_server_helper(
     server_address: &str,
     game_alias: &str,
-    db_connection: &DbConnection,
+    db_connection: DbConnection,
+    write_handle_mutex: DetailsCacheHandle,
 ) -> Result<(), CommandError> {
-    let game_data = C::get_game_data(server_address)?;
-
+    let game_data = get_game_data_async(server_address).await?;
+    let option_snek_state = snek_details_async(server_address).await?;
     let server = GameServer {
         alias: game_alias.to_string(),
         state: GameServerState::StartedState(
@@ -41,17 +48,36 @@ fn add_server_helper<C: ServerConnection>(
             CommandError::from(e)
         }
     })?;
+
+    let cache_entry = CacheEntry {
+        game_data,
+        option_snek_state,
+    };
+    let mut guard = write_handle_mutex.0.write().await;
+    match guard.get_mut::<DetailsCacheKey>() {
+        Some(write_handle) => {
+            write_handle.insert(
+                game_alias.to_owned(),
+                Box::new((Utc::now(), Some(cache_entry))),
+            );
+        }
+        None => {
+            error!("Cache somehow not initialised, this should never happen!!");
+        }
+    }
+
     Ok(())
 }
 
-pub fn add_server<C: ServerConnection>(
-    context: &mut Context,
+pub async fn add_server(
+    context: &Context,
     message: &Message,
     mut args: Args,
 ) -> Result<(), CommandError> {
+    info!("Adding server for {} with args {:?}", message.author, args);
     let server_address = args.single_quoted::<String>()?;
 
-    let alias = alias_from_arg_or_channel_name(&mut args, &message)?;
+    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
 
     if !args.is_empty() {
         return Err(CommandError::from(
@@ -59,13 +85,17 @@ pub fn add_server<C: ServerConnection>(
         ));
     }
 
-    let data = context.data.lock();
-    let db_connection = data
-        .get::<DbConnectionKey>()
-        .ok_or("No DbConnection was created on startup. This is a bug.")?;
-    add_server_helper::<C>(&server_address, &alias, db_connection)?;
+    let write_handle_mutex = DetailsCacheHandle(Arc::clone(&context.data));
+    let db_connection = {
+        let data = context.data.read().await;
+        data.get::<DbConnectionKey>()
+            .ok_or("No DbConnection was created on startup. This is a bug.")?
+            .clone()
+    };
+    add_server_helper(&server_address, &alias, db_connection, write_handle_mutex).await?;
     let text = format!("Successfully inserted with alias {}", alias);
-    let _ = message.reply(&text);
-    info!("{}", text);
+    message
+        .reply((&context.cache, context.http.as_ref()), text)
+        .await?;
     Ok(())
 }

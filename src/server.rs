@@ -1,25 +1,34 @@
-use crate::model::enums::{NationStatus, SubmissionStatus};
-use crate::model::{GameData, GameNationIdentifier, Nation, RawGameData};
-use crate::snek::{snek_details, SnekGameStatus};
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
+use crate::model::{
+    enums::{NationStatus, SubmissionStatus},
+    game_data::GameData,
+    nation::{GameNationIdentifier, Nation},
+    raw_game_data::RawGameData,
+};
+use anyhow::Context;
+use byteorder::{LittleEndian, ReadBytesExt};
 use flate2::read::ZlibDecoder;
-use hex_slice::AsHex;
 use log::*;
-use std::error::Error;
-use std::io;
-use std::io::{BufRead, Cursor, Read, Write};
-use std::net;
-use std::net::SocketAddr;
-use std::net::ToSocketAddrs;
-use std::time::Duration;
+use std::{
+    io::{self, BufRead, Cursor, Read},
+    time::Duration,
+};
+use tokio::{
+    io::{AsyncReadExt, AsyncWriteExt},
+    time,
+};
 
-pub trait ServerConnection {
-    fn get_game_data(server_address: &str) -> io::Result<GameData>;
-    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Error>>;
+pub async fn get_game_data_async(server_address: &str) -> anyhow::Result<GameData> {
+    let raw_data = time::timeout(
+        Duration::from_secs(5),
+        get_raw_game_data_async(server_address),
+    )
+    .await
+    .context("retrieving info from the server timed out")?
+    .context("cannot retrieve info from the server")?;
+    let game_data = interpret_raw_data(raw_data)?;
+    Ok(game_data)
 }
-
-fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
-    let raw_data = get_raw_game_data(server_address)?;
+fn interpret_raw_data(raw_data: RawGameData) -> anyhow::Result<GameData> {
     let mut game_data = GameData {
         game_name: raw_data.game_name,
         nations: vec![],
@@ -46,78 +55,52 @@ fn get_game_data_cache(server_address: &str) -> io::Result<GameData> {
     }
     Ok(game_data)
 }
-
-pub struct RealServerConnection;
-
-impl ServerConnection for RealServerConnection {
-    fn get_game_data(server_address: &str) -> io::Result<GameData> {
-        get_game_data_cache(server_address)
-    }
-    fn get_snek_data(server_address: &str) -> Result<Option<SnekGameStatus>, Box<dyn Error>> {
-        snek_details(server_address)
-    }
-}
-
-fn get_raw_game_data(server_address: &str) -> io::Result<RawGameData> {
-    let buffer = call_server_for_info(server_address)?;
+async fn get_raw_game_data_async(server_address: &str) -> anyhow::Result<RawGameData> {
+    let buffer = call_server_for_info_async(server_address).await?;
     let decompressed = decompress_server_info(&buffer)?;
     let game_data = parse_data(&decompressed)?;
     Ok(game_data)
 }
+async fn call_server_for_info_async(server_address: &str) -> anyhow::Result<Vec<u8>> {
+    debug!("call_server_for_info_async for {}", server_address);
+    let mut stream = tokio::net::TcpStream::connect(server_address).await?;
 
-fn call_server_for_info(server_address: &str) -> io::Result<Vec<u8>> {
-    info!("starting to connect to {}", server_address);
-    let parsed_address: SocketAddr =
-        server_address
-            .to_socket_addrs()?
-            .next()
-            .ok_or(io::Error::new(
-                io::ErrorKind::Other,
-                "Could not resolve ip address",
-            ))?;
-    let mut stream = net::TcpStream::connect_timeout(&parsed_address, Duration::from_secs(30))?;
-    debug!("connected");
+    // No idea where this means lol
+    // It's a modification of the original dom3/4 script, it got changed in patch 5.44
     // https://steamcommunity.com/app/722060/discussions/0/1749024748627269322/?ctp=2#c1749024925634051868
-    // (b'f', b'H', b'\a', b'\x00', b'\x00',
-    // b'\x00', b'=', b'\x1e', b'\x02', b'\x11', b'E', b'\x05', b'\x00')
-    // b'<ccssssccccccc'
-    let mut wtr = vec![];
-    wtr.write_u8(b'f')?;
-    wtr.write_u8(b'H')?;
-    // wtr.write_u32::<LittleEndian>(1)?;
-    // wtr.write_u8(3)?;
-    wtr.write_u8(0x07)?;
-    wtr.write_u8(0x00)?;
-    wtr.write_u8(0x00)?;
-    wtr.write_u8(0x00)?;
-    wtr.write_u8(b'=')?;
-    wtr.write_u8(0x1e)?;
-    wtr.write_u8(0x02)?;
-    wtr.write_u8(0x11)?;
-    wtr.write_u8(b'E')?;
-    wtr.write_u8(0x05)?;
-    wtr.write_u8(0x00)?;
+    let request = [
+        b'f', b'H', // wtr.write_u32::<LittleEndian>(1)?;
+        // wtr.write_u8(3)?;
+        0x07, 0x00, 0x00, 0x00, b'=', 0x1e, 0x02, 0x11, b'E', 0x05, 0x00,
+    ];
 
-    debug!("Sending {:x}", wtr.as_slice().as_hex());
-    let _ = stream.write(&wtr)?;
-    debug!("sent");
-    let mut buffer = [0; 2048];
+    stream.write_all(&request).await?;
+
+    let mut header_buffer = [0; 6];
     debug!("trying to receive");
-    let _ = stream.read(&mut buffer)?;
+    let header_bytes_read = stream.read_exact(&mut header_buffer).await?;
+    debug!(
+        "received {} header bytes, byte 2 is {}",
+        header_bytes_read, header_buffer[2],
+    );
 
-    let mut wtr2 = vec![];
-    wtr2.write_u8(b'f')?;
-    wtr2.write_u8(b'H')?;
-    wtr2.write_u32::<LittleEndian>(1)?;
-    wtr2.write_u8(11)?;
-    debug!("Sending {:x}", wtr2.as_slice().as_hex());
-    let _ = stream.write(&wtr2)?;
-    debug!("sent");
+    let mut body_buffer = vec![0; header_buffer[2] as usize];
+    let body_bytes_read = stream.read_exact(&mut body_buffer).await?;
+    debug!("received {} body bytes", body_bytes_read);
 
-    Ok(buffer.to_vec())
+    debug!("sending close");
+    let close_request = [
+        b'f', b'H', 0x01, 0x00, 0x00, 0x00, // ::<LittleEndian>(1)?;
+        11,
+    ];
+    stream.write_all(&close_request).await?;
+
+    let mut buffer = header_buffer.to_vec();
+    buffer.append(&mut body_buffer);
+
+    Ok(buffer)
 }
-
-fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
+fn decompress_server_info(raw: &[u8]) -> anyhow::Result<Vec<u8>> {
     debug!("HEADER {:?}", &raw[0..10]);
     if raw[1] == b'J' {
         debug!("decompressing");
@@ -130,19 +113,21 @@ fn decompress_server_info(raw: &[u8]) -> io::Result<Vec<u8>> {
         Ok(raw[10..].to_vec())
     }
 }
-
-fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
+fn parse_data(data: &[u8]) -> anyhow::Result<RawGameData> {
     let len = data.len();
     debug!("done: data.len(): {}", len);
 
     let mut cursor = Cursor::new(data);
     let mut a = [0u8; 6];
-    cursor.read_exact(&mut a)?;
+    Read::read_exact(&mut cursor, &mut a)?;
     debug!(
         "cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
+    // debug!("A: {:#?}", a);
+    // debug!("Au32b: {}", u32::from_be_bytes([a[0], a[1]]));
+    // debug!("Au32l: {}", u32::from_le_bytes([a[0], a[1]]));
     debug!("parsing name");
     let mut game_name_bytes = vec![];
     let read_bytes = cursor.read_until(0, &mut game_name_bytes)?;
@@ -168,10 +153,9 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
         cursor.get_ref().len()
     );
     let mut c = [0u8; 6];
-    cursor.read_exact(&mut c)?;
-
+    Read::read_exact(&mut cursor, &mut c)?;
     debug!("reading timer");
-    let d = cursor.read_i32::<LittleEndian>()?;
+    let d = Read::read_i32::<LittleEndian>(&mut cursor)?;
     debug!("timer value: {}", d);
 
     // let e = cursor.read_u8()?;
@@ -182,31 +166,31 @@ fn parse_data(data: &[u8]) -> io::Result<RawGameData> {
         cursor.get_ref().len()
     );
     let mut f = vec![0u8; 750];
-    cursor.read_exact(&mut f)?;
+    Read::read_exact(&mut cursor, &mut f)?;
     debug!(
         "g cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let g = cursor.read_u8()?;
+    let g = Read::read_u8(&mut cursor)?;
     debug!(
         "h cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let h = cursor.read_u32::<LittleEndian>()?;
+    let h = Read::read_u32::<LittleEndian>(&mut cursor)?;
     debug!(
         "i cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let i = cursor.read_u32::<LittleEndian>()?;
+    let i = Read::read_u32::<LittleEndian>(&mut cursor)?;
     debug!(
         "j cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let j = cursor.read_u8()?;
+    let j = Read::read_u8(&mut cursor)?;
     debug!(
         "finish cursor position: {}, cursor len: {}",
         cursor.position(),

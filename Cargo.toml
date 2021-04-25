@@ -1,32 +1,29 @@
 [package]
 name = "dom5status"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["David McGillicuddy <contact@djmcgill.co.uk>"]
 edition = "2018"
 
 [dependencies]
-byteorder = "*"
-chrono = "0.4.*"
-either = "1.4"
-enum-primitive-derive = "^0.1"
-evmap = "6.0.*"
-failure = "0.1.1"
+anyhow = "1.0"
+byteorder = "1.4"
+chrono = "0.4"
+either = "1.6"
+enum-primitive-derive = "0.2"
 flate2 = "1.0"
-hex-slice = "*"
-lazy_static = "1.3.*"
-log = "0.4.*"
-migrant_lib = { version = "0.24.*", features = ["d-sqlite"]}
-num-traits = "^0.1"
-r2d2 = "0.8.0"
-r2d2_sqlite = "0.9.0"
-reqwest = "0.9.18"
-rusqlite = {version = "0.17.*", features = ["bundled", "trace"]}
+futures = "0.3"
+im = "15.0"
+lazy_static = "1.4"
+log = "0.4"
+migrant_lib = {version = "0.30", features = ["d-sqlite"]}
+num-traits = "0.2"
+percent-encoding = "2.1"
+reqwest = "0.11"
+rusqlite = {version = "0.24", features = ["bundled"]}
+r2d2 = "0.8"
+r2d2_sqlite = "0.17"
 serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serenity = "0.5.11"
-simplelog = "^0.4.4"
-typemap = "0.3"
-url = "1.7.*"
-
-[dev-dependencies]
-color-backtrace = { version = "0.2" }
+serenity = "0.10"
+simplelog = "0.9"
+tokio = { version = "1.4", features = ["macros", "rt-multi-thread", "time"]}
+url = "2.2"
