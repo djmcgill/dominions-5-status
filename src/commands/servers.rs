@@ -13,11 +13,16 @@ pub mod turns;
 pub mod unregister_player;
 pub mod unstart;
 
+use serenity::builder::CreateEmbed;
+use serenity::framework::standard::CommandError;
+use serenity::model::id::{ChannelId, UserId};
 use serenity::{
     framework::standard::{macros::*, Args, CommandResult},
     model::channel::Message,
     prelude::*,
 };
+use std::future::Future;
+use std::pin::Pin;
 
 // FIXME: buckets
 #[group]
@@ -150,4 +155,62 @@ async fn alias_from_arg_or_channel_name(
                 result_alias.unwrap_or_default()
             )
         })
+}
+
+// TODO: the idea is that all commands (that don't use embeds), both slash and bang (normal) go
+//       through this and then the command helpers get changed to fit this format
+// TODO: also, debox
+async fn bang_command_reply_wrap<F>(
+    context: &Context,
+    message: &Message,
+    args: Args,
+    f: F,
+) -> Result<(), CommandError>
+where
+    F: Fn(
+        &Context,
+        ChannelId,
+        UserId,
+        Args,
+    ) -> Pin<Box<dyn Future<Output = Result<Option<String>, CommandError>>>>,
+{
+    let channel_id = message.channel_id;
+    let user_id = message.author.id;
+    let option_string = f(context, channel_id, user_id, args).await?;
+
+    if let Some(reply) = option_string {
+        message
+            .reply((&context.cache, context.http.as_ref()), reply)
+            .await?;
+    }
+    Ok(())
+}
+
+async fn bang_command_embed_wrap<F>(
+    context: &Context,
+    message: &Message,
+    args: Args,
+    f: F,
+) -> Result<(), CommandError>
+where
+    F: Fn(
+        &Context,
+        ChannelId,
+        UserId,
+        Args,
+    ) -> Pin<Box<dyn Future<Output = Result<CreateEmbed, CommandError>>>>,
+{
+    let channel_id = message.channel_id;
+    let user_id = message.author.id;
+    let embed = f(context, channel_id, user_id, args).await?;
+    message
+        .channel_id
+        .send_message(&context.http, |m| {
+            m.embed(|e| {
+                *e = embed;
+                e
+            })
+        })
+        .await?;
+    Ok(())
 }
