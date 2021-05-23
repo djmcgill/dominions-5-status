@@ -1,3 +1,4 @@
+use crate::commands::servers::CommandResponse;
 use crate::{
     commands::servers::{alias_from_arg_or_channel_name, details::started_details_from_server},
     db::{DbConnection, DbConnectionKey},
@@ -13,9 +14,10 @@ use crate::{
 };
 use either::Either;
 use log::*;
+use serenity::model::id::ChannelId;
 use serenity::{
     framework::standard::{Args, CommandError},
-    model::{channel::Message, id::UserId},
+    model::id::UserId,
     prelude::Context,
 };
 use std::{str::FromStr, sync::Arc};
@@ -224,9 +226,8 @@ async fn register_custom_helper(
     arg_custom_nation: String,
     alias: String,
     db_conn: DbConnection,
-    message: &Message,
     context: &Context,
-) -> Result<(), CommandError> {
+) -> Result<String, CommandError> {
     info!(
         "Registering player {} for custom nation {} in game {}",
         user_id, arg_custom_nation, alias
@@ -260,10 +261,7 @@ async fn register_custom_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation)
                 .map_err(CommandError::from)?;
-            message
-                .reply((&context.cache, context.http.as_ref()), &register_message)
-                .await?;
-            Ok(())
+            Ok(register_message)
         }
         GameServerState::StartedState(_, _) => {
             Err("You cannot use \"register-custom\" during after uploads have started!".into())
@@ -276,10 +274,9 @@ async fn register_player_helper(
     arg_nation: Either<&str, u32>,
     alias: &str,
     db_conn: DbConnection,
-    message: &Message,
     details_read_handle: DetailsCacheHandle,
     context: &Context,
-) -> Result<(), CommandError> {
+) -> Result<String, CommandError> {
     info!(
         "Registering player {} for nation {} in game {}",
         user_id, arg_nation, alias
@@ -308,20 +305,13 @@ async fn register_player_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.clone().into())
                 .map_err(CommandError::from)?;
-            message
-                .reply(
-                    (&context.cache, context.http.as_ref()),
-                    &format!(
-                        "registering {} for {}",
-                        nation.name(None),
-                        user_id
-                            .to_user((&context.cache, context.http.as_ref()))
-                            .await?
-                    ),
-                )
-                .await?;
-
-            Ok(())
+            Ok(format!(
+                "registering {} for {}",
+                nation.name(None),
+                user_id
+                    .to_user((&context.cache, context.http.as_ref()))
+                    .await?
+            ))
         }
         GameServerState::StartedState(started_state, option_lobby_state) => {
             let option_lobby_state_ref = &option_lobby_state;
@@ -368,30 +358,28 @@ async fn register_player_helper(
             let text = format!(
                 "registering nation {} for user {}",
                 nation.name(option_snek_state.as_ref()),
-                message.author
+                user_id
             );
-            let _ = message
-                .reply((&context.cache, context.http.as_ref()), &text)
-                .await;
-            Ok(())
+            Ok(text)
         }
     }
 }
 
 pub async fn register_player_id(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     let arg_nation_id: u32 = args.single_quoted::<u32>()?;
-    if arg_nation_id >= std::i32::MAX as u32 {
+    if arg_nation_id >= i32::MAX as u32 {
         return Err(format!(
-            "Nation ID {} too large. Your hilarious joke will have to be less than 2^32.",
+            "Nation ID {} too large. Your hilarious joke will have to be less than 2^31-1.",
             arg_nation_id
         )
         .into());
     }
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     let details_read_handle = DetailsCacheHandle(Arc::clone(&context.data));
 
     let db_conn = {
@@ -401,26 +389,26 @@ pub async fn register_player_id(
             .clone()
     };
 
-    register_player_helper(
-        message.author.id,
+    let reply = register_player_helper(
+        user_id,
         Either::Right(arg_nation_id),
         &alias,
         db_conn,
-        message,
         details_read_handle,
         context,
     )
     .await?;
-    Ok(())
+    Ok(CommandResponse::Reply(reply))
 }
 
 pub async fn register_player_custom(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
 
     let db_conn = {
         let data = context.data.read().await;
@@ -429,31 +417,18 @@ pub async fn register_player_custom(
             .clone()
     };
 
-    register_custom_helper(
-        message.author.id,
-        arg_nation_name,
-        alias,
-        db_conn,
-        message,
-        context,
-    )
-    .await?;
-    Ok(())
+    let reply = register_custom_helper(user_id, arg_nation_name, alias, db_conn, context).await?;
+    Ok(CommandResponse::Reply(reply))
 }
 
 pub async fn register_player(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     let arg_nation_name: String = args.single_quoted::<String>()?.to_lowercase();
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
-    // FIXME: no idea why this isn't working
-    //    if args.len() != 0 {
-    //        return Err(CommandError::from(
-    //            "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
-    //        ));
-    //    }
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
 
     let details_read_handle = DetailsCacheHandle(Arc::clone(&context.data));
     let db_conn = {
@@ -463,15 +438,14 @@ pub async fn register_player(
             .clone()
     };
 
-    register_player_helper(
-        message.author.id,
+    let reply = register_player_helper(
+        user_id,
         Either::Left(&arg_nation_name),
         &alias,
         db_conn,
-        message,
         details_read_handle,
         context,
     )
     .await?;
-    Ok(())
+    Ok(CommandResponse::Reply(reply))
 }

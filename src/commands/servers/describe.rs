@@ -1,16 +1,18 @@
 use super::alias_from_arg_or_channel_name;
-
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
-
+use crate::commands::servers::CommandResponse;
 use crate::db::DbConnectionKey;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::id::{ChannelId, UserId},
+    prelude::Context,
+};
 
 pub async fn describe(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    _user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     let db_conn = {
         let data = context.data.read().await;
         data.get::<DbConnectionKey>()
@@ -19,7 +21,7 @@ pub async fn describe(
     };
 
     let description = args.single_quoted::<String>()?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: the description needs to be in quotes",
@@ -27,11 +29,8 @@ pub async fn describe(
     }
 
     db_conn.update_lobby_with_description(&alias, &description)?;
-    message
-        .reply(
-            (&context.cache, context.http.as_ref()),
-            &format!("added description to {}", alias),
-        )
-        .await?;
-    Ok(())
+    Ok(CommandResponse::Reply(format!(
+        "added description to {}",
+        alias
+    )))
 }

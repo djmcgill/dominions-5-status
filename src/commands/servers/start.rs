@@ -1,4 +1,5 @@
 use crate::commands::servers::turn_check::{notify_player_for_new_turn, NewTurnNation};
+use crate::commands::servers::CommandResponse;
 use crate::{
     commands::servers::{
         alias_from_arg_or_channel_name,
@@ -13,9 +14,9 @@ use crate::{
     server::get_game_data_async,
     snek::snek_details_async,
 };
+use serenity::model::id::{ChannelId, UserId};
 use serenity::{
     framework::standard::{Args, CommandError},
-    model::channel::Message,
     prelude::Context,
 };
 
@@ -80,9 +81,10 @@ async fn start_helper(
 
 pub async fn start(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    _user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     let db_conn = {
         let data = context.data.read().await;
         data.get::<DbConnectionKey>()
@@ -90,15 +92,12 @@ pub async fn start(
             .clone()
     };
     let address = args.single_quoted::<String>()?;
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
     start_helper(db_conn, &address, &alias, context).await?;
-    message
-        .reply((&context.cache, context.http.as_ref()), &"started!")
-        .await?;
-    Ok(())
+    Ok(CommandResponse::Reply("started!".to_owned()))
 }

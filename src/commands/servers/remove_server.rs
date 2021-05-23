@@ -1,11 +1,12 @@
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
 use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
+use crate::commands::servers::CommandResponse;
 use crate::db::*;
 use crate::{DetailsCacheHandle, DetailsCacheKey};
 use log::error;
+use serenity::model::id::{ChannelId, UserId};
 use std::sync::Arc;
 
 async fn remove_server_helper(
@@ -33,10 +34,11 @@ async fn remove_server_helper(
 
 pub async fn remove_server(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    _user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+) -> Result<CommandResponse, CommandError> {
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
@@ -51,11 +53,8 @@ pub async fn remove_server(
             .clone()
     };
     remove_server_helper(write_handle_mutex, db_conn, &alias).await?;
-    let _ = message
-        .reply(
-            (&context.cache, context.http.as_ref()),
-            &format!("successfully removed server {}", alias),
-        )
-        .await;
-    Ok(())
+    Ok(CommandResponse::Reply(format!(
+        "successfully removed server {}",
+        alias
+    )))
 }

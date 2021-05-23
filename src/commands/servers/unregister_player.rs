@@ -1,10 +1,10 @@
 use log::*;
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
+use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::Context;
 
 use super::alias_from_arg_or_channel_name;
+use crate::commands::servers::CommandResponse;
 use crate::db::{DbConnection, DbConnectionKey};
 
 fn unregister_player_helper(
@@ -25,23 +25,23 @@ fn unregister_player_helper(
 
 pub async fn unregister_player(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+) -> Result<CommandResponse, CommandError> {
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     let db_conn = {
         let data = context.data.read().await;
         data.get::<DbConnectionKey>()
             .ok_or("No db connection")?
             .clone()
     };
-    unregister_player_helper(message.author.id, &alias, db_conn)?;
+    unregister_player_helper(user_id, &alias, db_conn)?;
 
     let text = format!(
         "Removing user {} from all nations in game {}",
-        message.author, alias
+        user_id, alias
     );
     info!("{}", text);
-    let _ = message.reply((&context.cache, context.http.as_ref()), &text);
-    Ok(())
+    Ok(CommandResponse::Reply(text))
 }

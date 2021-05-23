@@ -1,10 +1,10 @@
-use serenity::builder::CreateEmbed;
-use serenity::framework::standard::CommandError;
-use serenity::model::channel::Message;
-use serenity::prelude::Context;
-
+use crate::commands::servers::CommandResponse;
 use crate::db::*;
 use crate::model::game_server::GameServerState;
+use serenity::builder::CreateEmbed;
+use serenity::framework::standard::{Args, CommandError};
+use serenity::model::id::{ChannelId, UserId};
+use serenity::prelude::Context;
 
 fn list_servers_helper(db_conn: DbConnection) -> Result<CreateEmbed, CommandError> {
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;
@@ -41,7 +41,12 @@ fn list_servers_helper(db_conn: DbConnection) -> Result<CreateEmbed, CommandErro
     }
 }
 
-pub async fn list_servers(context: &Context, message: &Message) -> Result<(), CommandError> {
+pub async fn list_servers(
+    context: &Context,
+    _channel_id: ChannelId,
+    _user_id: UserId,
+    _args: Args,
+) -> Result<CommandResponse, CommandError> {
     let db_conn = {
         let data = context.data.read().await;
         data.get::<DbConnectionKey>()
@@ -49,14 +54,5 @@ pub async fn list_servers(context: &Context, message: &Message) -> Result<(), Co
             .clone()
     };
     let embed = list_servers_helper(db_conn)?;
-    message
-        .channel_id
-        .send_message(&context.http, |m| {
-            m.embed(|message_embed| {
-                *message_embed = embed;
-                message_embed
-            })
-        })
-        .await?;
-    Ok(())
+    Ok(CommandResponse::Embed(embed))
 }

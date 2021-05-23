@@ -1,9 +1,9 @@
 use log::*;
-use serenity::framework::standard::CommandError;
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
+use serenity::framework::standard::{Args, CommandError};
+use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::Context;
 
+use crate::commands::servers::CommandResponse;
 use crate::DetailsCacheHandle;
 use crate::{
     commands::servers::details::started_details_from_server,
@@ -206,7 +206,12 @@ fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, 
     (playing_players, submitted_players)
 }
 
-pub async fn turns2(context: &Context, message: &Message) -> Result<(), CommandError> {
+pub async fn turns(
+    context: &Context,
+    _channel_id: ChannelId,
+    user_id: UserId,
+    _args: Args,
+) -> Result<CommandResponse, CommandError> {
     let read_handle = DetailsCacheHandle(Arc::clone(&context.data));
     let db_conn = {
         let data = context.data.read().await;
@@ -214,9 +219,9 @@ pub async fn turns2(context: &Context, message: &Message) -> Result<(), CommandE
             .ok_or_else(|| CommandError::from("No db connection"))?
             .clone()
     };
-    let text = turns_helper(message.author.id, db_conn, read_handle).await?;
+    let text = turns_helper(user_id, db_conn, read_handle).await?;
     info!("turns: replying with: {}", text);
-    let private_channel = message.author.id.create_dm_channel(&context.http).await?;
+    let private_channel = user_id.create_dm_channel(&context.http).await?;
     private_channel.say(&context.http, &text).await?;
-    Ok(())
+    Ok(CommandResponse::Reply("DM sent".to_owned()))
 }

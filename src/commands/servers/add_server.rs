@@ -1,20 +1,22 @@
-use serenity::{
-    framework::standard::{Args, CommandError},
-    model::channel::Message,
-    prelude::Context,
-};
-
-use crate::model::game_state::CacheEntry;
+use crate::commands::servers::CommandResponse;
 use crate::{
     commands::servers::alias_from_arg_or_channel_name,
     db::{DbConnection, DbConnectionKey},
-    model::game_server::{GameServer, GameServerState, StartedState},
+    model::{
+        game_server::{GameServer, GameServerState, StartedState},
+        game_state::CacheEntry,
+    },
     server::get_game_data_async,
     snek::snek_details_async,
     DetailsCacheHandle, DetailsCacheKey,
 };
 use chrono::Utc;
 use log::*;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::id::{ChannelId, UserId},
+    prelude::Context,
+};
 use std::sync::Arc;
 
 async fn add_server_helper(
@@ -71,13 +73,14 @@ async fn add_server_helper(
 
 pub async fn add_server(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
-    info!("Adding server for {} with args {:?}", message.author, args);
+) -> Result<CommandResponse, CommandError> {
+    info!("Adding server for {} with args {:?}", user_id, args);
     let server_address = args.single_quoted::<String>()?;
 
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
 
     if !args.is_empty() {
         return Err(CommandError::from(
@@ -94,8 +97,5 @@ pub async fn add_server(
     };
     add_server_helper(&server_address, &alias, db_connection, write_handle_mutex).await?;
     let text = format!("Successfully inserted with alias {}", alias);
-    message
-        .reply((&context.cache, context.http.as_ref()), text)
-        .await?;
-    Ok(())
+    Ok(CommandResponse::Reply(text))
 }

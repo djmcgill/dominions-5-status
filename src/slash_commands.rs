@@ -1,7 +1,26 @@
+use crate::commands::servers::add_server::add_server;
+use crate::commands::servers::describe::describe;
+use crate::commands::servers::details::details;
+use crate::commands::servers::list_servers::list_servers;
+use crate::commands::servers::lobbies::lobbies;
+use crate::commands::servers::lobby::lobby;
+use crate::commands::servers::notifications::notifications;
+use crate::commands::servers::register_player::{
+    register_player, register_player_custom, register_player_id,
+};
+use crate::commands::servers::remove_server::remove_server;
+use crate::commands::servers::start::start;
+use crate::commands::servers::turns::turns;
+use crate::commands::servers::unregister_player::unregister_player;
+use crate::commands::servers::unstart::unstart;
+use crate::commands::servers::CommandResponse;
 use anyhow::{anyhow, Context as _};
+use log::info;
 use serenity::client::Context;
+use serenity::framework::standard::{Args, Delimiter};
 use serenity::http::CacheHttp;
 use serenity::model::interactions::{Interaction, InteractionResponseType};
+use serenity::model::prelude::ApplicationCommandInteractionData;
 use serenity::{
     builder::CreateApplicationCommandOption,
     http::{GuildPagination, Http},
@@ -175,28 +194,117 @@ fn game_name_option(
 
 pub async fn interaction_create(ctx: Context, interaction: Interaction) {
     if let Err(e) = interaction_create_result(ctx, interaction).await {
-        println!("AHHHHHHHH");
+        println!("AHHHHHHHH: {:#?}", e);
     }
 }
 
 async fn interaction_create_result(ctx: Context, interaction: Interaction) -> anyhow::Result<()> {
-    let channel = interaction
+    let channel_id = *interaction
         .channel_id
         .as_ref()
         .ok_or_else(|| anyhow!("No channel in interaction_create"))?;
+    let user_id = interaction
+        .member
+        .as_ref()
+        .ok_or_else(|| anyhow!("No member in interaction_create"))?
+        .user
+        .id;
+
     let data = interaction
         .data
         .as_ref()
         .ok_or_else(|| anyhow!("No data in interaction_create"))?;
-    let command = &data.name;
 
-    interaction
-        .create_interaction_response(ctx.http(), |response| {
-            response
-                .kind(InteractionResponseType::ChannelMessageWithSource)
-                // FIXME
-                .interaction_response_data(|message| message.set_embed(unimplemented!()))
-        })
-        .await?;
+    let args = make_args(data);
+
+    let command_response_result = match data.name.as_str() {
+        "add" => add_server(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("ddd_server slash command failed with: {}", e)),
+        "describe" => describe(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("describe slash command failed with: {}", e)),
+        "details" | "deets" => details(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("details slash command failed with: {}", e)),
+        "list" => list_servers(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("list slash command failed with: {}", e)),
+        "lobbies" => lobbies(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("lobbies slash command failed with: {}", e)),
+        "lobby" => lobby(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("lobby slash command failed with: {}", e)),
+        "notifications" => notifications(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("notifications slash command failed with: {}", e)),
+        "register" => register_player(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("register slash command failed with: {}", e)),
+        "register_id" => register_player_id(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("register_id slash command failed with: {}", e)),
+        "register_custom" => register_player_custom(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("register_custom slash command failed with: {}", e)),
+        "delete" => remove_server(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("delete slash command failed with: {}", e)),
+        "start" => start(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("start slash command failed with: {}", e)),
+        "turns" => turns(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("turns slash command failed with: {}", e)),
+        "unregister" => unregister_player(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("unregister slash command failed with: {}", e)),
+        "unstart" => unstart(&ctx, channel_id, user_id, args)
+            .await
+            .map_err(|e| anyhow!("unstart slash command failed with: {}", e)),
+        other => Err(anyhow!("Unrecognised command: {}", other)),
+    };
+    match command_response_result {
+        Ok(command_response) => {
+            interaction
+                .create_interaction_response(ctx.http(), |response| {
+                    response
+                        .kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|message| match command_response {
+                            CommandResponse::Reply(reply) => message.content(reply),
+                            CommandResponse::Embed(embed) => message.set_embed(embed),
+                        })
+                })
+                .await?;
+        }
+        Err(err) => {
+            interaction
+                .create_interaction_response(ctx.http(), |response| {
+                    response
+                        .kind(InteractionResponseType::ChannelMessageWithSource)
+                        .interaction_response_data(|message| {
+                            let err = anyhow!(err);
+                            let text = format!("ERROR: {}", err);
+                            info!("command error: replying with '{}'", text);
+                            message.content(text)
+                        })
+                })
+                .await?
+        }
+    }
+
     Ok(())
+}
+
+// FIXME: okay this is VERY hacky. We're going via the delimited string for no reason at all.
+fn make_args(data: &ApplicationCommandInteractionData) -> Args {
+    let mut arg_string = String::new();
+    for option in &data.options {
+        if let Some(value) = option.value.as_ref() {
+            arg_string.push_str(&format!("{} ", value));
+        }
+    }
+    println!("ARGS: '{}'", arg_string);
+    Args::new(&arg_string, &[Delimiter::Single(' ')])
 }

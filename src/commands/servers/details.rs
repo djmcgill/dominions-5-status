@@ -1,4 +1,4 @@
-use crate::model::nation::BotNationIdentifier;
+use crate::commands::servers::CommandResponse;
 use crate::{
     commands::servers::alias_from_arg_or_channel_name,
     db::{DbConnection, DbConnectionKey},
@@ -7,7 +7,7 @@ use crate::{
         game_data::GameData,
         game_server::*,
         game_state::*,
-        nation::Nation,
+        nation::{BotNationIdentifier, Nation},
         player::Player,
     },
     server::get_game_data_async,
@@ -18,17 +18,17 @@ use log::*;
 use serenity::{
     builder::CreateEmbed,
     framework::standard::{Args, CommandError},
-    model::channel::Message,
+    model::id::{ChannelId, UserId},
     prelude::Context,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-pub async fn details2(
+pub async fn details(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    _user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     // TODO: It's a bit weird to pass the arc here and use it elsewhere
     let data_handle = DetailsCacheHandle(Arc::clone(&context.data));
     let db_conn = {
@@ -38,24 +38,14 @@ pub async fn details2(
             .clone()
     };
 
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
     let embed_response = details_helper(&alias, db_conn, data_handle, context).await?;
-
-    message
-        .channel_id
-        .send_message(&context.http, |m| {
-            m.embed(|e| {
-                *e = embed_response;
-                e
-            })
-        })
-        .await?;
-    Ok(())
+    Ok(CommandResponse::Embed(embed_response))
 }
 
 pub async fn get_details_for_alias(
