@@ -30,7 +30,7 @@ pub async fn describe(
 
     db_conn.update_lobby_with_description(&alias, &description)?;
     Ok(CommandResponse::Reply(format!(
-        "added description to {}",
+        "Added description to {}",
         alias
     )))
 }

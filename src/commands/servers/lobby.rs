@@ -46,7 +46,7 @@ pub async fn lobby(
 
     lobby_helper(db_connection, era, player_count, &alias, user_id)?;
     Ok(CommandResponse::Reply(format!(
-        "Creating game lobby with name {}",
+        "Created game lobby with name {}",
         alias
     )))
 }

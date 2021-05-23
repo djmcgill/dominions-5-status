@@ -38,10 +38,7 @@ pub async fn unregister_player(
     };
     unregister_player_helper(user_id, &alias, db_conn)?;
 
-    let text = format!(
-        "Removing user {} from all nations in game {}",
-        user_id, alias
-    );
+    let text = format!("Removed from all nations in game {}", alias);
     info!("{}", text);
     Ok(CommandResponse::Reply(text))
 }

@@ -226,7 +226,6 @@ async fn register_custom_helper(
     arg_custom_nation: String,
     alias: String,
     db_conn: DbConnection,
-    context: &Context,
 ) -> Result<String, CommandError> {
     info!(
         "Registering player {} for custom nation {} in game {}",
@@ -247,11 +246,8 @@ async fn register_custom_helper(
             };
 
             let register_message = format!(
-                "registering {} for {}. You will have to reregister after uploading.",
+                "Registered {}. You will have to reregister after uploading.",
                 arg_custom_nation,
-                user_id
-                    .to_user((&context.cache, context.http.as_ref()))
-                    .await?
             );
             let nation = BotNationIdentifier::CustomName(arg_custom_nation);
             let player = Player {
@@ -275,7 +271,6 @@ async fn register_player_helper(
     alias: &str,
     db_conn: DbConnection,
     details_read_handle: DetailsCacheHandle,
-    context: &Context,
 ) -> Result<String, CommandError> {
     info!(
         "Registering player {} for nation {} in game {}",
@@ -305,13 +300,7 @@ async fn register_player_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.clone().into())
                 .map_err(CommandError::from)?;
-            Ok(format!(
-                "registering {} for {}",
-                nation.name(None),
-                user_id
-                    .to_user((&context.cache, context.http.as_ref()))
-                    .await?
-            ))
+            Ok(format!("Registered {}", nation.name(None),))
         }
         GameServerState::StartedState(started_state, option_lobby_state) => {
             let option_lobby_state_ref = &option_lobby_state;
@@ -355,11 +344,7 @@ async fn register_player_helper(
             db_conn
                 .insert_player_into_server(&player, &server.alias, nation.clone().into())
                 .map_err(CommandError::from)?;
-            let text = format!(
-                "registering nation {} for user {}",
-                nation.name(option_snek_state.as_ref()),
-                user_id
-            );
+            let text = format!("Registered {}", nation.name(option_snek_state.as_ref()),);
             Ok(text)
         }
     }
@@ -395,7 +380,6 @@ pub async fn register_player_id(
         &alias,
         db_conn,
         details_read_handle,
-        context,
     )
     .await?;
     Ok(CommandResponse::Reply(reply))
@@ -417,7 +401,7 @@ pub async fn register_player_custom(
             .clone()
     };
 
-    let reply = register_custom_helper(user_id, arg_nation_name, alias, db_conn, context).await?;
+    let reply = register_custom_helper(user_id, arg_nation_name, alias, db_conn).await?;
     Ok(CommandResponse::Reply(reply))
 }
 
@@ -444,7 +428,6 @@ pub async fn register_player(
         &alias,
         db_conn,
         details_read_handle,
-        context,
     )
     .await?;
     Ok(CommandResponse::Reply(reply))
