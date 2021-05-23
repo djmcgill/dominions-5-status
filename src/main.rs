@@ -90,8 +90,9 @@ fn read_token() -> anyhow::Result<String> {
     token_file
         .read_to_string(&mut temp_token)
         .context("Reading contents of file")?;
+    let token_str = temp_token.trim();
     info!("Read discord bot token");
-    Ok(temp_token)
+    Ok(token_str.to_owned())
 }
 
 fn read_application_id() -> anyhow::Result<Option<u64>> {
