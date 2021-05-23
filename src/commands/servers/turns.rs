@@ -32,45 +32,50 @@ async fn turns_helper(
     let db_conn = &db_conn;
     for (server, _) in servers_and_nations_for_player {
         if let GameServerState::StartedState(started_state, option_lobby_state) = server.state {
-            let cache = read_handle.get_clone(&server.alias).await?;
-            let details: GameDetails = started_details_from_server(
-                db_conn.clone(),
-                &started_state,
-                option_lobby_state.as_ref(),
-                &server.alias,
-                &cache.game_data,
-                cache.option_snek_state.as_ref(),
-            )
-            .unwrap();
+            match read_handle.get_clone(&server.alias).await {
+                Ok(cache) => {
+                    let details: GameDetails = started_details_from_server(
+                        db_conn.clone(),
+                        &started_state,
+                        option_lobby_state.as_ref(),
+                        &server.alias,
+                        &cache.game_data,
+                        cache.option_snek_state.as_ref(),
+                    )?;
 
-            match details.nations {
-                NationDetails::Started(started_state) => match started_state.state {
-                    StartedStateDetails::Uploading(uploading_state) => {
-                        turns_for_uploading_state(
-                            &mut text,
-                            &uploading_state,
-                            user_id,
-                            &server.alias,
-                            details
-                                .cache_entry
-                                .and_then(|cache_entry| cache_entry.option_snek_state)
-                                .as_ref(),
-                        );
+                    match details.nations {
+                        NationDetails::Started(started_state) => match started_state.state {
+                            StartedStateDetails::Uploading(uploading_state) => {
+                                turns_for_uploading_state(
+                                    &mut text,
+                                    &uploading_state,
+                                    user_id,
+                                    &server.alias,
+                                    details
+                                        .cache_entry
+                                        .and_then(|cache_entry| cache_entry.option_snek_state)
+                                        .as_ref(),
+                                );
+                            }
+                            StartedStateDetails::Playing(playing_state) => {
+                                turns_for_playing_state(
+                                    &mut text,
+                                    &playing_state,
+                                    user_id,
+                                    &server.alias,
+                                    details
+                                        .cache_entry
+                                        .and_then(|cache_entry| cache_entry.option_snek_state)
+                                        .as_ref(),
+                                );
+                            }
+                        },
+                        NationDetails::Lobby(_) => continue,
                     }
-                    StartedStateDetails::Playing(playing_state) => {
-                        turns_for_playing_state(
-                            &mut text,
-                            &playing_state,
-                            user_id,
-                            &server.alias,
-                            details
-                                .cache_entry
-                                .and_then(|cache_entry| cache_entry.option_snek_state)
-                                .as_ref(),
-                        );
-                    }
-                },
-                NationDetails::Lobby(_) => continue,
+                }
+                Err(err) => {
+                    text.push_str(&format!("{}: ERROR {}\n", server.alias, err));
+                }
             }
         }
     }

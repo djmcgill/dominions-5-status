@@ -56,11 +56,20 @@ impl DetailsCacheHandle {
             .ok_or_else(|| anyhow!("Details cache initialisation error!!!"))?;
         let (_, option_cache_entry) = details_cache
             .get(alias)
-            .ok_or_else(|| anyhow!("Not yet got a response from server, try again in 1 min"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Not yet got a response from server for game '{}', try again in 1 min",
+                    alias
+                )
+            })?
             .as_ref()
             .clone();
-        option_cache_entry
-            .ok_or_else(|| anyhow!("Got an error when trying to connect to the server"))
+        option_cache_entry.ok_or_else(|| {
+            anyhow!(
+                "Got an error when trying to connect to the server for game '{}'",
+                alias
+            )
+        })
     }
 }
 

@@ -319,7 +319,8 @@ async fn register_player_helper(
             let (started_details, option_snek_state) = details_read_handle
                 .get_clone(alias)
                 .await
-                .map(move |cache| {
+                .map_err(CommandError::from)
+                .and_then(move |cache| {
                     let game_details: GameDetails = started_details_from_server(
                         started_db_conn,
                         &started_state,
@@ -327,11 +328,10 @@ async fn register_player_helper(
                         alias,
                         &cache.game_data,
                         cache.option_snek_state.as_ref(),
-                    )
-                    .unwrap();
-                    game_details
+                    )?;
+                    Ok(game_details)
                 })
-                .map_err(|e| CommandError::from(e))
+                .map_err(CommandError::from)
                 .and_then(|game_details| match game_details.nations {
                     NationDetails::Lobby(_) => Err(CommandError::from("Somehow found lobby details in a started server? This should never happen!!!")),
                     NationDetails::Started(started_details) => Ok((
