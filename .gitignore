@@ -2,6 +2,8 @@
 /target/
 **/*.rs.bk
 /resources/
+token
+application
 *.db
 *.ppk
 *.pem

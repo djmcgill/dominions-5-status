@@ -104,8 +104,9 @@ fn read_application_id() -> anyhow::Result<Option<u64>> {
     token_file
         .read_to_string(&mut temp_token)
         .context("Reading contents of file")?;
+    let token_str = temp_token.trim();
     info!("Read discord application id");
-    Ok(Some(u64::from_str(&temp_token).context("u64::from_str")?))
+    Ok(Some(u64::from_str(token_str).context("u64::from_str")?))
 }
 
 async fn create_discord_client() -> anyhow::Result<Client> {
