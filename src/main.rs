@@ -1,28 +1,22 @@
 mod commands;
-// #[cfg_attr(test, macro_use)]
 mod db;
 mod model;
 mod server;
 mod slash_commands;
 mod snek;
 
+use crate::{
+    commands::servers::turn_check::update_details_cache_loop, db::*, model::game_state::CacheEntry,
+};
 use anyhow::{anyhow, Context as _};
 use chrono::{DateTime, Utc};
 use log::*;
-use serenity::framework::standard::StandardFramework;
-use serenity::prelude::*;
+use serenity::{
+    async_trait, framework::standard::StandardFramework, http::CacheHttp,
+    model::interactions::Interaction, prelude::*,
+};
 use simplelog::{Config, LevelFilter, SimpleLogger};
-use std::{env, fs::File, io::Read as _};
-
-use crate::commands::servers::turn_check::update_details_cache_loop;
-use crate::db::*;
-use model::game_state::CacheEntry;
-use serenity::async_trait;
-use serenity::http::CacheHttp;
-use serenity::model::interactions::Interaction;
-use std::path::Path;
-use std::str::FromStr;
-use std::sync::Arc;
+use std::{env, fs::File, io::Read as _, path::Path, str::FromStr, sync::Arc};
 
 // TODO: should this be im-rc? Do I care really?
 pub type DetailsCache = im::HashMap<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>;

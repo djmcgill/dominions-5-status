@@ -88,8 +88,8 @@ fn custom_id_name(nation_id: u32, option_snek_state: Option<&SnekGameStatus>) ->
     let snek_nation_details =
         option_snek_state.and_then(|snek_details| snek_details.nations.get(&nation_id));
     match snek_nation_details {
-        Some(snek_nation) => format!("{} ({})", snek_nation.name, nation_id).into(),
-        None => format!("Unknown ({})", nation_id).into(),
+        Some(snek_nation) => format!("{} ({})", snek_nation.name, nation_id),
+        None => format!("Unknown ({})", nation_id),
     }
 }
 

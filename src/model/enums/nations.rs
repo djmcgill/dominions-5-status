@@ -59,13 +59,11 @@ impl Nations {
                 )
             }),
         }
-        .unwrap_or(vec![])
+        .unwrap_or_else(Vec::new)
     }
 }
 
-fn extract_possible_nation_prefix<'a>(
-    lowercase_name_prefix: Cow<'a, str>,
-) -> (Cow<'a, str>, Option<Era>) {
+fn extract_possible_nation_prefix(lowercase_name_prefix: Cow<str>) -> (Cow<str>, Option<Era>) {
     if lowercase_name_prefix.starts_with("ea ") {
         (cow_drop(lowercase_name_prefix, 3), Some(Era::Early))
     } else if lowercase_name_prefix.starts_with("ma ") {
@@ -77,7 +75,7 @@ fn extract_possible_nation_prefix<'a>(
     }
 }
 
-fn sanitise_text<'a>(lowercase_text: Cow<'a, str>) -> Cow<'a, str> {
+fn sanitise_text(lowercase_text: Cow<str>) -> Cow<str> {
     lowercase_text
         .to_owned()
         .replace("'", "")
@@ -205,7 +203,7 @@ lazy_static! {
     };
 }
 
-fn cow_drop<'a>(cow: Cow<'a, str>, n: usize) -> Cow<'a, str> {
+fn cow_drop(cow: Cow<str>, n: usize) -> Cow<str> {
     match cow {
         Cow::Owned(mut string) => string.split_off(n).into(),
         Cow::Borrowed(b_str) => {

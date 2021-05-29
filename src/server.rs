@@ -4,18 +4,15 @@ use crate::model::{
     nation::{GameNationIdentifier, Nation},
     raw_game_data::RawGameData,
 };
-use anyhow::Context;
+use anyhow::{anyhow, Context};
 use byteorder::{LittleEndian, ReadBytesExt};
 use flate2::read::ZlibDecoder;
 use log::*;
 use std::{
-    io::{self, BufRead, Cursor, Read},
+    io::{BufRead, Cursor, Read},
     time::Duration,
 };
-use tokio::{
-    io::{AsyncReadExt, AsyncWriteExt},
-    time,
-};
+use tokio::{io::AsyncWriteExt, time};
 
 pub async fn get_game_data_async(server_address: &str) -> anyhow::Result<GameData> {
     let raw_data = time::timeout(
@@ -43,10 +40,8 @@ fn interpret_raw_data(raw_data: RawGameData) -> anyhow::Result<GameData> {
             let nation_id = (i - 1) as u32; // why -1? No fucking idea
             let nation = Nation {
                 identifier: GameNationIdentifier::from_id(nation_id),
-                status: NationStatus::from_int(status_num).ok_or(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Unknown nation status {}", status_num),
-                ))?,
+                status: NationStatus::from_int(status_num)
+                    .ok_or_else(|| anyhow!("Unknown nation status {}", status_num))?,
                 submitted: SubmissionStatus::from_int(submitted),
                 connected: connected == 1,
             };
@@ -62,6 +57,7 @@ async fn get_raw_game_data_async(server_address: &str) -> anyhow::Result<RawGame
     Ok(game_data)
 }
 async fn call_server_for_info_async(server_address: &str) -> anyhow::Result<Vec<u8>> {
+    use tokio::io::AsyncReadExt;
     debug!("call_server_for_info_async for {}", server_address);
     let mut stream = tokio::net::TcpStream::connect(server_address).await?;
 
@@ -155,7 +151,7 @@ fn parse_data(data: &[u8]) -> anyhow::Result<RawGameData> {
     let mut c = [0u8; 6];
     Read::read_exact(&mut cursor, &mut c)?;
     debug!("reading timer");
-    let d = Read::read_i32::<LittleEndian>(&mut cursor)?;
+    let d = cursor.read_i32::<LittleEndian>()?;
     debug!("timer value: {}", d);
 
     // let e = cursor.read_u8()?;
@@ -166,31 +162,31 @@ fn parse_data(data: &[u8]) -> anyhow::Result<RawGameData> {
         cursor.get_ref().len()
     );
     let mut f = vec![0u8; 750];
-    Read::read_exact(&mut cursor, &mut f)?;
+    cursor.read_exact(&mut f)?;
     debug!(
         "g cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let g = Read::read_u8(&mut cursor)?;
+    let g = cursor.read_u8()?;
     debug!(
         "h cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let h = Read::read_u32::<LittleEndian>(&mut cursor)?;
+    let h = cursor.read_u32::<LittleEndian>()?;
     debug!(
         "i cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let i = Read::read_u32::<LittleEndian>(&mut cursor)?;
+    let i = cursor.read_u32::<LittleEndian>()?;
     debug!(
         "j cursor position: {}, cursor len: {}",
         cursor.position(),
         cursor.get_ref().len()
     );
-    let j = Read::read_u8(&mut cursor)?;
+    let j = cursor.read_u8()?;
     debug!(
         "finish cursor position: {}, cursor len: {}",
         cursor.position(),

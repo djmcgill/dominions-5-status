@@ -161,7 +161,6 @@ async fn alias_from_arg_or_channel_name(
         })
 }
 
-// TODO: the idea is that all commands, both slash and bang (normal) go through this
 async fn bang_command_wrap<'a, F, Fut>(
     context: &'a Context,
     message: &'a Message,
@@ -185,12 +184,7 @@ where
         CommandResponse::Embed(embed) => {
             message
                 .channel_id
-                .send_message(&context.http, |m| {
-                    m.embed(|e| {
-                        *e = embed;
-                        e
-                    })
-                })
+                .send_message(&context.http, |m| m.set_embed(embed))
                 .await?;
         }
     }

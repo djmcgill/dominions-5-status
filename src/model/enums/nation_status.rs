@@ -36,9 +36,6 @@ impl NationStatus {
     }
 
     pub fn is_human(&self) -> bool {
-        match self {
-            NationStatus::Human | NationStatus::DefeatedThisTurn => true,
-            _ => false,
-        }
+        matches!(self, NationStatus::Human | NationStatus::DefeatedThisTurn)
     }
 }

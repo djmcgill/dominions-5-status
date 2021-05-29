@@ -1,33 +1,36 @@
-use crate::commands::servers::add_server::add_server;
-use crate::commands::servers::describe::describe;
-use crate::commands::servers::details::details;
-use crate::commands::servers::list_servers::list_servers;
-use crate::commands::servers::lobbies::lobbies;
-use crate::commands::servers::lobby::lobby;
-use crate::commands::servers::notifications::notifications;
-use crate::commands::servers::register_player::{
-    register_player, register_player_custom, register_player_id,
+use crate::commands::servers::{
+    add_server::add_server,
+    describe::describe,
+    details::details,
+    list_servers::list_servers,
+    lobbies::lobbies,
+    lobby::lobby,
+    notifications::notifications,
+    register_player::{register_player, register_player_custom, register_player_id},
+    remove_server::remove_server,
+    start::start,
+    turns::turns,
+    unregister_player::unregister_player,
+    unstart::unstart,
+    CommandResponse,
 };
-use crate::commands::servers::remove_server::remove_server;
-use crate::commands::servers::start::start;
-use crate::commands::servers::turns::turns;
-use crate::commands::servers::unregister_player::unregister_player;
-use crate::commands::servers::unstart::unstart;
-use crate::commands::servers::CommandResponse;
 use anyhow::{anyhow, Context as _};
-use log::info;
-use serenity::client::Context;
-use serenity::framework::standard::{Args, Delimiter};
-use serenity::http::CacheHttp;
-use serenity::model::interactions::{Interaction, InteractionResponseType};
-use serenity::model::prelude::ApplicationCommandInteractionData;
+use log::{error, info};
 use serenity::{
     builder::CreateApplicationCommandOption,
-    http::{GuildPagination, Http},
-    model::{id::GuildId, prelude::ApplicationCommandOptionType},
+    client::Context,
+    framework::standard::{Args, Delimiter},
+    http::{CacheHttp, GuildPagination, Http},
+    model::{
+        id::GuildId,
+        interactions::{
+            ApplicationCommandInteractionData, ApplicationCommandOptionType, Interaction,
+            InteractionResponseType,
+        },
+    },
 };
 
-// This technically only needs to be rerun once, but running every time on boot
+// This technically only needs to be run once, but running every time on boot
 // just overrides it each time and guild commands update instantly so who cares.
 pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
     let guilds = http
@@ -38,7 +41,7 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
         .get(0)
         .ok_or_else(|| anyhow!("Bot user is in 0 guilds"))?;
 
-    let create_results = guild
+    guild
         .id
         .create_application_commands(http, |cs| {
             cs
@@ -179,7 +182,6 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
         })
         .await
         .context("create_application_commands")?;
-    println!("COMMANDS: {:?}", create_results);
     Ok(())
 }
 
@@ -194,11 +196,12 @@ fn game_name_option(
 
 pub async fn interaction_create(ctx: Context, interaction: Interaction) {
     if let Err(e) = interaction_create_result(ctx, interaction).await {
-        println!("AHHHHHHHH: {:#?}", e);
+        error!("Failed to create interaction: {:#?}", e);
     }
 }
 
 async fn interaction_create_result(ctx: Context, interaction: Interaction) -> anyhow::Result<()> {
+    info!("Incoming interaction: {:?}", interaction);
     let channel_id = *interaction
         .channel_id
         .as_ref()
@@ -217,6 +220,7 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
 
     let args = make_args(data);
 
+    // This is quite cumbersome, it would be better to integrate with the serenity framework
     let command_response_result = match data.name.as_str() {
         "add" => add_server(&ctx, channel_id, user_id, args)
             .await
@@ -297,7 +301,9 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
     Ok(())
 }
 
-// FIXME: okay this is VERY hacky. We're going via the delimited string for no reason at all.
+// okay this is VERY hacky. We're going via the delimited string for no reason at all.
+// Unfortunately to fix it I'd have to do some big tokenize or pre-parse or whatever, and possibly
+// even switching away from serenity's standard framework any I really can't be bothered.
 fn make_args(data: &ApplicationCommandInteractionData) -> Args {
     let mut arg_string = String::new();
     for option in &data.options {
@@ -305,6 +311,5 @@ fn make_args(data: &ApplicationCommandInteractionData) -> Args {
             arg_string.push_str(&format!("{} ", value));
         }
     }
-    println!("ARGS: '{}'", arg_string);
     Args::new(&arg_string, &[Delimiter::Single(' ')])
 }

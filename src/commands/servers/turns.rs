@@ -149,7 +149,7 @@ fn turns_for_playing_state(
     option_snek_state: Option<&SnekGameStatus>,
 ) {
     let (playing_players, submitted_players) =
-        count_playing_and_submitted_players(&playing_state.players);
+        count_playing_and_submitted_players(&playing_state.players[..]);
 
     for playing_player in &playing_state.players {
         match playing_player {
@@ -161,30 +161,30 @@ fn turns_for_playing_state(
             ) => {
                 // FIXME: there used to be a nation_id check on here. What is this for?
                 //        does it fail only when people are registered multiple times?
-                if *potential_player_user_id == user_id {
-                    if potential_player_details.player_status.is_human() {
-                        let turn_str = format!(
-                            "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
-                            alias,
-                            playing_state.turn,
-                            playing_state.hours_remaining,
-                            playing_state.mins_remaining,
-                            potential_player_details
-                                .nation_identifier
-                                .name(option_snek_state),
-                            potential_player_details.submitted.show(),
-                            submitted_players,
-                            playing_players,
-                        );
-                        text.push_str(&turn_str);
-                    }
+                if *potential_player_user_id == user_id
+                    && potential_player_details.player_status.is_human()
+                {
+                    let turn_str = format!(
+                        "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
+                        alias,
+                        playing_state.turn,
+                        playing_state.hours_remaining,
+                        playing_state.mins_remaining,
+                        potential_player_details
+                            .nation_identifier
+                            .name(option_snek_state),
+                        potential_player_details.submitted.show(),
+                        submitted_players,
+                        playing_players,
+                    );
+                    text.push_str(&turn_str);
                 }
             }
         }
     }
 }
 
-fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, u32) {
+fn count_playing_and_submitted_players(players: &[PotentialPlayer]) -> (u32, u32) {
     let mut playing_players = 0;
     let mut submitted_players = 0;
     for playing_player in players {

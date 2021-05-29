@@ -116,7 +116,7 @@ fn get_nation_for_started_server(
                             let possible_base_nations = Nations::from_name_prefix(arg_nation_name, era);
                             match possible_base_nations.len() {
                                 0 => Err(CommandError::from(format!("Could not find nation starting with \"{}\"", arg_nation_name))),
-                                1 => Ok(GameNationIdentifier::Existing(possible_base_nations[0].clone())),
+                                1 => Ok(GameNationIdentifier::Existing(possible_base_nations[0])),
                                 _ => Err(CommandError::from(format!(
                                     "Found more than one nation starting with \"{}\". Consider using !register-id if the name is ambiguous.",
                                     arg_nation_name
@@ -153,13 +153,10 @@ fn get_nation_for_started_server(
                         .uploading_players
                         .iter()
                         .find(|uploading_player| {
-                            let unregistered = if let PotentialPlayer::GameOnly(_) =
-                                uploading_player.potential_player
-                            {
-                                true
-                            } else {
-                                false
-                            };
+                            let unregistered = matches!(
+                                uploading_player.potential_player,
+                                PotentialPlayer::GameOnly(_)
+                            );
 
                             !unregistered
                                 && uploading_player.potential_player.nation_id()
@@ -213,7 +210,7 @@ fn get_nation_for_lobby(
                 };
                 return u32::from_str(arg_nation_name)
                     .map_err(|_| mk_err())
-                    .map(|arg_nation_id| GameNationIdentifier::from_id(arg_nation_id));
+                    .map(GameNationIdentifier::from_id);
             };
             Ok(GameNationIdentifier::Existing(nations[0].clone()))
         }
