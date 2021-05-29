@@ -63,7 +63,7 @@ impl DbConnection {
             .use_migrations(
                 // there has GOT to be a better way
                 MIGRATIONS[..]
-                    .into_iter()
+                    .iter()
                     .cloned()
                     .map(|migration| -> Box<(dyn Migratable + 'static)> { Box::new(migration) })
                     .collect::<Vec<_>>(),
@@ -294,7 +294,7 @@ impl DbConnection {
             Ok(vec
                 .into_iter()
                 .next()
-                .ok_or(anyhow!("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
+                .ok_or_else(|| anyhow!("THIS SHOULD NEVER HAPPEN"))?) // TODO: *vomits*
         } else {
             Err(anyhow!("could not find the game with alias {}", game_alias))
         }
@@ -436,7 +436,7 @@ impl DbConnection {
             Err(anyhow!(
                 "Could not find started lobby with alias '{}'",
                 alias
-            ))?
+            ))
         } else {
             Ok(())
         }

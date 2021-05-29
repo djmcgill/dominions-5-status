@@ -1,14 +1,18 @@
-use serenity::{
-    builder::CreateEmbed, framework::standard::CommandError, model::channel::Message,
-    prelude::Context,
-};
-
+use crate::commands::servers::CommandResponse;
 use crate::{
     db::*,
     model::game_server::{GameServer, GameServerState},
 };
+use serenity::framework::standard::Args;
+use serenity::model::id::{ChannelId, UserId};
+use serenity::{builder::CreateEmbed, framework::standard::CommandError, prelude::Context};
 
-pub async fn lobbies(context: &Context, message: &Message) -> Result<(), CommandError> {
+pub async fn lobbies(
+    context: &Context,
+    _channel_id: ChannelId,
+    _user_id: UserId,
+    _args: Args,
+) -> Result<CommandResponse, CommandError> {
     let db_conn = {
         let data = context.data.read().await;
         data.get::<DbConnectionKey>()
@@ -17,26 +21,13 @@ pub async fn lobbies(context: &Context, message: &Message) -> Result<(), Command
     };
 
     let lobbies_and_player_count = db_conn.select_lobbies()?;
-    if lobbies_and_player_count.is_empty() {
-        message
-            .reply(
-                (&context.cache, context.http.as_ref()),
-                &"No available lobbies",
-            )
-            .await?;
+    let response = if lobbies_and_player_count.is_empty() {
+        CommandResponse::Reply("No available lobbies".to_owned())
     } else {
         let embed = lobbies_helper(lobbies_and_player_count)?;
-        message
-            .channel_id
-            .send_message(context.http.as_ref(), |m| {
-                m.embed(|e| {
-                    *e = embed;
-                    e
-                })
-            })
-            .await?;
-    }
-    Ok(())
+        CommandResponse::Embed(embed)
+    };
+    Ok(response)
 }
 
 fn lobbies_helper(

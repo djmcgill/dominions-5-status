@@ -1,8 +1,8 @@
 use serenity::framework::standard::{Args, CommandError};
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
+use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::Context;
 
+use crate::commands::servers::CommandResponse;
 use crate::db::*;
 
 fn notifications_helper(
@@ -16,9 +16,10 @@ fn notifications_helper(
 
 pub async fn notifications(
     context: &Context,
-    message: &Message,
+    _channel_id: ChannelId,
+    user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     let desired_turn_notifications = args.single_quoted::<bool>()?;
     let db_conn = {
         let data = context.data.read().await;
@@ -27,12 +28,9 @@ pub async fn notifications(
             .clone()
     };
 
-    notifications_helper(db_conn, message.author.id, desired_turn_notifications)?;
-    message
-        .reply(
-            (&context.cache, context.http.as_ref()),
-            &format!("Set turn notifications to {}", desired_turn_notifications),
-        )
-        .await?;
-    Ok(())
+    notifications_helper(db_conn, user_id, desired_turn_notifications)?;
+    Ok(CommandResponse::Reply(format!(
+        "Set turn notifications to {}",
+        desired_turn_notifications
+    )))
 }

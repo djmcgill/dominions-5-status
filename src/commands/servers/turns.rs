@@ -1,9 +1,9 @@
 use log::*;
-use serenity::framework::standard::CommandError;
-use serenity::model::channel::Message;
-use serenity::model::id::UserId;
+use serenity::framework::standard::{Args, CommandError};
+use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::Context;
 
+use crate::commands::servers::CommandResponse;
 use crate::DetailsCacheHandle;
 use crate::{
     commands::servers::details::started_details_from_server,
@@ -32,45 +32,50 @@ async fn turns_helper(
     let db_conn = &db_conn;
     for (server, _) in servers_and_nations_for_player {
         if let GameServerState::StartedState(started_state, option_lobby_state) = server.state {
-            let cache = read_handle.get_clone(&server.alias).await?;
-            let details: GameDetails = started_details_from_server(
-                db_conn.clone(),
-                &started_state,
-                option_lobby_state.as_ref(),
-                &server.alias,
-                &cache.game_data,
-                cache.option_snek_state.as_ref(),
-            )
-            .unwrap();
+            match read_handle.get_clone(&server.alias).await {
+                Ok(cache) => {
+                    let details: GameDetails = started_details_from_server(
+                        db_conn.clone(),
+                        &started_state,
+                        option_lobby_state.as_ref(),
+                        &server.alias,
+                        &cache.game_data,
+                        cache.option_snek_state.as_ref(),
+                    )?;
 
-            match details.nations {
-                NationDetails::Started(started_state) => match started_state.state {
-                    StartedStateDetails::Uploading(uploading_state) => {
-                        turns_for_uploading_state(
-                            &mut text,
-                            &uploading_state,
-                            user_id,
-                            &server.alias,
-                            details
-                                .cache_entry
-                                .and_then(|cache_entry| cache_entry.option_snek_state)
-                                .as_ref(),
-                        );
+                    match details.nations {
+                        NationDetails::Started(started_state) => match started_state.state {
+                            StartedStateDetails::Uploading(uploading_state) => {
+                                turns_for_uploading_state(
+                                    &mut text,
+                                    &uploading_state,
+                                    user_id,
+                                    &server.alias,
+                                    details
+                                        .cache_entry
+                                        .and_then(|cache_entry| cache_entry.option_snek_state)
+                                        .as_ref(),
+                                );
+                            }
+                            StartedStateDetails::Playing(playing_state) => {
+                                turns_for_playing_state(
+                                    &mut text,
+                                    &playing_state,
+                                    user_id,
+                                    &server.alias,
+                                    details
+                                        .cache_entry
+                                        .and_then(|cache_entry| cache_entry.option_snek_state)
+                                        .as_ref(),
+                                );
+                            }
+                        },
+                        NationDetails::Lobby(_) => continue,
                     }
-                    StartedStateDetails::Playing(playing_state) => {
-                        turns_for_playing_state(
-                            &mut text,
-                            &playing_state,
-                            user_id,
-                            &server.alias,
-                            details
-                                .cache_entry
-                                .and_then(|cache_entry| cache_entry.option_snek_state)
-                                .as_ref(),
-                        );
-                    }
-                },
-                NationDetails::Lobby(_) => continue,
+                }
+                Err(err) => {
+                    text.push_str(&format!("{}: ERROR {}\n", server.alias, err));
+                }
             }
         }
     }
@@ -144,7 +149,7 @@ fn turns_for_playing_state(
     option_snek_state: Option<&SnekGameStatus>,
 ) {
     let (playing_players, submitted_players) =
-        count_playing_and_submitted_players(&playing_state.players);
+        count_playing_and_submitted_players(&playing_state.players[..]);
 
     for playing_player in &playing_state.players {
         match playing_player {
@@ -156,30 +161,30 @@ fn turns_for_playing_state(
             ) => {
                 // FIXME: there used to be a nation_id check on here. What is this for?
                 //        does it fail only when people are registered multiple times?
-                if *potential_player_user_id == user_id {
-                    if potential_player_details.player_status.is_human() {
-                        let turn_str = format!(
-                            "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
-                            alias,
-                            playing_state.turn,
-                            playing_state.hours_remaining,
-                            playing_state.mins_remaining,
-                            potential_player_details
-                                .nation_identifier
-                                .name(option_snek_state),
-                            potential_player_details.submitted.show(),
-                            submitted_players,
-                            playing_players,
-                        );
-                        text.push_str(&turn_str);
-                    }
+                if *potential_player_user_id == user_id
+                    && potential_player_details.player_status.is_human()
+                {
+                    let turn_str = format!(
+                        "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
+                        alias,
+                        playing_state.turn,
+                        playing_state.hours_remaining,
+                        playing_state.mins_remaining,
+                        potential_player_details
+                            .nation_identifier
+                            .name(option_snek_state),
+                        potential_player_details.submitted.show(),
+                        submitted_players,
+                        playing_players,
+                    );
+                    text.push_str(&turn_str);
                 }
             }
         }
     }
 }
 
-fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, u32) {
+fn count_playing_and_submitted_players(players: &[PotentialPlayer]) -> (u32, u32) {
     let mut playing_players = 0;
     let mut submitted_players = 0;
     for playing_player in players {
@@ -206,7 +211,12 @@ fn count_playing_and_submitted_players(players: &Vec<PotentialPlayer>) -> (u32, 
     (playing_players, submitted_players)
 }
 
-pub async fn turns2(context: &Context, message: &Message) -> Result<(), CommandError> {
+pub async fn turns(
+    context: &Context,
+    _channel_id: ChannelId,
+    user_id: UserId,
+    _args: Args,
+) -> Result<CommandResponse, CommandError> {
     let read_handle = DetailsCacheHandle(Arc::clone(&context.data));
     let db_conn = {
         let data = context.data.read().await;
@@ -214,9 +224,9 @@ pub async fn turns2(context: &Context, message: &Message) -> Result<(), CommandE
             .ok_or_else(|| CommandError::from("No db connection"))?
             .clone()
     };
-    let text = turns_helper(message.author.id, db_conn, read_handle).await?;
+    let text = turns_helper(user_id, db_conn, read_handle).await?;
     info!("turns: replying with: {}", text);
-    let private_channel = message.author.id.create_dm_channel(&context.http).await?;
+    let private_channel = user_id.create_dm_channel(&context.http).await?;
     private_channel.say(&context.http, &text).await?;
-    Ok(())
+    Ok(CommandResponse::Reply("DM sent".to_owned()))
 }

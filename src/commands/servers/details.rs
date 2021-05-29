@@ -1,4 +1,4 @@
-use crate::model::nation::BotNationIdentifier;
+use crate::commands::servers::CommandResponse;
 use crate::{
     commands::servers::alias_from_arg_or_channel_name,
     db::{DbConnection, DbConnectionKey},
@@ -7,7 +7,7 @@ use crate::{
         game_data::GameData,
         game_server::*,
         game_state::*,
-        nation::Nation,
+        nation::{BotNationIdentifier, Nation},
         player::Player,
     },
     server::get_game_data_async,
@@ -18,17 +18,17 @@ use log::*;
 use serenity::{
     builder::CreateEmbed,
     framework::standard::{Args, CommandError},
-    model::channel::Message,
+    model::id::{ChannelId, UserId},
     prelude::Context,
 };
-use std::collections::HashMap;
-use std::sync::Arc;
+use std::{collections::HashMap, sync::Arc};
 
-pub async fn details2(
+pub async fn details(
     context: &Context,
-    message: &Message,
+    channel_id: ChannelId,
+    _user_id: UserId,
     mut args: Args,
-) -> Result<(), CommandError> {
+) -> Result<CommandResponse, CommandError> {
     // TODO: It's a bit weird to pass the arc here and use it elsewhere
     let data_handle = DetailsCacheHandle(Arc::clone(&context.data));
     let db_conn = {
@@ -38,24 +38,14 @@ pub async fn details2(
             .clone()
     };
 
-    let alias = alias_from_arg_or_channel_name(&mut args, &message, context).await?;
+    let alias = alias_from_arg_or_channel_name(context, channel_id, &mut args).await?;
     if !args.is_empty() {
         return Err(CommandError::from(
             "Too many arguments. TIP: spaces in arguments need to be quoted \"like this\"",
         ));
     }
     let embed_response = details_helper(&alias, db_conn, data_handle, context).await?;
-
-    message
-        .channel_id
-        .send_message(&context.http, |m| {
-            m.embed(|e| {
-                *e = embed_response;
-                e
-            })
-        })
-        .await?;
-    Ok(())
+    Ok(CommandResponse::Embed(embed_response))
 }
 
 pub async fn get_details_for_alias(
@@ -141,12 +131,11 @@ pub fn lobby_details(
         .into_iter()
         .map(|(player, nation_identifier)| {
             let name = nation_identifier.name(None);
-            let lobby_player = LobbyPlayer {
+            LobbyPlayer {
                 player_id: player.discord_user_id,
                 nation_identifier,
                 cached_name: name,
-            };
-            lobby_player
+            }
         })
         .collect();
 
@@ -178,9 +167,9 @@ pub fn lobby_details(
 /// 3) who is NOT in the game but is in the bot
 fn join_players_with_nations(
     // from game
-    nations: &Vec<Nation>,
+    nations: &[Nation],
     // from db
-    players_nations: &Vec<(Player, BotNationIdentifier)>,
+    players_nations: &[(Player, BotNationIdentifier)],
 ) -> Result<Vec<PotentialPlayer>, CommandError> {
     let mut potential_players = vec![];
 
@@ -238,7 +227,7 @@ pub fn started_details_from_server(
     option_snek_details: Option<&SnekGameStatus>,
 ) -> Result<GameDetails, CommandError> {
     let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
-    let player_details = join_players_with_nations(&game_data.nations, &id_player_nations)?;
+    let player_details = join_players_with_nations(&game_data.nations[..], &id_player_nations[..])?;
 
     let state_details = if game_data.turn < 0 {
         let uploaded_players_detail: Vec<UploadingPlayer> = player_details
@@ -290,7 +279,7 @@ pub fn started_details_from_server(
 
     Ok(GameDetails {
         alias: alias.to_owned(),
-        owner: option_lobby_state.map(|lobby_state| lobby_state.owner.clone()),
+        owner: option_lobby_state.map(|lobby_state| lobby_state.owner),
         description: option_lobby_state.and_then(|lobby_state| lobby_state.description.clone()),
         nations: NationDetails::Started(started_details),
         cache_entry: Some(CacheEntry {
@@ -433,7 +422,7 @@ async fn details_to_embed(
             };
             let mut embed_texts = vec![];
 
-            if lobby_details.players.len() != 0 {
+            if !lobby_details.players.is_empty() {
                 for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
                     let discord_user = lobby_player
                         .player_id
@@ -465,7 +454,7 @@ async fn details_to_embed(
             e
         }
     };
-    for owner in details.owner {
+    if let Some(owner) = details.owner {
         e.field(
             "Owner",
             owner
@@ -476,7 +465,7 @@ async fn details_to_embed(
         );
     }
 
-    for description in details.description {
+    if let Some(description) = details.description {
         if !description.is_empty() {
             e.field("Description", description, false);
         }

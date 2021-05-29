@@ -1,22 +1,22 @@
 mod commands;
-// #[cfg_attr(test, macro_use)]
 mod db;
 mod model;
 mod server;
+mod slash_commands;
 mod snek;
 
+use crate::{
+    commands::servers::turn_check::update_details_cache_loop, db::*, model::game_state::CacheEntry,
+};
 use anyhow::{anyhow, Context as _};
 use chrono::{DateTime, Utc};
 use log::*;
-use serenity::framework::standard::StandardFramework;
-use serenity::prelude::*;
+use serenity::{
+    async_trait, framework::standard::StandardFramework, http::CacheHttp,
+    model::interactions::Interaction, prelude::*,
+};
 use simplelog::{Config, LevelFilter, SimpleLogger};
-use std::{env, fs::File, io::Read as _};
-
-use crate::commands::servers::turn_check::update_details_cache_loop;
-use crate::db::*;
-use model::game_state::CacheEntry;
-use std::sync::Arc;
+use std::{env, fs::File, io::Read as _, path::Path, str::FromStr, sync::Arc};
 
 // TODO: should this be im-rc? Do I care really?
 pub type DetailsCache = im::HashMap<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>;
@@ -50,23 +50,37 @@ impl DetailsCacheHandle {
             .ok_or_else(|| anyhow!("Details cache initialisation error!!!"))?;
         let (_, option_cache_entry) = details_cache
             .get(alias)
-            .ok_or_else(|| anyhow!("Not yet got a response from server, try again in 1 min"))?
+            .ok_or_else(|| {
+                anyhow!(
+                    "Not yet got a response from server for game '{}', try again in 1 min",
+                    alias
+                )
+            })?
             .as_ref()
             .clone();
-        option_cache_entry
-            .ok_or_else(|| anyhow!("Got an error when trying to connect to the server"))
+        option_cache_entry.ok_or_else(|| {
+            anyhow!(
+                "Got an error when trying to connect to the server for game '{}'",
+                alias
+            )
+        })
     }
 }
 
 struct Handler;
-impl EventHandler for Handler {}
+#[async_trait]
+impl EventHandler for Handler {
+    async fn interaction_create(&self, ctx: Context, interaction: Interaction) {
+        slash_commands::interaction_create(ctx, interaction).await
+    }
+}
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    SimpleLogger::init(LevelFilter::Debug, Config::default()).unwrap();
+    SimpleLogger::init(LevelFilter::Debug, Config::default())?;
     info!("Logger initialised");
 
-    let mut discord_client = create_discord_client().await.unwrap();
+    let mut discord_client = create_discord_client().await?;
     info!("Starting discord client");
     discord_client.start().await?;
     error!("Finished discord client");
@@ -79,17 +93,34 @@ fn read_token() -> anyhow::Result<String> {
     token_file
         .read_to_string(&mut temp_token)
         .context("Reading contents of file")?;
+    let token_str = temp_token.trim();
     info!("Read discord bot token");
-    Ok(temp_token)
+    Ok(token_str.to_owned())
 }
-async fn create_discord_client() -> anyhow::Result<Client> {
-    let token = read_token().unwrap();
 
-    let path = env::current_dir().unwrap();
+fn read_application_id() -> anyhow::Result<Option<u64>> {
+    let application_path = Path::new("resources/application");
+    if !application_path.exists() {
+        return Ok(None);
+    }
+    let mut token_file = File::open(application_path).context("Opening application path file")?;
+    let mut temp_token = String::new();
+    token_file
+        .read_to_string(&mut temp_token)
+        .context("Reading contents of file")?;
+    let token_str = temp_token.trim();
+    info!("Read discord application id");
+    Ok(Some(u64::from_str(token_str).context("u64::from_str")?))
+}
+
+async fn create_discord_client() -> anyhow::Result<Client> {
+    let token = read_token()?;
+    let option_application_id = read_application_id()?;
+
+    let path = env::current_dir()?;
     let path = path.join("resources/dom5bot.db");
-    let db_conn = DbConnection::new(&path)
-        .context(format!("Opening database '{}'", path.display()))
-        .unwrap();
+    let db_conn =
+        DbConnection::new(&path).context(format!("Opening database '{}'", path.display()))?;
     info!("Opened database connection");
 
     let framework = StandardFramework::new()
@@ -118,7 +149,13 @@ async fn create_discord_client() -> anyhow::Result<Client> {
 
     let cache_loop_db_conn = db_conn.clone();
 
-    let discord_client = Client::builder(&token)
+    let mut discord_client_builder = Client::builder(&token);
+
+    if let Some(&application_id) = option_application_id.as_ref() {
+        discord_client_builder = discord_client_builder.application_id(application_id);
+    }
+
+    let discord_client = discord_client_builder
         .event_handler(Handler)
         .type_map_insert::<DetailsCacheKey>(im::HashMap::new())
         .type_map_insert::<DbConnectionKey>(db_conn)
@@ -133,6 +170,12 @@ async fn create_discord_client() -> anyhow::Result<Client> {
     let _ = tokio::spawn(async move {
         update_details_cache_loop(cache_loop_db_conn, write_handle_mutex, cache_and_http).await;
     });
+
+    if option_application_id.is_some() {
+        slash_commands::create_guild_commands(discord_client.cache_and_http.clone().http())
+            .await
+            .context("create_guild_commands")?;
+    }
 
     // start listening for events by starting a single shard
     Ok(discord_client)

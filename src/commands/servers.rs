@@ -13,11 +13,15 @@ pub mod turns;
 pub mod unregister_player;
 pub mod unstart;
 
+use serenity::builder::CreateEmbed;
+use serenity::framework::standard::CommandError;
+use serenity::model::id::{ChannelId, UserId};
 use serenity::{
     framework::standard::{macros::*, Args, CommandResult},
     model::channel::Message,
     prelude::*,
 };
+use std::future::Future;
 
 // FIXME: buckets
 #[group]
@@ -43,102 +47,107 @@ struct Server;
 #[command]
 #[aliases("add")]
 async fn server_add(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    add_server::add_server(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, add_server::add_server).await
 }
 
 #[command]
 #[aliases("list")]
-async fn server_list(ctx: &Context, msg: &Message) -> CommandResult {
-    list_servers::list_servers(ctx, msg).await
+async fn server_list(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    bang_command_wrap(ctx, msg, args, list_servers::list_servers).await
 }
 
 #[command]
 #[aliases("delete")]
 async fn server_delete(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    remove_server::remove_server(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, remove_server::remove_server).await
 }
 
 #[command]
 #[aliases("details", "deets")]
 async fn server_details(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    details::details2(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, details::details).await
 }
 
 #[command]
 #[aliases("register")]
 async fn server_register(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    register_player::register_player(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, register_player::register_player).await
 }
 
 #[command]
 #[aliases("register-id")]
 async fn server_register_id(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    register_player::register_player_id(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, register_player::register_player_id).await
 }
 
 #[command]
 #[aliases("register-custom")]
 async fn server_register_custom(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    register_player::register_player_custom(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, register_player::register_player_custom).await
 }
 
 #[command]
 #[aliases("unregister")]
 async fn server_unregister(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    unregister_player::unregister_player(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, unregister_player::unregister_player).await
 }
 
 #[command]
 #[aliases("turns")]
-async fn server_turns(ctx: &Context, msg: &Message) -> CommandResult {
-    turns::turns2(ctx, msg).await
+async fn server_turns(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    bang_command_wrap(ctx, msg, args, turns::turns).await
 }
 
 #[command]
 #[aliases("lobby")]
 async fn server_lobby(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    lobby::lobby(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, lobby::lobby).await
 }
 
 #[command]
 #[aliases("notifications")]
 async fn server_notifications(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    notifications::notifications(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, notifications::notifications).await
 }
 
 #[command]
 #[aliases("start")]
 async fn server_start(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    start::start(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, start::start).await
 }
 
 #[command]
 #[aliases("lobbies")]
-async fn server_lobbies(ctx: &Context, msg: &Message) -> CommandResult {
-    lobbies::lobbies(ctx, msg).await
+async fn server_lobbies(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    bang_command_wrap(ctx, msg, args, lobbies::lobbies).await
 }
 
 #[command]
 #[aliases("describe")]
 async fn server_describe(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    describe::describe(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, describe::describe).await
 }
 
 #[command]
 #[aliases("unstart")]
 async fn server_unstart(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    unstart::unstart(ctx, msg, args).await
+    bang_command_wrap(ctx, msg, args, unstart::unstart).await
+}
+
+pub enum CommandResponse {
+    Embed(CreateEmbed),
+    Reply(String),
 }
 
 async fn alias_from_arg_or_channel_name(
-    args: &mut Args,
-    message: &Message,
     ctx: &Context,
+    channel_id: ChannelId,
+    args: &mut Args,
 ) -> Result<String, String> {
     let result_alias = if !args.is_empty() {
         args.single_quoted::<String>().ok()
     } else {
-        message.channel_id.name(ctx.cache.clone()).await
+        channel_id.name(ctx.cache.clone()).await
     };
     result_alias
         .clone()
@@ -150,4 +159,34 @@ async fn alias_from_arg_or_channel_name(
                 result_alias.unwrap_or_default()
             )
         })
+}
+
+async fn bang_command_wrap<'a, F, Fut>(
+    context: &'a Context,
+    message: &'a Message,
+    args: Args,
+    f: F,
+) -> Result<(), CommandError>
+where
+    F: FnOnce(&'a Context, ChannelId, UserId, Args) -> Fut,
+    Fut: Future<Output = Result<CommandResponse, CommandError>> + 'a,
+{
+    let channel_id = message.channel_id;
+    let user_id = message.author.id;
+    let command_response = f(context, channel_id, user_id, args).await?;
+
+    match command_response {
+        CommandResponse::Reply(reply) => {
+            message
+                .reply((&context.cache, context.http.as_ref()), reply)
+                .await?;
+        }
+        CommandResponse::Embed(embed) => {
+            message
+                .channel_id
+                .send_message(&context.http, |m| m.set_embed(embed))
+                .await?;
+        }
+    }
+    Ok(())
 }
