@@ -23,7 +23,7 @@ rusqlite = {version = "0.24", features = ["bundled"]}
 r2d2 = "0.8"
 r2d2_sqlite = "0.17"
 serde = { version = "1.0", features = ["derive"] }
-serenity = {version = "0.10.9", features = ["default_native_tls", "unstable_discord_api"]}
+serenity = {version = "0.10.9", features = ["unstable_discord_api"]}
 simplelog = "0.9"
 tokio = { version = "1.12", features = ["macros", "rt-multi-thread", "time"]}
 url = "2.2"
