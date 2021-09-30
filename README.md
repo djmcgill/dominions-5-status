@@ -18,6 +18,11 @@ To run in docker:
 - Make a folder on the host called "resources" containing the `token` file as before. This is also where the db file will be created.
 - Run the command: `docker run -it -d --restart unless-stopped -v /home/dmcgill9071/dom-5-bot/resources:/usr/src/myapp/resources --log-opt max-size=10m --log-opt max-file=5 eu.gcr.io/dom-5-status/dom-5-status` except replace `/home/dmcgill9071/dom-5-bot/resources` with the location of your resource folder.
 
+## Slash commands:
+Note that this bot now supports discord's [slash commands](https://discord.com/developers/docs/interactions/slash-commands) which look like:
+![image](https://user-images.githubusercontent.com/1290757/120073845-9bb03100-c089-11eb-9604-880ca37670ee.png)
+
+To do this, you need to also put a file in the resources folder called "application" containing the discord application's ID. Note that currently only "guild" i.e. server commands are supported, and not "global" commands, which I think would allow their use in the bot's DMs. All commands using "!" work as before.
 
 ## Commands:
 n.b. server alias is optional, defaults to channel name.
