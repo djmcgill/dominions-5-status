@@ -16,7 +16,21 @@ use crate::commands::servers::{
 };
 use anyhow::{anyhow, Context as _};
 use log::{error, info};
-use serenity::{builder::CreateApplicationCommandOption, client::Context, framework::standard::{Args, Delimiter}, http::{CacheHttp, GuildPagination, Http}, model::{id::GuildId, interactions::{Interaction, InteractionResponseType, application_command::{ApplicationCommandInteractionData, ApplicationCommandOptionType}}}};
+use serenity::{
+    builder::CreateApplicationCommandOption,
+    client::Context,
+    framework::standard::{Args, Delimiter},
+    http::{CacheHttp, GuildPagination, Http},
+    model::{
+        id::GuildId,
+        interactions::{
+            application_command::{
+                ApplicationCommandInteractionData, ApplicationCommandOptionType,
+            },
+            Interaction, InteractionResponseType,
+        },
+    },
+};
 
 // This technically only needs to be run once, but running every time on boot
 // just overrides it each time and guild commands update instantly so who cares.
@@ -167,6 +181,23 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                         .description("Turn a game back into a lobby by forgetting its address.")
                         .create_option(game_name_option)
                 )
+                .create_application_command(|c|
+                    c.name("alias")
+                        .description("Set a new alias for a server.")
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::String)
+                                .name("alias")
+                                .description("The current alias for the server")
+                                .required(true)
+                        )
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::String)
+                                .name("new_alias")
+                                .description("The new alias for the server")
+                                .required(true)
+                        )
+                        .create_option(game_name_option)
+                )
         })
         .await
         .context("create_application_commands")?;
@@ -192,9 +223,7 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
     info!("Incoming interaction: {:?}", interaction);
 
     if let Interaction::ApplicationCommand(interaction) = interaction {
-
-        let channel_id = interaction
-            .channel_id;
+        let channel_id = interaction.channel_id;
         let user_id = interaction
             .member
             .as_ref()
@@ -202,8 +231,7 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
             .user
             .id;
 
-        let data = &interaction
-            .data;
+        let data = &interaction.data;
 
         let args = make_args(data);
 
@@ -284,12 +312,8 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
                     .await?
             }
         }
-
-        
-
     }
     Ok(())
-    
 }
 
 // okay this is VERY hacky. We're going via the delimited string for no reason at all.
