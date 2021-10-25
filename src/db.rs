@@ -529,7 +529,7 @@ impl DbConnection {
         info!("update_lobby_with_alias");
         let conn = &*self.0.clone().get()?;
         let rows_modified = conn.execute(
-            include_str!("db/sql/update_lobby_with_alias.sql"),
+            include_str!("db/sql/update_game_with_alias.sql"),
             &[&alias, &new_alias],
         )?;
         if rows_modified != 0 {

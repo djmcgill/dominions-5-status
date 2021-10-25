@@ -9,7 +9,7 @@ use serenity::{
 pub async fn server_set_alias(
     context: &Context,
     channel_id: ChannelId,
-    user_id: UserId,
+    _user_id: UserId,
     mut args: Args,
 ) -> Result<CommandResponse, CommandError> {
     let db_conn = {
