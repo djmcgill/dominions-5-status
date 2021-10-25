@@ -11,6 +11,7 @@ pub async fn help(ctx: &Context, msg: &Message) -> Result<(), CommandError> {
         (&ctx.cache, ctx.http.as_ref()),
         "Commands (server alias is optional, defaults to channel name): \n\
          - /add <address:port> <alias>: save the dom5 server address\n\
+         - /alias <old alias> <new alias>: set a new alias for a server\n\
          - /list: return a list of the saved server addresses and aliases\n\
          - /delete <alias>: remove the server address from the list\n\
          - /details <alias>: return a list of the nations and their statuses in the game\n\

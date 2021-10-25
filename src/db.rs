@@ -47,6 +47,15 @@ impl DbConnection {
         Ok(db_conn)
     }
 
+    // TODO: blocked because of https://github.com/jaemk/migrant_lib/issues/6
+    // pub fn newInMemory() -> anyhow::Result<Self> {
+    //     let manager = SqliteConnectionManager::memory();
+    //     let pool = Pool::new(manager)?;
+    //     let db_conn = DbConnection(pool);
+    //     db_conn.initialise(&"/dev/null")?;
+    //     Ok(db_conn)
+    // }
+
     fn initialise<P: AsRef<Path>>(&self, path: P) -> anyhow::Result<()> {
         info!("db::initialise");
         let settings = Settings::configure_sqlite()
@@ -508,6 +517,20 @@ impl DbConnection {
         let rows_modified = conn.execute(
             include_str!("db/sql/update_lobby_with_description.sql"),
             &[&alias, &description],
+        )?;
+        if rows_modified != 0 {
+            Ok(())
+        } else {
+            Err(anyhow!("Could not find lobby with name {}", alias))
+        }
+    }
+
+    pub fn update_lobby_with_alias(&self, alias: &str, new_alias: &str) -> anyhow::Result<()> {
+        info!("update_lobby_with_alias");
+        let conn = &*self.0.clone().get()?;
+        let rows_modified = conn.execute(
+            include_str!("db/sql/update_lobby_with_alias.sql"),
+            &[&alias, &new_alias],
         )?;
         if rows_modified != 0 {
             Ok(())
