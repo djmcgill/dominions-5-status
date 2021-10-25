@@ -1,4 +1,5 @@
 pub mod add_server;
+pub mod alias;
 pub mod describe;
 pub mod details;
 pub mod list_servers;
@@ -40,7 +41,8 @@ use std::future::Future;
     server_start,
     server_lobbies,
     server_describe,
-    server_unstart
+    server_unstart,
+    server_set_alias
 )]
 struct Server;
 
@@ -132,6 +134,12 @@ async fn server_describe(ctx: &Context, msg: &Message, args: Args) -> CommandRes
 #[aliases("unstart")]
 async fn server_unstart(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     bang_command_wrap(ctx, msg, args, unstart::unstart).await
+}
+
+#[command]
+#[aliases("alias")]
+async fn server_set_alias(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    bang_command_wrap(ctx, msg, args, alias::server_set_alias).await
 }
 
 pub enum CommandResponse {
