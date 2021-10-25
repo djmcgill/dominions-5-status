@@ -176,6 +176,23 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                         .description("Turn a game back into a lobby by forgetting its address.")
                         .create_option(game_name_option)
                 )
+                .create_application_command(|c|
+                    c.name("alias")
+                        .description("Set a new alias for a server.")
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::String)
+                                .name("alias")
+                                .description("The current alias for the server")
+                                .required(true)
+                        )
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::String)
+                                .name("new_alias")
+                                .description("The new alias for the server")
+                                .required(true)
+                        )
+                        .create_option(game_name_option)
+                )
         })
         .await
         .context("create_application_commands")?;
