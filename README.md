@@ -29,6 +29,8 @@ n.b. server alias is optional, defaults to channel name.
 `<>` means an argument, `[]` means optional
 - `!add <address:port> [<alias>]`:
     - save the dom5 server address
+- `!alias <old alias> <new alias>`
+    - change the alias for a game server
 - `!list`:
     - return a list of the saved server addresses and aliases
 - `!delete [<alias>]`:
