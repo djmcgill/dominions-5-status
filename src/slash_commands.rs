@@ -1,5 +1,6 @@
 use crate::commands::servers::{
     add_server::add_server,
+    alias::server_set_alias,
     describe::describe,
     details::details,
     list_servers::list_servers,
@@ -282,6 +283,9 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
             "unstart" => unstart(&ctx, channel_id, user_id, args)
                 .await
                 .map_err(|e| anyhow!("unstart slash command failed with: {}", e)),
+            "alias" => server_set_alias(&ctx, channel_id, user_id, args)
+                .await
+                .map_err(|e| anyhow!("server_set_alias slash command failed with: {}", e)),
             other => Err(anyhow!("Unrecognised command: {}", other)),
         };
         match command_response_result {
