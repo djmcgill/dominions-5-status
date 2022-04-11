@@ -1,6 +1,6 @@
-use crate::commands::servers::CommandResponse;
+use crate::commands::servers::discord_date_format;
 use crate::{
-    commands::servers::alias_from_arg_or_channel_name,
+    commands::servers::{alias_from_arg_or_channel_name, CommandResponse},
     db::{DbConnection, DbConnectionKey},
     model::{
         enums::{NationStatus, SubmissionStatus},
@@ -14,6 +14,7 @@ use crate::{
     snek::{snek_details_async, SnekGameStatus},
     DetailsCacheHandle,
 };
+use chrono::Utc;
 use log::*;
 use serenity::{
     builder::CreateEmbed,
@@ -260,13 +261,9 @@ pub fn started_details_from_server(
             uploading_players: uploaded_players_detail,
         })
     } else {
-        let total_mins_remaining = game_data.turn_timer / (1000 * 60);
-        let hours_remaining = total_mins_remaining / 60;
-        let mins_remaining = total_mins_remaining - hours_remaining * 60;
         StartedStateDetails::Playing(PlayingState {
             players: player_details,
-            mins_remaining,
-            hours_remaining,
+            turn_deadline: game_data.turn_deadline,
             turn: game_data.turn as u32, // game_data >= 0 checked above
         })
     };
@@ -301,13 +298,13 @@ async fn details_to_embed(
         NationDetails::Started(started_details) => {
             match &started_details.state {
                 StartedStateDetails::Playing(playing_state) => {
+                    let deadline = discord_date_format(playing_state.turn_deadline);
                     let embed_title = format!(
-                        "{} ({}): turn {}, {}h {}m remaining",
+                        "{} ({}): turn {}, {}",
                         started_details.game_name,
                         started_details.address,
                         playing_state.turn,
-                        playing_state.hours_remaining,
-                        playing_state.mins_remaining
+                        deadline,
                     );
 
                     // we can't have too many players per embed it's real annoying

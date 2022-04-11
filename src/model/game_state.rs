@@ -2,6 +2,7 @@ use crate::model::enums::{Era, NationStatus, SubmissionStatus};
 use crate::model::game_data::GameData;
 use crate::model::nation::{BotNationIdentifier, GameNationIdentifier};
 use crate::snek::SnekGameStatus;
+use chrono::{DateTime, Utc};
 use serenity::model::id::UserId;
 use std::borrow::Cow;
 
@@ -47,8 +48,7 @@ pub struct UploadingState {
 pub struct PlayingState {
     pub players: Vec<PotentialPlayer>,
     pub turn: u32,
-    pub mins_remaining: i32,
-    pub hours_remaining: i32,
+    pub turn_deadline: DateTime<Utc>,
 }
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PotentialPlayer {

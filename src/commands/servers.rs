@@ -13,6 +13,7 @@ pub mod turns;
 pub mod unregister_player;
 pub mod unstart;
 
+use chrono::{DateTime, Utc};
 use serenity::builder::CreateEmbed;
 use serenity::framework::standard::CommandError;
 use serenity::model::id::{ChannelId, UserId};
@@ -189,4 +190,17 @@ where
         }
     }
     Ok(())
+}
+
+pub fn discord_date_format(deadline: DateTime<Utc>) -> String {
+    let duration_from_now_to_deadline = deadline.signed_duration_since(Utc::now());
+
+    let hours_remaining = duration_from_now_to_deadline.num_hours();
+    let mins_remaining = duration_from_now_to_deadline.num_minutes() % 60;
+    format!(
+        "{}h {}m/<t:{}>",
+        hours_remaining,
+        mins_remaining,
+        playing_state.turn_deadline.timestamp_millis() / 1000
+    )
 }

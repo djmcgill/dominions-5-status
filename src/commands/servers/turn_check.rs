@@ -1,20 +1,19 @@
-use crate::commands::servers::details::started_details_from_server;
+use crate::commands::servers::discord_date_format;
 use crate::{
+    commands::servers::details::started_details_from_server,
     db::*,
     model::{
         enums::*,
         game_server::GameServerState,
         game_state::{
-            CacheEntry, GameDetails, NationDetails, PotentialPlayer, StartedDetails,
-            StartedStateDetails,
+            CacheEntry, GameDetails, NationDetails, PlayerDetails, PlayingState, PotentialPlayer,
+            StartedDetails, StartedStateDetails,
         },
     },
     server::get_game_data_async,
     snek::{snek_details_async, SnekGameStatus},
     DetailsCacheHandle, DetailsCacheKey,
 };
-
-use crate::model::game_state::{PlayerDetails, PlayingState};
 use anyhow::anyhow;
 use chrono::Utc;
 use futures::{
@@ -22,10 +21,8 @@ use futures::{
     stream::{self, StreamExt},
 };
 use log::*;
-use serenity::http::CacheHttp;
-use serenity::{model::id::UserId, CacheAndHttp};
-use std::sync::Arc;
-use std::time::Duration;
+use serenity::{http::CacheHttp, model::id::UserId, CacheAndHttp};
+use std::{sync::Arc, time::Duration};
 
 pub async fn update_details_cache_loop(
     db_conn: DbConnection,
@@ -236,15 +233,16 @@ fn create_playing_message(
     if let SubmissionStatus::NotSubmitted = details.submitted {
         // and if they're actually playing
         if details.player_status.is_human() {
+            let deadline = discord_date_format(new_playing_details.turn_deadline);
+
             return Some(NewTurnNation {
                 user_id: *user_id,
                 message: format!(
-                    "New turn in {}! You are {} and you have {}h {}m remaining for turn {}.",
+                    "Turn {} in {}! You are {} and timer is in {}",
+                    new_playing_details.turn,
                     alias,
                     details.nation_identifier.name(option_snek_state),
-                    new_playing_details.hours_remaining,
-                    new_playing_details.mins_remaining,
-                    new_playing_details.turn,
+                    deadline,
                 ),
             });
         }

@@ -3,7 +3,7 @@ use serenity::framework::standard::{Args, CommandError};
 use serenity::model::id::{ChannelId, UserId};
 use serenity::prelude::Context;
 
-use crate::commands::servers::CommandResponse;
+use crate::commands::servers::{discord_date_format, CommandResponse};
 use crate::DetailsCacheHandle;
 use crate::{
     commands::servers::details::started_details_from_server,
@@ -18,6 +18,7 @@ use crate::{
     },
     snek::SnekGameStatus,
 };
+use chrono::Utc;
 use std::sync::Arc;
 
 async fn turns_helper(
@@ -164,12 +165,13 @@ fn turns_for_playing_state(
                 if *potential_player_user_id == user_id
                     && potential_player_details.player_status.is_human()
                 {
+                    let deadline = discord_date_format(playing_state.turn_deadline);
+
                     let turn_str = format!(
-                        "{} turn {} ({}h {}m): {} (submitted: {}, {}/{})\n",
+                        "{} turn {} ({}): {} (submitted: {}, {}/{})\n",
                         alias,
                         playing_state.turn,
-                        playing_state.hours_remaining,
-                        playing_state.mins_remaining,
+                        deadline,
                         potential_player_details
                             .nation_identifier
                             .name(option_snek_state),
