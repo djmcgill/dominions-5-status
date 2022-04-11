@@ -45,7 +45,7 @@ pub async fn snek_details_async(address: &str) -> anyhow::Result<Option<SnekGame
         .ok_or_else(|| anyhow::anyhow!("Url '{}' did not have port", address))?;
 
     if port <= 30_000 {
-        return Err(anyhow::anyhow!("Url '{}' had an invalid port"));
+        return Err(anyhow::anyhow!("Url '{}' had an invalid port", address));
     };
     let game_id = port - 30_000;
 
