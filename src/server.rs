@@ -6,6 +6,7 @@ use crate::model::{
 };
 use anyhow::{anyhow, Context};
 use byteorder::{LittleEndian, ReadBytesExt};
+use chrono::Utc;
 use flate2::read::ZlibDecoder;
 use log::*;
 use std::{
@@ -26,11 +27,15 @@ pub async fn get_game_data_async(server_address: &str) -> anyhow::Result<GameDat
     Ok(game_data)
 }
 fn interpret_raw_data(raw_data: RawGameData) -> anyhow::Result<GameData> {
+    let turn_deadline = Utc::now()
+        .checked_add_signed(chrono::Duration::milliseconds(raw_data.d.into()))
+        .ok_or_else(|| anyhow!("invalid duration remaining in turn"))?;
+
     let mut game_data = GameData {
         game_name: raw_data.game_name,
         nations: vec![],
         turn: raw_data.h as i32,
-        turn_timer: raw_data.d,
+        turn_deadline,
     };
     for i in 0..250 {
         let status_num = raw_data.f[i];
