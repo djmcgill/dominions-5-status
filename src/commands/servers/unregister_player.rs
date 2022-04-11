@@ -13,7 +13,7 @@ fn unregister_player_helper(
     db_conn: DbConnection,
 ) -> Result<(), CommandError> {
     let rows_affected = db_conn
-        .remove_player_from_game(&alias, user_id)
+        .remove_player_from_game(alias, user_id)
         .map_err(CommandError::from)?;
 
     if rows_affected > 0 {

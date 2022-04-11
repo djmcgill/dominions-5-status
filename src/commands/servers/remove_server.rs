@@ -18,7 +18,7 @@ async fn remove_server_helper(
     // then this runs and deletes it from the db and cache, and then the turn check finishes
     // it'll re-add it to the cache BUT that only means that there's a now-useless cache entry
     // that is ignored so I'm going to go with: don't care.
-    db_conn.remove_server(&alias).map_err(CommandError::from)?;
+    db_conn.remove_server(alias).map_err(CommandError::from)?;
     let mut guard = details_cache_handle.0.write().await;
     match guard.get_mut::<DetailsCacheKey>() {
         Some(handle) => {

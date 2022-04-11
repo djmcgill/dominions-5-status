@@ -1,12 +1,7 @@
-use log::*;
-use serenity::framework::standard::{Args, CommandError};
-use serenity::model::id::{ChannelId, UserId};
-use serenity::prelude::Context;
-
-use crate::commands::servers::{discord_date_format, CommandResponse};
-use crate::DetailsCacheHandle;
 use crate::{
-    commands::servers::details::started_details_from_server,
+    commands::servers::{
+        details::started_details_from_server, discord_date_format, CommandResponse,
+    },
     db::*,
     model::{
         enums::*,
@@ -17,8 +12,14 @@ use crate::{
         },
     },
     snek::SnekGameStatus,
+    DetailsCacheHandle,
 };
-use chrono::Utc;
+use log::*;
+use serenity::{
+    framework::standard::{Args, CommandError},
+    model::id::{ChannelId, UserId},
+    prelude::Context,
+};
 use std::sync::Arc;
 
 async fn turns_helper(

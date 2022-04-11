@@ -22,7 +22,7 @@ fn list_servers_helper(db_conn: DbConnection) -> Result<CreateEmbed, CommandErro
             match server.state {
                 GameServerState::Lobby(_) => {
                     server_aliases.push_str(&format!("{}\n", server.alias));
-                    server_addresses.push_str(&"-\n");
+                    server_addresses.push_str("-\n");
                 }
                 GameServerState::StartedState(ref started_state, _) => {
                     server_aliases.push_str(&format!("{}\n", server.alias));

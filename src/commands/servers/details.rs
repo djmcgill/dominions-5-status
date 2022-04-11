@@ -14,7 +14,6 @@ use crate::{
     snek::{snek_details_async, SnekGameStatus},
     DetailsCacheHandle,
 };
-use chrono::Utc;
 use log::*;
 use serenity::{
     builder::CreateEmbed,
@@ -53,13 +52,13 @@ pub async fn get_details_for_alias(
     db_conn: DbConnection,
     alias: &str,
 ) -> Result<GameDetails, CommandError> {
-    let server = db_conn.game_for_alias(&alias)?;
+    let server = db_conn.game_for_alias(alias)?;
     info!("got server details");
 
     let details = match server.state {
-        GameServerState::Lobby(ref lobby_state) => lobby_details(db_conn, lobby_state, &alias)?,
+        GameServerState::Lobby(ref lobby_state) => lobby_details(db_conn, lobby_state, alias)?,
         GameServerState::StartedState(ref started_state, ref option_lobby_state) => {
-            started_details(db_conn, started_state, option_lobby_state.as_ref(), &alias).await?
+            started_details(db_conn, started_state, option_lobby_state.as_ref(), alias).await?
         }
     };
 
@@ -73,7 +72,7 @@ async fn started_details(
     alias: &str,
 ) -> Result<GameDetails, CommandError> {
     let server_address = &started_state.address;
-    let game_data = get_game_data_async(&server_address).await?;
+    let game_data = get_game_data_async(server_address).await?;
     let option_snek_details = snek_details_async(server_address).await?;
 
     started_details_from_server(
@@ -92,7 +91,7 @@ async fn details_helper(
     read_handle: DetailsCacheHandle,
     context: &Context,
 ) -> Result<CreateEmbed, CommandError> {
-    let server = db_conn.game_for_alias(&alias)?;
+    let server = db_conn.game_for_alias(alias)?;
     match &server.state {
         GameServerState::Lobby(lobby_state) => {
             let details: GameDetails = lobby_details(db_conn, lobby_state, alias)?;
@@ -126,7 +125,7 @@ pub fn lobby_details(
     lobby_state: &LobbyState,
     alias: &str,
 ) -> Result<GameDetails, CommandError> {
-    let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+    let players_nations = db_conn.players_with_nations_for_game_alias(alias)?;
 
     let mut player_nation_details: Vec<LobbyPlayer> = players_nations
         .into_iter()
@@ -227,7 +226,7 @@ pub fn started_details_from_server(
     game_data: &GameData,
     option_snek_details: Option<&SnekGameStatus>,
 ) -> Result<GameDetails, CommandError> {
-    let id_player_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+    let id_player_nations = db_conn.players_with_nations_for_game_alias(alias)?;
     let player_details = join_players_with_nations(&game_data.nations[..], &id_player_nations[..])?;
 
     let state_details = if game_data.turn < 0 {

@@ -12,6 +12,7 @@ use crate::{
     snek::SnekGameStatus,
     DetailsCacheHandle,
 };
+use anyhow::anyhow;
 use either::Either;
 use log::*;
 use serenity::model::id::ChannelId;
@@ -20,6 +21,7 @@ use serenity::{
     model::id::UserId,
     prelude::Context,
 };
+use std::cmp::Ordering;
 use std::{str::FromStr, sync::Arc};
 
 // Find an uploaded/playing nation
@@ -33,8 +35,8 @@ fn get_nation_for_started_server(
         Either::Left(arg_nation_name) => {
             let sanitised_name = arg_nation_name
                 .to_lowercase()
-                .replace("'", "")
-                .replace(" ", "");
+                .replace('\'', "")
+                .replace(' ', "");
 
             match started_state_details {
                 StartedStateDetails::Playing(playing_state) => {
@@ -44,8 +46,10 @@ fn get_nation_for_started_server(
                     for potential_player in &playing_state.players {
                         let nation_name = potential_player.nation_name(option_snek_state);
 
-                        let sanitised_nation_name =
-                            nation_name.to_lowercase().replace("'", "").replace(" ", "");
+                        let sanitised_nation_name = nation_name
+                            .to_lowercase()
+                            .replace('\'', "")
+                            .replace(' ', "");
                         if sanitised_nation_name.starts_with(&sanitised_name) {
                             possible_ingame_nations.push(potential_player);
                         }
@@ -103,8 +107,8 @@ fn get_nation_for_started_server(
                         let sanitised_nation_name = potential_player
                             .nation_name(option_snek_state)
                             .to_lowercase()
-                            .replace("'", "")
-                            .replace(" ", "");
+                            .replace('\'', "")
+                            .replace(' ', "");
                         if sanitised_nation_name.starts_with(&sanitised_name) {
                             possible_ingame_nations.push(potential_player);
                         }
@@ -197,22 +201,24 @@ fn get_nation_for_lobby(
     match arg_nation {
         Either::Left(arg_nation_name) => {
             let nations = Nations::from_name_prefix(arg_nation_name, Some(era));
-            let nations_len = nations.len();
-            if nations_len > 1 {
-                return Err(CommandError::from(format!(
+            match nations.len().cmp(&1) {
+                Ordering::Greater => Err(CommandError::from(format!(
                     "ambiguous nation name: {}",
                     arg_nation_name
-                )));
-            } else if nations_len < 1 {
-                // try to parse the name as a number
-                let mk_err = || {
-                    CommandError::from(format!("Could not find nation: {}. Use register-custom or register-id for mod nations", arg_nation_name))
-                };
-                return u32::from_str(arg_nation_name)
-                    .map_err(|_| mk_err())
-                    .map(GameNationIdentifier::from_id);
-            };
-            Ok(GameNationIdentifier::Existing(nations[0].clone()))
+                ))),
+                Ordering::Less => {
+                    // try to parse the name as a number
+                    let mk_err = || {
+                        CommandError::from(format!("Could not find nation: {}. Use register-custom or register-id for mod nations", arg_nation_name))
+                    };
+                    u32::from_str(arg_nation_name)
+                        .map_err(|_| mk_err())
+                        .map(GameNationIdentifier::from_id)
+                }
+                Ordering::Equal => Ok(GameNationIdentifier::Existing(
+                    *nations.get(0).ok_or_else(|| anyhow!("nation vec empty"))?,
+                )),
+            }
         }
         Either::Right(arg_nation_id) => Ok(GameNationIdentifier::from_id(arg_nation_id)),
     }
@@ -273,11 +279,11 @@ async fn register_player_helper(
         "Registering player {} for nation {} in game {}",
         user_id, arg_nation, alias
     );
-    let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
+    let server = db_conn.game_for_alias(alias).map_err(CommandError::from)?;
 
     match server.state {
         GameServerState::Lobby(lobby_state) => {
-            let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
+            let players_nations = db_conn.players_with_nations_for_game_alias(alias)?;
             if players_nations.len() as i32 >= lobby_state.player_count {
                 return Err(CommandError::from("lobby already full"));
             };

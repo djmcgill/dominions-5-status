@@ -10,11 +10,11 @@ use crate::{
 use serenity::model::id::{ChannelId, UserId};
 
 fn unstart_helper(db_conn: DbConnection, alias: &str) -> Result<(), CommandError> {
-    let server = db_conn.game_for_alias(&alias)?;
+    let server = db_conn.game_for_alias(alias)?;
 
     match server.state {
         GameServerState::StartedState(_, _) => {
-            db_conn.remove_started_state(&alias)?;
+            db_conn.remove_started_state(alias)?;
         }
         GameServerState::Lobby(_) => {
             return Err(CommandError::from("cannot use this command on a lobby"))
