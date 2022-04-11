@@ -201,6 +201,6 @@ pub fn discord_date_format(deadline: DateTime<Utc>) -> String {
         "{}h {}m/<t:{}>",
         hours_remaining,
         mins_remaining,
-        playing_state.turn_deadline.timestamp_millis() / 1000
+        deadline.timestamp_millis() / 1000
     )
 }

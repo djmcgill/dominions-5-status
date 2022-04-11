@@ -59,7 +59,7 @@ impl Nations {
                 )
             }),
         }
-        .unwrap_or_else(Vec::new)
+        .unwrap_or_default()
     }
 }
 
@@ -78,7 +78,7 @@ fn extract_possible_nation_prefix(lowercase_name_prefix: Cow<str>) -> (Cow<str>,
 fn sanitise_text(lowercase_text: Cow<str>) -> Cow<str> {
     lowercase_text
         .to_owned()
-        .replace("'", "")
+        .replace('\'', "")
         .replace(", ", "")
         .into()
     // FIXME: it's too late tonight to figure this stuff out

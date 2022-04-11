@@ -217,8 +217,8 @@ impl DbConnection {
         info!("db::retrieve_all_servers");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_game_servers.sql"))?;
-        let foo = stmt
-            .query_and_then(params![], |ref row| -> anyhow::Result<GameServer> {
+        let vec = stmt
+            .query_and_then(params![], |row| -> anyhow::Result<GameServer> {
                 let maybe_address: Option<String> = row.get(1)?;
                 let maybe_last_seen_turn: Option<i32> = row.get(2)?;
                 let alias: String = row.get(0)?;
@@ -240,7 +240,7 @@ impl DbConnection {
                 Ok(game_server)
             })?
             .collect::<Result<Vec<GameServer>, _>>()?;
-        Ok(foo)
+        Ok(vec)
     }
 
     pub fn players_with_nations_for_game_alias(
@@ -250,20 +250,22 @@ impl DbConnection {
         info!("players_with_nations_for_game_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_players_nations.sql"))?;
-        let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let discord_user_id: i64 = row.get(0).unwrap();
-            let player = Player {
-                discord_user_id: UserId(discord_user_id as u64),
-                turn_notifications: row.get(3).unwrap(),
-            };
-            let nation_id_i32: Option<i32> = row.get(1).unwrap();
-            let nation_id_u32 = nation_id_i32.map(|id| id as u32);
-            let custom_nation_name: Option<String> = row.get(2).unwrap();
-            let nation_identifier =
-                BotNationIdentifier::from_id_and_name(nation_id_u32, custom_nation_name).unwrap();
-            Ok((player, nation_identifier))
-        })?;
-        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        let vec = stmt
+            .query_map(&[&game_alias], |row| {
+                let discord_user_id: i64 = row.get(0).unwrap();
+                let player = Player {
+                    discord_user_id: UserId(discord_user_id as u64),
+                    turn_notifications: row.get(3).unwrap(),
+                };
+                let nation_id_i32: Option<i32> = row.get(1).unwrap();
+                let nation_id_u32 = nation_id_i32.map(|id| id as u32);
+                let custom_nation_name: Option<String> = row.get(2).unwrap();
+                let nation_identifier =
+                    BotNationIdentifier::from_id_and_name(nation_id_u32, custom_nation_name)
+                        .unwrap();
+                Ok((player, nation_identifier))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
     }
 
@@ -271,25 +273,26 @@ impl DbConnection {
         info!("db::game_for_alias");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_game_server_for_alias.sql"))?;
-        let foo = stmt.query_map(&[&game_alias], |ref row| {
-            let maybe_address: Option<String> = row.get(0).unwrap();
-            let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
-            let maybe_owner: Option<i64> = row.get(2).unwrap();
-            let maybe_lobby_era: Option<i32> = row.get(3).unwrap();
-            let maybe_player_count: Option<i32> = row.get(4).unwrap();
-            let description: Option<String> = row.get(5).unwrap();
-            Ok(make_game_server(
-                game_alias.to_owned(),
-                maybe_address,
-                maybe_last_seen_turn,
-                maybe_owner,
-                maybe_lobby_era,
-                maybe_player_count,
-                description,
-            )
-            .unwrap())
-        })?;
-        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        let vec = stmt
+            .query_map(&[&game_alias], |row| {
+                let maybe_address: Option<String> = row.get(0).unwrap();
+                let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
+                let maybe_owner: Option<i64> = row.get(2).unwrap();
+                let maybe_lobby_era: Option<i32> = row.get(3).unwrap();
+                let maybe_player_count: Option<i32> = row.get(4).unwrap();
+                let description: Option<String> = row.get(5).unwrap();
+                Ok(make_game_server(
+                    game_alias.to_owned(),
+                    maybe_address,
+                    maybe_last_seen_turn,
+                    maybe_owner,
+                    maybe_lobby_era,
+                    maybe_player_count,
+                    description,
+                )
+                .unwrap())
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
         if vec.len() == 1 {
             Ok(vec
                 .into_iter()
@@ -354,7 +357,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_servers_for_player.sql"))?;
 
-        let foo = stmt.query_map(&[&(user_id.0 as i64)], |ref row| {
+        let rows = stmt.query_map(&[&(user_id.0 as i64)], |row| {
             let alias: String = row.get(1).unwrap();
             let maybe_address: Option<String> = row.get(0).unwrap();
             let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
@@ -380,7 +383,7 @@ impl DbConnection {
         })?;
 
         let mut ret: Vec<(GameServer, BotNationIdentifier)> = vec![];
-        for row_result in foo {
+        for row_result in rows {
             let (game_server, option_nation_id, option_custom_nation_name) = row_result?;
             let nation_identifier = match (option_nation_id, option_custom_nation_name) {
                 (Some(nation_id), None) => {
@@ -471,26 +474,27 @@ impl DbConnection {
         info!("select_lobbies");
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_lobbies.sql"))?;
-        let foo = stmt.query_map(params![], |ref row| {
-            let alias: String = row.get(0).unwrap();
-            let maybe_owner: Option<i64> = row.get(1).unwrap();
-            let maybe_lobby_era: Option<i32> = row.get(2).unwrap();
-            let maybe_player_count: Option<i32> = row.get(3).unwrap();
-            let registered_player_count: i32 = row.get(4).unwrap();
-            let description: Option<String> = row.get(5).unwrap();
-            let server = make_game_server(
-                alias,
-                None,
-                None,
-                maybe_owner,
-                maybe_lobby_era,
-                maybe_player_count,
-                description,
-            )
-            .unwrap();
-            Ok((server, registered_player_count))
-        })?;
-        let vec = foo.collect::<Result<Vec<_>, _>>()?;
+        let vec = stmt
+            .query_map(params![], |row| {
+                let alias: String = row.get(0).unwrap();
+                let maybe_owner: Option<i64> = row.get(1).unwrap();
+                let maybe_lobby_era: Option<i32> = row.get(2).unwrap();
+                let maybe_player_count: Option<i32> = row.get(3).unwrap();
+                let registered_player_count: i32 = row.get(4).unwrap();
+                let description: Option<String> = row.get(5).unwrap();
+                let server = make_game_server(
+                    alias,
+                    None,
+                    None,
+                    maybe_owner,
+                    maybe_lobby_era,
+                    maybe_player_count,
+                    description,
+                )
+                .unwrap();
+                Ok((server, registered_player_count))
+            })?
+            .collect::<Result<Vec<_>, _>>()?;
         Ok(vec)
     }
 

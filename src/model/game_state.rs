@@ -109,9 +109,9 @@ impl UploadingPlayer {
         }
     }
     pub fn option_player_id(&self) -> Option<&UserId> {
-        match self.potential_player {
-            PotentialPlayer::RegisteredOnly(ref user, _) => Some(&user),
-            PotentialPlayer::RegisteredAndGame(ref user, _) => Some(&user),
+        match &self.potential_player {
+            PotentialPlayer::RegisteredOnly(user, _) => Some(user),
+            PotentialPlayer::RegisteredAndGame(user, _) => Some(user),
             _ => None,
         }
     }

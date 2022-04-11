@@ -26,14 +26,14 @@ async fn start_helper(
     alias: &str,
     context: &Context,
 ) -> Result<(), CommandError> {
-    let server = db_conn.game_for_alias(&alias)?;
+    let server = db_conn.game_for_alias(alias)?;
 
     match server.state {
         GameServerState::StartedState(_, _) => {
             return Err(CommandError::from("game already started"))
         }
         GameServerState::Lobby(lobby_state) => {
-            let game_data = get_game_data_async(&address).await?;
+            let game_data = get_game_data_async(address).await?;
             if game_data.nations.len() as i32 > lobby_state.player_count {
                 return Err(CommandError::from("game has more players than the lobby"));
             }
@@ -43,7 +43,7 @@ async fn start_helper(
                 last_seen_turn: game_data.turn,
             };
 
-            db_conn.insert_started_state(&alias, &started_state)?;
+            db_conn.insert_started_state(alias, &started_state)?;
 
             let started_details = get_details_for_alias(db_conn, alias).await?;
             let option_snek_state = snek_details_async(address).await.ok().and_then(|i| i);

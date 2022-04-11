@@ -126,7 +126,7 @@ impl InspectorCategory for Event {
 }
 
 fn search<I: InspectorCategory>(args: Args) -> Result<String, CommandError> {
-    let search_term = utf8_percent_encode(&args.rest(), NON_ALPHANUMERIC).to_string();
+    let search_term = utf8_percent_encode(args.rest(), NON_ALPHANUMERIC).to_string();
     Ok(format!(
         "https://larzm42.github.io/dom5inspector/\
         ?page={}&{}q={}&showmodcmds=1&showmoddinginfo=1&showids=1{}",

@@ -41,7 +41,7 @@ fn lobbies_helper(
         if let GameServerState::Lobby(state) = lobby.state {
             player_counts.push_str(&format!("{}/{}\n", registered_count, state.player_count));
         } else {
-            player_counts.push_str(&"ERROR");
+            player_counts.push_str("ERROR");
         }
     }
 

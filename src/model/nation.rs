@@ -76,7 +76,7 @@ impl BotNationIdentifier {
     pub fn name(&self, option_snek_state: Option<&SnekGameStatus>) -> Cow<'static, str> {
         match self {
             BotNationIdentifier::CustomName(name) => name.clone().into(),
-            BotNationIdentifier::Existing(nation) => existing_name(&nation).into(),
+            BotNationIdentifier::Existing(nation) => existing_name(nation).into(),
             BotNationIdentifier::CustomId(nation_id) => {
                 custom_id_name(*nation_id, option_snek_state).into()
             }
