@@ -16,7 +16,7 @@ use crate::{
 };
 use anyhow::{anyhow, Context};
 use chrono::Utc;
-use futures::future::{self, FutureExt};
+use futures::future;
 use log::*;
 use serenity::{http::CacheHttp, model::id::UserId, CacheAndHttp};
 use std::{sync::Arc, time::Duration};
@@ -33,19 +33,16 @@ pub async fn update_details_cache_loop(
         {
             Err(e) => error!("Error updating all games: {:#?}", e),
             Ok(new_turn_nations) => {
-                future::join_all(new_turn_nations.into_iter().map(|new_turn_nation| {
+                future::join_all(new_turn_nations.into_iter().map(|new_turn_nation| async {
                     let user_id = new_turn_nation.user_id;
-                    // Intentionally no `await` or `?`
-                    notify_player_for_new_turn(new_turn_nation, cache_and_http.clone()).map(
-                        move |r| {
-                            r.unwrap_or_else(|e| {
-                                error!(
-                                    "Failed to notify new turn for user {:?} with error: {:#?}",
-                                    user_id, e
-                                );
-                            })
-                        },
-                    )
+                    if let Err(e) =
+                        notify_player_for_new_turn(new_turn_nation, cache_and_http.clone()).await
+                    {
+                        error!(
+                            "Failed to notify new turn for user {:?} with error: {:#?}",
+                            user_id, e
+                        );
+                    }
                 }))
                 .await;
             }
