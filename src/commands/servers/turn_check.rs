@@ -1,4 +1,5 @@
 use crate::commands::servers::discord_date_format;
+use crate::model::nation::Nation;
 use crate::{
     commands::servers::details::started_details_from_server,
     db::*,
@@ -99,10 +100,19 @@ async fn update_details_cache_for_game(
             )
             .map_err(|e| anyhow!("Error when checking turn for {}: {:#?}", alias, e))?;
             if let NationDetails::Started(new_started_details) = &new_game_details.nations {
+                let option_old_nations = (|| async {
+                    let guard = write_handle_mutex.0.read().await;
+                    let old_state = guard.get::<DetailsCacheKey>()?;
+                    let (_, old_cache) = &**(old_state.get(&alias.to_owned())?);
+                    Some(old_cache.as_ref()?.game_data.nations.clone())
+                })()
+                .await;
+
                 create_messages_for_new_turn(
                     alias,
                     new_started_details,
                     option_new_snek_data.as_ref(),
+                    option_old_nations.as_ref(),
                 )
             } else {
                 vec![]
@@ -181,7 +191,21 @@ pub fn create_messages_for_new_turn(
     alias: &str,
     new_started_details: &StartedDetails,
     option_snek_state: Option<&SnekGameStatus>,
+    option_old_nations: Option<&Vec<Nation>>,
 ) -> Vec<NewTurnNation> {
+    let possible_stales = if let StartedStateDetails::Playing(_) = &new_started_details.state {
+        if let Some(old_nations) = option_old_nations {
+            old_nations
+                .iter()
+                .filter(|old_nation| old_nation.submitted == SubmissionStatus::NotSubmitted)
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        }
+    } else {
+        vec![]
+    };
+
     let mut ret = vec![];
     match &new_started_details.state {
         StartedStateDetails::Playing(new_playing_details) => {
@@ -196,6 +220,7 @@ pub fn create_messages_for_new_turn(
                             option_snek_state,
                             user_id,
                             details,
+                            &possible_stales,
                         ) {
                             ret.push(new_turn_message);
                         }
@@ -228,21 +253,33 @@ fn create_playing_message(
     option_snek_state: Option<&SnekGameStatus>,
     user_id: &UserId,
     details: &PlayerDetails,
+    possible_stales: &Vec<&Nation>,
 ) -> Option<NewTurnNation> {
     // Only message them if they haven't submitted yet
     if let SubmissionStatus::NotSubmitted = details.submitted {
         // and if they're actually playing
         if details.player_status.is_human() {
             let deadline = discord_date_format(new_playing_details.turn_deadline);
+            let possible_stale_message = if possible_stales.is_empty() {
+                "".to_owned()
+            } else {
+                let mut msg = ". Possible stales: ".to_owned();
+                for player in possible_stales {
+                    msg.push_str(player.identifier.name(option_snek_state).as_ref());
+                    msg.push_str(", ");
+                }
+                msg
+            };
 
             return Some(NewTurnNation {
                 user_id: *user_id,
                 message: format!(
-                    "Turn {} in {}! You are {} and timer is in {}",
+                    "Turn {} in {}! You are {} and timer is in {}{}",
                     new_playing_details.turn,
                     alias,
                     details.nation_identifier.name(option_snek_state),
                     deadline,
+                    possible_stale_message,
                 ),
             });
         }
