@@ -98,22 +98,44 @@ async fn update_details_cache_for_game(
             .map_err(|e| anyhow!(e))
             .with_context(|| format!("Error when checking turn for {}", alias))?;
             if let NationDetails::Started(new_started_details) = &new_game_details.nations {
-                let option_old_nations = (|| async {
+                // nip into the old cache quickly
+                let possible_stales = (|| async {
                     let guard = write_handle_mutex.0.read().await;
                     let old_state = guard.get::<DetailsCacheKey>()?;
                     let (_, old_cache) = &**(old_state.get(&alias.to_owned())?);
-                    Some(old_cache.as_ref()?.game_data.nations.clone())
+                    Some(
+                        old_cache
+                            .as_ref()?
+                            .game_data
+                            .nations
+                            .iter()
+                            .filter(|old_nation| {
+                                old_nation.submitted == SubmissionStatus::NotSubmitted
+                                    && old_nation.status == NationStatus::Human
+                            })
+                            .cloned()
+                            .collect::<Vec<_>>(),
+                    )
                 })()
-                .await;
+                .await
+                .unwrap_or_default();
+
+                let defeated_this_turn = new_game_data
+                    .nations
+                    .iter()
+                    .filter(|nation| nation.status == NationStatus::DefeatedThisTurn)
+                    .collect::<Vec<_>>();
 
                 create_messages_for_new_turn(
                     alias,
                     new_started_details,
                     option_new_snek_data.as_ref(),
-                    option_old_nations.as_ref(),
+                    possible_stales.as_ref(),
+                    defeated_this_turn.as_ref(),
                 )
             } else {
                 // this should never happen, `started_details_from_server` cannot return a lobby
+                // sign of a bad abstraction tbh
                 vec![]
             }
         } else {
@@ -179,21 +201,9 @@ pub fn create_messages_for_new_turn(
     alias: &str,
     new_started_details: &StartedDetails,
     option_snek_state: Option<&SnekGameStatus>,
-    option_old_nations: Option<&Vec<Nation>>,
+    possible_stales: &[Nation],
+    defeated_this_turn: &[&Nation],
 ) -> Vec<NewTurnNation> {
-    let possible_stales = if let StartedStateDetails::Playing(_) = &new_started_details.state {
-        if let Some(old_nations) = option_old_nations {
-            old_nations
-                .iter()
-                .filter(|old_nation| old_nation.submitted == SubmissionStatus::NotSubmitted)
-                .collect::<Vec<_>>()
-        } else {
-            vec![]
-        }
-    } else {
-        vec![]
-    };
-
     match &new_started_details.state {
         StartedStateDetails::Playing(new_playing_details) => {
             new_playing_details.players.iter().flat_map(|potential_player| {
@@ -206,7 +216,8 @@ pub fn create_messages_for_new_turn(
                         option_snek_state,
                         user_id,
                         details,
-                        &possible_stales,
+                        possible_stales,
+                        defeated_this_turn,
                     ),
                 }
             }).collect()
@@ -233,33 +244,49 @@ fn create_playing_message(
     option_snek_state: Option<&SnekGameStatus>,
     user_id: &UserId,
     details: &PlayerDetails,
-    possible_stales: &[&Nation],
+    possible_stales: &[Nation],
+    defeated_this_turn: &[&Nation],
 ) -> Option<NewTurnNation> {
     // Only message them if they haven't submitted yet
     if let SubmissionStatus::NotSubmitted = details.submitted {
         // and if they're actually playing
         if details.player_status.is_human() {
             let deadline = discord_date_format(new_playing_details.turn_deadline);
-            let possible_stale_message = if possible_stales.is_empty() {
-                "".to_owned()
-            } else {
-                let mut msg = ". Possible stales: ".to_owned();
-                for player in possible_stales {
-                    msg.push_str(player.identifier.name(option_snek_state).as_ref());
+
+            let possible_stale_message = if let Some(first_player) = possible_stales.first() {
+                let mut msg = ".\nPossible stales: ".to_owned();
+                msg.push_str(first_player.identifier.name(option_snek_state).as_ref());
+                for player in &possible_stales[1..] {
                     msg.push_str(", ");
+                    msg.push_str(player.identifier.name(option_snek_state).as_ref());
                 }
                 msg
+            } else {
+                String::new()
+            };
+
+            let possible_dead_message = if let Some(first_player) = defeated_this_turn.first() {
+                let mut msg = ".\nDefeated this turn (rip): ".to_owned();
+                msg.push_str(first_player.identifier.name(option_snek_state).as_ref());
+                for player in &defeated_this_turn[1..] {
+                    msg.push_str(", ");
+                    msg.push_str(player.identifier.name(option_snek_state).as_ref());
+                }
+                msg
+            } else {
+                String::new()
             };
 
             return Some(NewTurnNation {
                 user_id: *user_id,
                 message: format!(
-                    "Turn {} in {}! You are {} and timer is in {}{}",
+                    "Turn {} in {}! You are {} and timer is in {}{}{}",
                     new_playing_details.turn,
                     alias,
                     details.nation_identifier.name(option_snek_state),
                     deadline,
                     possible_stale_message,
+                    possible_dead_message,
                 ),
             });
         }
