@@ -16,7 +16,10 @@ use serenity::{
     model::interactions::Interaction, prelude::*,
 };
 use simplelog::{Config, LevelFilter, SimpleLogger};
+use std::time::Duration;
 use std::{env, fs::File, io::Read as _, path::Path, str::FromStr, sync::Arc};
+
+pub const SERVER_POLL_INTERVAL: Duration = Duration::from_secs(60);
 
 // TODO: should this be im-rc? Do I care really?
 pub type DetailsCache = im::HashMap<String, Box<(DateTime<Utc>, Option<CacheEntry>)>>;

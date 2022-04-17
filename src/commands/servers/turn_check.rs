@@ -1,3 +1,5 @@
+use crate::model::game_data::GameData;
+use crate::model::game_server::{LobbyState, StartedState};
 use crate::{
     commands::servers::{details::started_details_from_server, discord_date_format},
     db::*,
@@ -12,14 +14,14 @@ use crate::{
     },
     server::get_game_data_async,
     snek::{snek_details_async, SnekGameStatus},
-    DetailsCacheHandle, DetailsCacheKey,
+    DetailsCacheHandle, DetailsCacheKey, SERVER_POLL_INTERVAL,
 };
 use anyhow::{anyhow, Context};
-use chrono::Utc;
+use chrono::{Duration, Utc};
 use futures::future;
 use log::*;
 use serenity::{http::CacheHttp, model::id::UserId, CacheAndHttp};
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 pub async fn update_details_cache_loop(
     db_conn: DbConnection,
@@ -33,23 +35,29 @@ pub async fn update_details_cache_loop(
         {
             Err(e) => error!("Error updating all games: {:#?}", e),
             Ok(new_turn_nations) => {
-                future::join_all(new_turn_nations.into_iter().map(|new_turn_nation| async {
-                    let user_id = new_turn_nation.user_id;
-                    if let Err(e) =
-                        notify_player_for_new_turn(new_turn_nation, cache_and_http.clone()).await
-                    {
-                        error!(
-                            "Failed to notify new turn for user {:?} with error: {:#?}",
-                            user_id, e
-                        );
-                    }
-                }))
-                .await;
+                notify_all_players_for_new_turn(new_turn_nations, cache_and_http.clone()).await
             }
         }
 
-        tokio::time::sleep(Duration::from_secs(60)).await;
+        tokio::time::sleep(SERVER_POLL_INTERVAL).await;
     }
+}
+
+async fn notify_all_players_for_new_turn(
+    new_turn_nations: Vec<NewTurnNation>,
+    cache_and_http: Arc<CacheAndHttp>,
+) {
+    future::join_all(new_turn_nations.into_iter().map(|new_turn_nation| async {
+        let user_id = new_turn_nation.user_id;
+        if let Err(e) = notify_player_for_new_turn(new_turn_nation, cache_and_http.clone()).await {
+            // we just swallow (log) errors, since we don't want one to disrupt all other messages
+            error!(
+                "Failed to notify new turn for user {:?} with error: {:#?}",
+                user_id, e
+            );
+        }
+    }))
+    .await;
 }
 
 pub async fn notify_player_for_new_turn(
@@ -70,7 +78,7 @@ pub async fn notify_player_for_new_turn(
 ///   1) update the db
 ///   2) work out which players need to be notified (but don't actually send any messages yet)
 ///   3) update the in-mem cache with the new details
-async fn update_details_cache_for_game(
+async fn fetch_new_state_and_update_details_cache_for_game(
     alias: &str,
     db_conn: DbConnection,
     write_handle_mutex: DetailsCacheHandle,
@@ -87,71 +95,30 @@ async fn update_details_cache_for_game(
 
         let is_new_turn = db_conn.update_game_with_possibly_new_turn(alias, new_game_data.turn)?;
         let messages = if is_new_turn {
-            let new_game_details: GameDetails = started_details_from_server(
+            process_game_data(
+                alias,
                 db_conn,
+                &write_handle_mutex,
                 started_state,
                 option_lobby_state.as_ref(),
-                alias,
                 &new_game_data,
                 option_new_snek_data.as_ref(),
             )
-            .map_err(|e| anyhow!(e))
-            .with_context(|| format!("Error when checking turn for {}", alias))?;
-            if let NationDetails::Started(new_started_details) = &new_game_details.nations {
-                // nip into the old cache quickly
-                let possible_stales = (|| async {
-                    let guard = write_handle_mutex.0.read().await;
-                    let old_state = guard.get::<DetailsCacheKey>()?;
-                    let (_, old_cache) = &**(old_state.get(&alias.to_owned())?);
-                    Some(
-                        old_cache
-                            .as_ref()?
-                            .game_data
-                            .nations
-                            .iter()
-                            .filter(|old_nation| {
-                                old_nation.submitted == SubmissionStatus::NotSubmitted
-                                    && old_nation.status == NationStatus::Human
-                            })
-                            .cloned()
-                            .collect::<Vec<_>>(),
-                    )
-                })()
-                .await
-                .unwrap_or_default();
-
-                let defeated_this_turn = new_game_data
-                    .nations
-                    .iter()
-                    .filter(|nation| nation.status == NationStatus::DefeatedThisTurn)
-                    .collect::<Vec<_>>();
-
-                create_messages_for_new_turn(
-                    alias,
-                    new_started_details,
-                    option_new_snek_data.as_ref(),
-                    possible_stales.as_ref(),
-                    defeated_this_turn.as_ref(),
-                )
-            } else {
-                // this should never happen, `started_details_from_server` cannot return a lobby
-                // sign of a bad abstraction tbh
-                vec![]
-            }
+            .await?
         } else {
             // not a new turn
             vec![]
         };
 
-        let cache_entry = CacheEntry {
-            game_data: new_game_data,
-            option_snek_state: option_new_snek_data,
-        };
-        let mut guard = write_handle_mutex.0.write().await;
-        let write_handle = guard
-            .get_mut::<DetailsCacheKey>()
-            .ok_or_else(|| anyhow!("Cache somehow not initialised, this should never happen!!"))?;
-        write_handle.insert(alias.to_owned(), Box::new((Utc::now(), Some(cache_entry))));
+        update_cache(
+            alias,
+            write_handle_mutex,
+            CacheEntry {
+                game_data: new_game_data,
+                option_snek_state: option_new_snek_data,
+            },
+        )
+        .await?;
 
         messages
     } else {
@@ -160,6 +127,99 @@ async fn update_details_cache_for_game(
     };
     info!("Checking turn for {}: SUCCESS", alias);
     Ok(messages)
+}
+
+async fn process_game_data(
+    alias: &str,
+    db_conn: DbConnection,
+    write_handle_mutex: &DetailsCacheHandle,
+    started_state: &StartedState,
+    option_lobby_state: Option<&LobbyState>,
+    new_game_data: &GameData,
+    option_new_snek_data: Option<&SnekGameStatus>,
+) -> anyhow::Result<Vec<NewTurnNation>> {
+    let new_game_details: GameDetails = started_details_from_server(
+        db_conn,
+        started_state,
+        option_lobby_state,
+        alias,
+        new_game_data,
+        option_new_snek_data,
+    )
+    .map_err(|e| anyhow!(e))
+    .with_context(|| format!("Error when checking turn for {}", alias))?;
+    if let NationDetails::Started(new_started_details) = &new_game_details.nations {
+        // nip into the old cache quickly
+        let possible_stales = possible_stales_from_old_cache(alias, write_handle_mutex)
+            .await
+            .unwrap_or_default();
+
+        let defeated_this_turn = new_game_data
+            .nations
+            .iter()
+            .filter(|nation| nation.status == NationStatus::DefeatedThisTurn)
+            .collect::<Vec<_>>();
+
+        Ok(create_messages_for_new_turn(
+            alias,
+            new_started_details,
+            option_new_snek_data,
+            possible_stales.as_ref(),
+            defeated_this_turn.as_ref(),
+        ))
+    } else {
+        // sign of a bad abstraction tbh
+        Err(anyhow!(
+            "Somehow `started_details_from_server` returned a lobby, this should never happen!!!"
+        ))
+    }
+}
+
+async fn possible_stales_from_old_cache(
+    alias: &str,
+    write_handle_mutex: &DetailsCacheHandle,
+) -> Option<Vec<Nation>> {
+    let guard = write_handle_mutex.0.read().await;
+    let old_state = guard.get::<DetailsCacheKey>()?;
+    let (_, old_cache) = &**(old_state.get(&alias.to_owned())?);
+    old_cache.as_ref().map(|old_entry| {
+        let remaining_time = Utc::now().signed_duration_since(old_entry.game_data.turn_deadline);
+        // if we finished early, then it was probably just the last person submitting
+        // if we had less time remaining than our poll rate, then it probably
+        // means that the person didn't submit before the timer ran out
+        if remaining_time
+            <= Duration::from_std(SERVER_POLL_INTERVAL)
+                .expect("okay now THIS really can never happen")
+        {
+            old_entry
+                .game_data
+                .nations
+                .iter()
+                .filter(|old_nation| {
+                    old_nation.submitted == SubmissionStatus::NotSubmitted
+                        && old_nation.status == NationStatus::Human
+                })
+                // can't keep a reference to the old cache around. could in theory
+                // pull it out prior and then insert it in after, but not much point tbh
+                .cloned()
+                .collect::<Vec<_>>()
+        } else {
+            vec![]
+        }
+    })
+}
+
+async fn update_cache(
+    alias: &str,
+    write_handle_mutex: DetailsCacheHandle,
+    cache_entry: CacheEntry,
+) -> anyhow::Result<()> {
+    let mut guard = write_handle_mutex.0.write().await;
+    let write_handle = guard
+        .get_mut::<DetailsCacheKey>()
+        .ok_or_else(|| anyhow!("Cache somehow not initialised, this should never happen!!"))?;
+    write_handle.insert(alias.to_owned(), Box::new((Utc::now(), Some(cache_entry))));
+    Ok(())
 }
 
 #[derive(Debug)]
@@ -180,7 +240,7 @@ async fn update_details_cache_for_all_games(
     let db_conn = &db_conn;
     let futs = servers.into_iter().map(|server| async move {
         debug!("starting to update: '{}'", server.alias);
-        match update_details_cache_for_game(
+        match fetch_new_state_and_update_details_cache_for_game(
             &server.alias,
             db_conn.clone(),
             write_handle_mutex.clone(),
