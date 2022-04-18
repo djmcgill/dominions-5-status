@@ -39,7 +39,7 @@ jobs:
           at: ./workspace
 
       - run: docker load -i workspace/dom-5-status.tar
-      - run: docker push "eu.gcr.io/dom-5-status/dom-5-status:${CIRCLE_SHA1}"
+      - run: docker push -a "eu.gcr.io/dom-5-status/dom-5-status"
 
 workflows:
   version: 2
