@@ -183,14 +183,19 @@ async fn possible_stales_from_old_cache(
     let old_state = guard.get::<DetailsCacheKey>()?;
     let (_, old_cache) = &**(old_state.get(&alias.to_owned())?);
     old_cache.as_ref().map(|old_entry| {
-        let remaining_time = Utc::now().signed_duration_since(old_entry.game_data.turn_deadline);
+        let now = Utc::now();
+        let remaining_time = now.signed_duration_since(old_entry.game_data.turn_deadline);
         // if we finished early, then it was probably just the last person submitting
         // if we had less time remaining than our poll rate, then it probably
         // means that the person didn't submit before the timer ran out
-        if remaining_time
+        let possible_stale_window = remaining_time
             <= Duration::from_std(SERVER_POLL_INTERVAL)
-                .expect("okay now THIS really can never happen")
-        {
+                .expect("okay now THIS really can never happen");
+        debug!(
+            "possible stales: now: {}, deadline: {}, now.since(deadline): {}, <= INTERVAL: {}",
+            now, old_entry.game_data.turn_deadline, remaining_time, possible_stale_window
+        );
+        if possible_stale_window {
             old_entry
                 .game_data
                 .nations
