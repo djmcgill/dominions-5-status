@@ -362,7 +362,7 @@ fn finished_early(now: DateTime<Utc>, deadline: DateTime<Utc>) -> bool {
         "possible stales: now: {}, deadline: {}, now.since(deadline): {}",
         now, deadline, remaining_time
     );
-    deadline < now
+    now < deadline
         && remaining_time
             < Duration::from_std(SERVER_POLL_INTERVAL)
                 .expect("okay now THIS really can never happen")
