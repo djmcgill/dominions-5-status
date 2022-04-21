@@ -17,7 +17,7 @@ use crate::{
     DetailsCacheHandle, DetailsCacheKey, SERVER_POLL_INTERVAL,
 };
 use anyhow::{anyhow, Context};
-use chrono::{Duration, Utc};
+use chrono::{DateTime, Duration, Utc};
 use futures::future;
 use log::*;
 use serenity::{http::CacheHttp, model::id::UserId, CacheAndHttp};
@@ -183,19 +183,10 @@ async fn possible_stales_from_old_cache(
     let old_state = guard.get::<DetailsCacheKey>()?;
     let (_, old_cache) = &**(old_state.get(&alias.to_owned())?);
     old_cache.as_ref().map(|old_entry| {
-        let now = Utc::now();
-        let remaining_time = now.signed_duration_since(old_entry.game_data.turn_deadline);
         // if we finished early, then it was probably just the last person submitting
         // if we had less time remaining than our poll rate, then it probably
         // means that the person didn't submit before the timer ran out
-        let possible_stale_window = remaining_time
-            <= Duration::from_std(SERVER_POLL_INTERVAL)
-                .expect("okay now THIS really can never happen");
-        debug!(
-            "possible stales: now: {}, deadline: {}, now.since(deadline): {}, <= INTERVAL: {}",
-            now, old_entry.game_data.turn_deadline, remaining_time, possible_stale_window
-        );
-        if possible_stale_window {
+        if !finished_early(Utc::now(), old_entry.game_data.turn_deadline) {
             old_entry
                 .game_data
                 .nations
@@ -357,4 +348,22 @@ fn create_playing_message(
         }
     }
     None
+}
+
+fn finished_early(now: DateTime<Utc>, deadline: DateTime<Utc>) -> bool {
+    // 4 possible cases:
+    //    now ------ >1m ----- deadline
+    //    now -<1m- deadline
+    //    deadline ------ >1m ----- now
+    //    deadline -<1m- now
+    // 1 and 2 are early, 3 is definitely not early (and shouldn't happen tbh), 4 might be early idk
+    let remaining_time = now.signed_duration_since(deadline);
+    debug!(
+        "possible stales: now: {}, deadline: {}, now.since(deadline): {}",
+        now, deadline, remaining_time
+    );
+    deadline < now
+        && remaining_time
+            < Duration::from_std(SERVER_POLL_INTERVAL)
+                .expect("okay now THIS really can never happen")
 }
