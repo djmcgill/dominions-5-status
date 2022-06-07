@@ -12,7 +12,7 @@ either = "1.6"
 enum-primitive-derive = "0.2"
 flate2 = "1.0"
 futures = "0.3"
-im = "15.0"
+im = "15.1"
 lazy_static = "1.4"
 log = "0.4"
 migrant_lib = {version = "0.30", features = ["d-sqlite"]}
