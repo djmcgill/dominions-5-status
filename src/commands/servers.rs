@@ -2,6 +2,7 @@ pub mod add_server;
 pub mod alias;
 pub mod describe;
 pub mod details;
+pub mod kick;
 pub mod list_servers;
 pub mod lobbies;
 pub mod lobby;
@@ -43,7 +44,8 @@ use std::future::Future;
     server_lobbies,
     server_describe,
     server_unstart,
-    server_set_alias
+    server_set_alias,
+    server_kick
 )]
 struct Server;
 
@@ -141,6 +143,12 @@ async fn server_unstart(ctx: &Context, msg: &Message, args: Args) -> CommandResu
 #[aliases("alias")]
 async fn server_set_alias(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     bang_command_wrap(ctx, msg, args, alias::server_set_alias).await
+}
+
+#[command]
+#[aliases("kick", "banish")]
+async fn server_kick(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
+    bang_command_wrap(ctx, msg, args, kick::kick_player).await
 }
 
 pub enum CommandResponse {

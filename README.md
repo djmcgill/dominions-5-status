@@ -31,6 +31,8 @@ n.b. server alias is optional, defaults to channel name.
     - save the dom5 server address
 - `!alias <old alias> [<new alias>]`
     - change the alias for a game server. Note, uses the discord channel name for the _new_ alias
+- `!banish <user_id> [<alias>]`:
+  - kick a player from a game, as if they had used !unregister
 - `!list`:
     - return a list of the saved server addresses and aliases
 - `!delete [<alias>]`:

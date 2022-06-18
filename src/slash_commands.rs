@@ -3,6 +3,7 @@ use crate::commands::servers::{
     alias::server_set_alias,
     describe::describe,
     details::details,
+    kick::kick_player,
     list_servers::list_servers,
     lobbies::lobbies,
     lobby::lobby,
@@ -193,6 +194,17 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                                 .required(false)
                         )
                 )
+                .create_application_command(|c|
+                    c.name("banish")
+                        .description("Kick a user from a game.")
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::User)
+                                .name("user")
+                                .description("The user to kick from this game")
+                                .required(true)
+                        )
+                        .create_option(game_name_option)
+                )
         })
         .await
         .context("create_application_commands")?;
@@ -280,6 +292,9 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
             "alias" => server_set_alias(&ctx, channel_id, user_id, args)
                 .await
                 .map_err(|e| anyhow!("alias slash command failed with: {}", e)),
+            "banish" => kick_player(&ctx, channel_id, user_id, args)
+                .await
+                .map_err(|e| anyhow!("banish slash command failed with: {}", e)),
             other => Err(anyhow!("Unrecognised command: {}", other)),
         };
         match command_response_result {
