@@ -189,10 +189,9 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                         .create_option(|o|
                             o.kind(ApplicationCommandOptionType::String)
                                 .name("new_alias")
-                                .description("The new alias for the server")
-                                .required(true)
+                                .description("The new alias for the server. If not present, will use the channel name.")
+                                .required(false)
                         )
-                        .create_option(game_name_option)
                 )
         })
         .await
@@ -280,7 +279,7 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
                 .map_err(|e| anyhow!("unstart slash command failed with: {}", e)),
             "alias" => server_set_alias(&ctx, channel_id, user_id, args)
                 .await
-                .map_err(|e| anyhow!("server_set_alias slash command failed with: {}", e)),
+                .map_err(|e| anyhow!("alias slash command failed with: {}", e)),
             other => Err(anyhow!("Unrecognised command: {}", other)),
         };
         match command_response_result {
