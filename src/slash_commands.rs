@@ -1,5 +1,6 @@
 use crate::commands::servers::{
     add_server::add_server,
+    alias::server_set_alias,
     describe::describe,
     details::details,
     list_servers::list_servers,
@@ -176,6 +177,22 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                         .description("Turn a game back into a lobby by forgetting its address.")
                         .create_option(game_name_option)
                 )
+                .create_application_command(|c|
+                    c.name("alias")
+                        .description("Set a new alias for a server.")
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::String)
+                                .name("alias")
+                                .description("The current alias for the server")
+                                .required(true)
+                        )
+                        .create_option(|o|
+                            o.kind(ApplicationCommandOptionType::String)
+                                .name("new_alias")
+                                .description("The new alias for the server. If not present, will use the channel name.")
+                                .required(false)
+                        )
+                )
         })
         .await
         .context("create_application_commands")?;
@@ -260,6 +277,9 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
             "unstart" => unstart(&ctx, channel_id, user_id, args)
                 .await
                 .map_err(|e| anyhow!("unstart slash command failed with: {}", e)),
+            "alias" => server_set_alias(&ctx, channel_id, user_id, args)
+                .await
+                .map_err(|e| anyhow!("alias slash command failed with: {}", e)),
             other => Err(anyhow!("Unrecognised command: {}", other)),
         };
         match command_response_result {
