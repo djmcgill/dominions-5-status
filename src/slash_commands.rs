@@ -16,14 +16,23 @@ use crate::commands::servers::{
 };
 use anyhow::{anyhow, Context as _};
 use log::{error, info};
-use serenity::{builder::CreateApplicationCommandOption, client::Context, framework::standard::{Args, Delimiter}, http::{CacheHttp, GuildPagination, Http}, model::{id::GuildId, interactions::{Interaction, InteractionResponseType, application_command::{ApplicationCommandInteractionData, ApplicationCommandOptionType}}}};
+use serenity::{
+    builder::CreateApplicationCommandOption,
+    client::Context,
+    framework::standard::{Args, Delimiter},
+    http::{CacheHttp, Http},
+    model::interactions::{
+        application_command::{ApplicationCommandInteractionData, ApplicationCommandOptionType},
+        Interaction, InteractionResponseType,
+    },
+};
 
 // This technically only needs to be run once, but running every time on boot
 // just overrides it each time and guild commands update instantly so who cares.
 pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
     let guilds = http
         // The bot is only ever in one server per instance, so yolo
-        .get_guilds(&GuildPagination::After(GuildId(0)), 1)
+        .get_guilds(None, Some(1))
         .await?;
     let guild = guilds
         .get(0)
@@ -192,9 +201,7 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
     info!("Incoming interaction: {:?}", interaction);
 
     if let Interaction::ApplicationCommand(interaction) = interaction {
-
-        let channel_id = interaction
-            .channel_id;
+        let channel_id = interaction.channel_id;
         let user_id = interaction
             .member
             .as_ref()
@@ -202,8 +209,7 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
             .user
             .id;
 
-        let data = &interaction
-            .data;
+        let data = &interaction.data;
 
         let args = make_args(data);
 
@@ -284,12 +290,8 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
                     .await?
             }
         }
-
-        
-
     }
     Ok(())
-    
 }
 
 // okay this is VERY hacky. We're going via the delimited string for no reason at all.

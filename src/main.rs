@@ -152,7 +152,11 @@ async fn create_discord_client() -> anyhow::Result<Client> {
 
     let cache_loop_db_conn = db_conn.clone();
 
-    let mut discord_client_builder = Client::builder(&token);
+    let intents = GatewayIntents::GUILD_MESSAGES
+        | GatewayIntents::DIRECT_MESSAGES
+        | GatewayIntents::MESSAGE_CONTENT;
+
+    let mut discord_client_builder = Client::builder(&token, intents);
 
     if let Some(&application_id) = option_application_id.as_ref() {
         discord_client_builder = discord_client_builder.application_id(application_id);

@@ -154,7 +154,7 @@ async fn process_game_data(
             // can only be stales if this isn't the first turn
             possible_stales_from_old_cache(alias, write_handle_mutex)
                 .await
-                .unwrap_or_default();
+                .unwrap_or_default()
         } else {
             vec![]
         };
