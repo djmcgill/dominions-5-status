@@ -150,9 +150,14 @@ async fn process_game_data(
     .with_context(|| format!("Error when checking turn for {}", alias))?;
     if let NationDetails::Started(new_started_details) = &new_game_details.nations {
         // nip into the old cache quickly
-        let possible_stales = possible_stales_from_old_cache(alias, write_handle_mutex)
-            .await
-            .unwrap_or_default();
+        let possible_stales = if new_game_data.turn > 1 {
+            // can only be stales if this isn't the first turn
+            possible_stales_from_old_cache(alias, write_handle_mutex)
+                .await
+                .unwrap_or_default();
+        } else {
+            vec![]
+        };
 
         let defeated_this_turn = new_game_data
             .nations
