@@ -344,14 +344,20 @@ async fn details_to_embed(
                         }
 
                         let new_len = embed_texts.len();
-                        embed_texts[new_len - 1].push_str(&format!(
-                            "`{}` {}: {}\n",
-                            submission_symbol,
-                            player_details
-                                .nation_identifier
-                                .name(option_snek_state.as_ref()),
-                            player_name,
-                        ));
+                        if new_len == 0 {
+                            return Err(CommandError::from(format!(
+                                "Somehow produced an embed with 0 elements when iterating potential players. this is a bug."
+                            )));
+                        } else {
+                            embed_texts[new_len - 1].push_str(&format!(
+                                "`{}` {}: {}\n",
+                                submission_symbol,
+                                player_details
+                                    .nation_identifier
+                                    .name(option_snek_state.as_ref()),
+                                player_name,
+                            ));
+                        }
                     }
 
                     // This is pretty hacky
@@ -393,12 +399,18 @@ async fn details_to_embed(
                             embed_texts.push(String::new());
                         }
                         let new_len = embed_texts.len();
-                        embed_texts[new_len - 1].push_str(&format!(
-                            "`{}` {}: {}\n",
-                            player_submitted_status,
-                            uploading_player.nation_name(option_snek_state.as_ref()),
-                            player_name,
-                        ));
+                        if new_len == 0 {
+                            return Err(CommandError::from(format!(
+                                "Somehow produced an embed with 0 elements when iterating uploading players. this is a bug."
+                            )));
+                        } else {
+                            embed_texts[new_len - 1].push_str(&format!(
+                                "`{}` {}: {}\n",
+                                player_submitted_status,
+                                uploading_player.nation_name(option_snek_state.as_ref()),
+                                player_name,
+                            ));
+                        }
                     }
                     // This is pretty hacky
                     let mut e = CreateEmbed::default();
@@ -428,8 +440,16 @@ async fn details_to_embed(
                         embed_texts.push(String::new());
                     }
                     let new_len = embed_texts.len();
-                    embed_texts[new_len - 1]
-                        .push_str(&format!("{}: {}\n", lobby_player.cached_name, discord_user,));
+                    if new_len == 0 {
+                        return Err(CommandError::from(format!(
+                            "Somehow produced an embed with 0 elements when iterating lobby players. this is a bug."
+                        )));
+                    } else {
+                        embed_texts[new_len - 1]
+                            .push_str(
+                                &format!("{}: {}\n", lobby_player.cached_name, discord_user,),
+                            );
+                    }
                 }
             } else {
                 embed_texts.push(String::new());
@@ -437,8 +457,14 @@ async fn details_to_embed(
 
             // We don't increase the number of fields any more
             let new_len = embed_texts.len();
-            for _ in 0..lobby_details.remaining_slots {
-                embed_texts[new_len - 1].push_str("OPEN\n");
+            if new_len == 0 {
+                return Err(CommandError::from(format!(
+                    "Somehow produced an embed with 0 elements when filling open slots. this is a bug."
+                )));
+            } else {
+                for _ in 0..lobby_details.remaining_slots {
+                    embed_texts[new_len - 1].push_str("OPEN\n");
+                }
             }
             // This is pretty hacky
             let mut e = CreateEmbed::default();
