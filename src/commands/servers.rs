@@ -160,21 +160,26 @@ async fn alias_from_arg_or_channel_name(
     ctx: &Context,
     channel_id: ChannelId,
     args: &mut Args,
-) -> Result<String, String> {
+) -> Result<String, CommandError> {
     let result_alias = if !args.is_empty() {
         args.single_quoted::<String>().ok()
     } else {
-        channel_id.name(ctx.cache.clone()).await
+        channel_id
+            .to_channel((&ctx.cache, ctx.http.as_ref()))
+            .await?
+            .id()
+            .name(&ctx.cache)
+            .await
     };
     result_alias
         .clone()
         .map(|s| s.to_lowercase())
         .and_then(|s| if !s.is_empty() { Some(s) } else { None })
         .ok_or_else(|| {
-            format!(
+            CommandError::from(format!(
                 "Could not game alias from command argument or channel name \"{}\"",
                 result_alias.unwrap_or_default()
-            )
+            ))
         })
 }
 
