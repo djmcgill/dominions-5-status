@@ -1,4 +1,5 @@
 use crate::model::enums::Era;
+use cow_utils::CowUtils;
 use lazy_static::lazy_static;
 use std::borrow::Cow;
 use std::collections::HashMap;
@@ -6,9 +7,9 @@ use std::collections::HashMap;
 pub struct Nations;
 impl Nations {
     pub fn from_id(id: u32) -> Option<StaticNation> {
-        from_id_from_map(id, Era::Early, &*EA_NATIONS_BY_ID)
-            .or_else(|| from_id_from_map(id, Era::Middle, &*MA_NATIONS_BY_ID))
-            .or_else(|| from_id_from_map(id, Era::Late, &*LA_NATIONS_BY_ID))
+        from_id_from_map(id, Era::Early, &EA_NATIONS_BY_ID)
+            .or_else(|| from_id_from_map(id, Era::Middle, &MA_NATIONS_BY_ID))
+            .or_else(|| from_id_from_map(id, Era::Late, &LA_NATIONS_BY_ID))
     }
 
     pub fn from_name_prefix(
@@ -39,21 +40,21 @@ impl Nations {
             // guess we just have to look in all 3
             None => {
                 find_nation_options_from_map(
-                    &*EA_NATIONS_BY_ID,
+                    &EA_NATIONS_BY_ID,
                     sanitised_prefix.as_ref(),
                     Era::Early,
                 )
             }
             .or_else(|| {
                 find_nation_options_from_map(
-                    &*MA_NATIONS_BY_ID,
+                    &MA_NATIONS_BY_ID,
                     sanitised_prefix.as_ref(),
                     Era::Middle,
                 )
             })
             .or_else(|| {
                 find_nation_options_from_map(
-                    &*LA_NATIONS_BY_ID,
+                    &LA_NATIONS_BY_ID,
                     sanitised_prefix.as_ref(),
                     Era::Late,
                 )
@@ -76,13 +77,22 @@ fn extract_possible_nation_prefix(lowercase_name_prefix: Cow<str>) -> (Cow<str>,
 }
 
 fn sanitise_text(lowercase_text: Cow<str>) -> Cow<str> {
-    lowercase_text
-        .to_owned()
-        .replace('\'', "")
-        .replace(", ", "")
-        .into()
-    // FIXME: it's too late tonight to figure this stuff out
-    // lowercase_text.cow_replace("'", "").cow_replace(", ", "")
+    cow_r_s(cow_r_c(lowercase_text, '\'', ""), ", ", "")
+}
+
+// should save ourselves an allocation in the borrowed -> borrowed cases.
+// Does this matter? absolutely not.
+fn cow_r_c<'a>(x: Cow<'a, str>, from: char, to: &str) -> Cow<'a, str> {
+    match x {
+        Cow::Owned(owned) => Cow::Owned(owned.replace(from, to)),
+        Cow::Borrowed(borrowed) => borrowed.cow_replace(from, to),
+    }
+}
+fn cow_r_s<'a>(x: Cow<'a, str>, from: &str, to: &str) -> Cow<'a, str> {
+    match x {
+        Cow::Owned(owned) => Cow::Owned(owned.replace(from, to)),
+        Cow::Borrowed(borrowed) => borrowed.cow_replace(from, to),
+    }
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]

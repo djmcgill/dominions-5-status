@@ -214,6 +214,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "cow-utils"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "79bb3adfaf5f75d24b01aee375f7555907840fa2800e5ec8fa3b9e2031830173"
+
+[[package]]
 name = "cpufeatures"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -312,11 +318,12 @@ dependencies = [
 
 [[package]]
 name = "dom5status"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "anyhow",
  "byteorder",
  "chrono",
+ "cow-utils",
  "either",
  "enum-primitive-derive",
  "flate2",

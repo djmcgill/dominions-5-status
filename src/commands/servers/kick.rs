@@ -19,7 +19,7 @@ fn kick_helper(user_id: UserId, alias: &str, db_conn: DbConnection) -> Result<()
     if rows_affected > 0 {
         Ok(())
     } else {
-        return Err(format!("User is not in game {}", alias).into());
+        Err(format!("User is not in game {}", alias).into())
     }
 }
 

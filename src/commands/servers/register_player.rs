@@ -33,10 +33,7 @@ fn get_nation_for_started_server(
 ) -> Result<GameNationIdentifier, CommandError> {
     match arg_nation {
         Either::Left(arg_nation_name) => {
-            let sanitised_name = arg_nation_name
-                .to_lowercase()
-                .replace('\'', "")
-                .replace(' ', "");
+            let sanitised_name = arg_nation_name.to_lowercase().replace(['\'', ' '], "");
 
             match started_state_details {
                 StartedStateDetails::Playing(playing_state) => {
@@ -46,10 +43,8 @@ fn get_nation_for_started_server(
                     for potential_player in &playing_state.players {
                         let nation_name = potential_player.nation_name(option_snek_state);
 
-                        let sanitised_nation_name = nation_name
-                            .to_lowercase()
-                            .replace('\'', "")
-                            .replace(' ', "");
+                        let sanitised_nation_name =
+                            nation_name.to_lowercase().replace(['\'', ' '], "");
                         if sanitised_nation_name.starts_with(&sanitised_name) {
                             possible_ingame_nations.push(potential_player);
                         }
@@ -107,8 +102,7 @@ fn get_nation_for_started_server(
                         let sanitised_nation_name = potential_player
                             .nation_name(option_snek_state)
                             .to_lowercase()
-                            .replace('\'', "")
-                            .replace(' ', "");
+                            .replace(['\'', ' '], "");
                         if sanitised_nation_name.starts_with(&sanitised_name) {
                             possible_ingame_nations.push(potential_player);
                         }
@@ -306,7 +300,7 @@ async fn register_player_helper(
 
             let nation = get_nation_for_lobby(arg_nation, lobby_state.era)?;
 
-            if players_nations.iter().any(|&(_, ref player_nation_id)| {
+            if players_nations.iter().any(|(_, player_nation_id)| {
                 let nation_id: BotNationIdentifier = nation.clone().into();
                 player_nation_id == &nation_id
             }) {

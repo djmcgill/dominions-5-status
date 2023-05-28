@@ -21,7 +21,7 @@ use serenity::{
     model::id::{ChannelId, UserId},
     prelude::Context,
 };
-use std::{collections::HashMap, sync::Arc};
+use std::{borrow::Cow, collections::HashMap, sync::Arc};
 
 pub async fn details(
     context: &Context,
@@ -323,25 +323,26 @@ async fn details_to_embed(
                         let player_name = if !anon_game {
                             if let NationStatus::Human = player_details.player_status {
                                 match option_user_id {
-                                    Some(user_id) => format!(
+                                    Some(user_id) => Some(Cow::Owned(format!(
                                         "**{}**",
                                         user_id
                                             .to_user((&context.cache, context.http.as_ref()))
                                             .await?
-                                    ),
-                                    None => player_details.player_status.show().to_owned(),
+                                    ))),
+                                    None => None,
                                 }
                             } else {
-                                player_details.player_status.show().to_owned()
+                                None
                             }
                         } else {
-                            player_details.player_status.show().to_owned()
-                        };
+                            None
+                        }
+                        .unwrap_or_else(|| Cow::Borrowed(player_details.player_status.show()));
 
                         let submission_symbol = if player_details.player_status.is_human() {
-                            player_details.submitted.show().to_owned()
+                            player_details.submitted.show()
                         } else {
-                            SubmissionStatus::Submitted.show().to_owned()
+                            SubmissionStatus::Submitted.show()
                         };
 
                         if ix % 20 == 0 {
@@ -350,9 +351,9 @@ async fn details_to_embed(
 
                         let new_len = embed_texts.len();
                         if new_len == 0 {
-                            return Err(CommandError::from(format!(
+                            return Err(CommandError::from(
                                 "Somehow produced an embed with 0 elements when iterating potential players. this is a bug."
-                            )));
+                                    .to_string()));
                         } else {
                             embed_texts[new_len - 1].push_str(&format!(
                                 "`{}` {}: {}\n",
@@ -385,13 +386,13 @@ async fn details_to_embed(
                         uploading_state.uploading_players.iter().enumerate()
                     {
                         let player_name = match uploading_player.option_player_id() {
-                            Some(user_id) if !anon_game => format!(
+                            Some(user_id) if !anon_game => Cow::Owned(format!(
                                 "**{}**",
                                 user_id
                                     .to_user((&context.cache, context.http.as_ref()))
                                     .await?
-                            ),
-                            _ => NationStatus::Human.show().to_owned(),
+                            )),
+                            _ => Cow::Borrowed(NationStatus::Human.show()),
                         };
 
                         let player_submitted_status = if uploading_player.uploaded {
@@ -405,9 +406,9 @@ async fn details_to_embed(
                         }
                         let new_len = embed_texts.len();
                         if new_len == 0 {
-                            return Err(CommandError::from(format!(
+                            return Err(CommandError::from(
                                 "Somehow produced an embed with 0 elements when iterating uploading players. this is a bug."
-                            )));
+                                    .to_string()));
                         } else {
                             embed_texts[new_len - 1].push_str(&format!(
                                 "`{}` {}: {}\n",
@@ -451,9 +452,9 @@ async fn details_to_embed(
                     }
                     let new_len = embed_texts.len();
                     if new_len == 0 {
-                        return Err(CommandError::from(format!(
+                        return Err(CommandError::from(
                             "Somehow produced an embed with 0 elements when iterating lobby players. this is a bug."
-                        )));
+                                .to_string()));
                     } else {
                         embed_texts[new_len - 1]
                             .push_str(
@@ -468,9 +469,9 @@ async fn details_to_embed(
             // We don't increase the number of fields any more
             let new_len = embed_texts.len();
             if new_len == 0 {
-                return Err(CommandError::from(format!(
+                return Err(CommandError::from(
                     "Somehow produced an embed with 0 elements when filling open slots. this is a bug."
-                )));
+                        .to_string()));
             } else {
                 for _ in 0..lobby_details.remaining_slots {
                     embed_texts[new_len - 1].push_str("OPEN\n");

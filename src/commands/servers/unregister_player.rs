@@ -19,7 +19,7 @@ fn unregister_player_helper(
     if rows_affected > 0 {
         Ok(())
     } else {
-        return Err(format!("User is not in game {}", alias).into());
+        Err(format!("User is not in game {}", alias).into())
     }
 }
 

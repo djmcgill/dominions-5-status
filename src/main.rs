@@ -174,7 +174,7 @@ async fn create_discord_client() -> anyhow::Result<Client> {
     let write_handle_mutex = DetailsCacheHandle(Arc::clone(&discord_client.data));
     let cache_and_http = Arc::clone(&discord_client.cache_and_http);
 
-    let _ = tokio::spawn(async move {
+    tokio::spawn(async move {
         update_details_cache_loop(cache_loop_db_conn, write_handle_mutex, cache_and_http).await;
     });
 

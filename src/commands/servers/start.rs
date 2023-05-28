@@ -64,7 +64,7 @@ async fn start_helper(
 
                             let cache = context.cache.clone();
                             let http = context.http.clone();
-                            let _ = tokio::spawn(async move {
+                            tokio::spawn(async move {
                                 // fixme: error handling
                                 let _ =
                                     notify_player_for_new_turn(message, (&cache, http.as_ref()))
