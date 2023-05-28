@@ -247,6 +247,14 @@ async fn register_custom_helper(
             if players_nations.len() as i32 >= lobby_state.player_count {
                 return Err(CommandError::from("lobby already full"));
             };
+            if players_nations
+                .iter()
+                .any(|(p, _)| p.discord_user_id == user_id)
+            {
+                return Err(CommandError::from(
+                    "you are already registered for this game",
+                ));
+            }
 
             let register_message = format!(
                 "Registered {}. You will have to reregister after uploading.",
@@ -287,6 +295,14 @@ async fn register_player_helper(
             if players_nations.len() as i32 >= lobby_state.player_count {
                 return Err(CommandError::from("lobby already full"));
             };
+            if players_nations
+                .iter()
+                .any(|(p, _)| p.discord_user_id == user_id)
+            {
+                return Err(CommandError::from(
+                    "you are already registered for this game",
+                ));
+            }
 
             let nation = get_nation_for_lobby(arg_nation, lobby_state.era)?;
 
@@ -331,6 +347,16 @@ async fn register_player_helper(
                         game_details.cache_entry.and_then(|i| i.option_snek_state),
                     )),
                 })?;
+
+            if started_details
+                .uploaded_players()
+                .any(|registered_user_id| *registered_user_id == user_id)
+            {
+                return Err(CommandError::from(
+                    "you are already registered for this game",
+                ));
+            }
+
             let option_era = option_lobby_state_ref
                 .as_ref()
                 .map(|lobby_state| lobby_state.era);

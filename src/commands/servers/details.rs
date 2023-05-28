@@ -289,6 +289,8 @@ async fn details_to_embed(
     details: GameDetails,
     context: &Context,
 ) -> Result<CreateEmbed, CommandError> {
+    let anon_game = details.alias.ends_with("_anon");
+
     let option_snek_state = details
         .cache_entry
         .and_then(|cache_entry| cache_entry.option_snek_state);
@@ -318,16 +320,19 @@ async fn details_to_embed(
                             PotentialPlayer::GameOnly(player_details) => (None, player_details),
                         };
 
-                        let player_name = if let NationStatus::Human = player_details.player_status
-                        {
-                            match option_user_id {
-                                Some(user_id) => format!(
-                                    "**{}**",
-                                    user_id
-                                        .to_user((&context.cache, context.http.as_ref()))
-                                        .await?
-                                ),
-                                None => player_details.player_status.show().to_owned(),
+                        let player_name = if !anon_game {
+                            if let NationStatus::Human = player_details.player_status {
+                                match option_user_id {
+                                    Some(user_id) => format!(
+                                        "**{}**",
+                                        user_id
+                                            .to_user((&context.cache, context.http.as_ref()))
+                                            .await?
+                                    ),
+                                    None => player_details.player_status.show().to_owned(),
+                                }
+                            } else {
+                                player_details.player_status.show().to_owned()
                             }
                         } else {
                             player_details.player_status.show().to_owned()
@@ -380,13 +385,13 @@ async fn details_to_embed(
                         uploading_state.uploading_players.iter().enumerate()
                     {
                         let player_name = match uploading_player.option_player_id() {
-                            Some(user_id) => format!(
+                            Some(user_id) if !anon_game => format!(
                                 "**{}**",
                                 user_id
                                     .to_user((&context.cache, context.http.as_ref()))
                                     .await?
                             ),
-                            None => NationStatus::Human.show().to_owned(),
+                            _ => NationStatus::Human.show().to_owned(),
                         };
 
                         let player_submitted_status = if uploading_player.uploaded {
@@ -432,10 +437,15 @@ async fn details_to_embed(
 
             if !lobby_details.players.is_empty() {
                 for (ix, lobby_player) in lobby_details.players.iter().enumerate() {
-                    let discord_user = lobby_player
-                        .player_id
-                        .to_user((&context.cache, context.http.as_ref()))
-                        .await?;
+                    let discord_user = if !anon_game {
+                        lobby_player
+                            .player_id
+                            .to_user((&context.cache, context.http.as_ref()))
+                            .await?
+                            .to_string()
+                    } else {
+                        "Human".to_string()
+                    };
                     if ix % 20 == 0 {
                         embed_texts.push(String::new());
                     }

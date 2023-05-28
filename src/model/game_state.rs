@@ -40,6 +40,39 @@ pub enum StartedStateDetails {
     Playing(PlayingState),
     Uploading(UploadingState),
 }
+impl StartedStateDetails {
+    pub fn uploaded_players(&self) -> impl Iterator<Item = &UserId> {
+        match self {
+            StartedStateDetails::Playing(playing_state) => {
+                Box::new(playing_state.players.iter().filter_map(|potential_player| {
+                    if let PotentialPlayer::RegisteredAndGame(registered_user_id, _)
+                    | PotentialPlayer::RegisteredOnly(registered_user_id, _) = potential_player
+                    {
+                        Some(registered_user_id)
+                    } else {
+                        None
+                    }
+                })) as Box<dyn Iterator<Item = &UserId>>
+            }
+            StartedStateDetails::Uploading(uploading_state) => Box::new(
+                uploading_state
+                    .uploading_players
+                    .iter()
+                    .filter_map(|uploading_player| {
+                        if let PotentialPlayer::RegisteredAndGame(registered_user_id, _)
+                        | PotentialPlayer::RegisteredOnly(registered_user_id, _) =
+                            &uploading_player.potential_player
+                        {
+                            Some(registered_user_id)
+                        } else {
+                            None
+                        }
+                    }),
+            )
+                as Box<dyn Iterator<Item = &UserId>>,
+        }
+    }
+}
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub struct UploadingState {
     pub uploading_players: Vec<UploadingPlayer>,

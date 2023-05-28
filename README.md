@@ -24,6 +24,9 @@ Note that this bot now supports discord's [slash commands](https://discord.com/d
 
 To do this, you need to also put a file in the resources folder called "application" containing the discord application's ID. Note that currently only "guild" i.e. server commands are supported, and not "global" commands, which I think would allow their use in the bot's DMs. All commands using "!" work as before.
 
+## Anonymous mode:
+If your game alias ends with "_anon" then the bot will refuse to show usernames in !details. Remember that you must register via DM!
+
 ## Commands:
 n.b. server alias is optional, defaults to channel name.
 `<>` means an argument, `[]` means optional
