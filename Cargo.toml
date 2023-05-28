@@ -16,15 +16,15 @@ futures = "0.3"
 im = "15.1"
 lazy_static = "1.4"
 log = "0.4"
-migrant_lib = {version = "0.30", features = ["d-sqlite"]}
+migrant_lib = {version = "0.33.0", features = ["d-sqlite"]}
 num-traits = "0.2"
 percent-encoding = "2.1"
-reqwest = {version = "0.11", features = ["rustls-tls"], default-features=false}
-rusqlite = {version = "0.24", features = ["bundled"]}
+reqwest = {version = "0.11.18", features = ["rustls-tls"], default-features=false}
+rusqlite = {version = "0.25.4", features = ["bundled"]}
 r2d2 = "0.8"
-r2d2_sqlite = "0.17"
+r2d2_sqlite = "0.18"
 serde = { version = "1.0", features = ["derive"] }
-serenity = {version = "0.11.2", features = ["rustls_backend", "temp_cache"]}
+serenity = {version = "0.11.5", features = ["rustls_backend", "temp_cache"]}
 simplelog = "0.9"
 tokio = { version = "1.17", features = ["macros", "rt-multi-thread", "time"]}
 url = "2.2"
