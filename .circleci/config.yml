@@ -52,11 +52,11 @@ workflows:
            - build
           filters:
             branches:
-              only: master
+              only: main
       - deploy:
           requires:
             - build
             - deploy_approval
           filters:
             branches:
-              only: master
+              only: main
