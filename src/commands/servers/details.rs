@@ -45,7 +45,7 @@ pub async fn details(
         ));
     }
     let embed_response = details_helper(&alias, db_conn, data_handle, context).await?;
-    Ok(CommandResponse::Embed(embed_response))
+    Ok(CommandResponse::Embed(Box::new(embed_response)))
 }
 
 pub async fn get_details_for_alias(
@@ -367,11 +367,13 @@ async fn details_to_embed(
                     }
 
                     // This is pretty hacky
-                    let mut e = CreateEmbed::default();
-                    e.title("Details")
-                        .field(embed_title, embed_texts[0].clone(), false);
+                    let mut e = CreateEmbed::default().title("Details").field(
+                        embed_title,
+                        embed_texts[0].clone(),
+                        false,
+                    );
                     for embed_text in &embed_texts[1..] {
-                        e.field("-----", embed_text, false);
+                        e = e.field("-----", embed_text, false);
                     }
                     e
                 }
@@ -419,11 +421,13 @@ async fn details_to_embed(
                         }
                     }
                     // This is pretty hacky
-                    let mut e = CreateEmbed::default();
-                    e.title("Details")
-                        .field(embed_title, embed_texts[0].clone(), false);
+                    let mut e = CreateEmbed::default().title("Details").field(
+                        embed_title,
+                        embed_texts[0].clone(),
+                        false,
+                    );
                     for embed_text in &embed_texts[1..] {
-                        e.field("-----", embed_text, false);
+                        e = e.field("-----", embed_text, false);
                     }
                     e
                 }
@@ -478,17 +482,19 @@ async fn details_to_embed(
                 }
             }
             // This is pretty hacky
-            let mut e = CreateEmbed::default();
-            e.title("Details")
-                .field(embed_title, embed_texts[0].clone(), false);
+            let mut e = CreateEmbed::default().title("Details").field(
+                embed_title,
+                embed_texts[0].clone(),
+                false,
+            );
             for embed_text in &embed_texts[1..] {
-                e.field("-----", embed_text, false);
+                e = e.field("-----", embed_text, false);
             }
             e
         }
     };
     if let Some(owner) = details.owner {
-        e.field(
+        e = e.field(
             "Owner",
             owner
                 .to_user((&context.cache, context.http.as_ref()))
@@ -500,7 +506,7 @@ async fn details_to_embed(
 
     if let Some(description) = details.description {
         if !description.is_empty() {
-            e.field("Description", description, false);
+            e = e.field("Description", description, false);
         }
     }
     Ok(e)

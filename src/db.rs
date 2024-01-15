@@ -96,14 +96,14 @@ impl DbConnection {
 
                 tx.execute(
                     include_str!("db/sql/insert_player.sql"),
-                    params![&(lobby_state.owner.0 as i64), &true],
+                    params![&(lobby_state.owner.get() as i64), &true],
                 )?;
 
                 tx.execute(
                     include_str!("db/sql/insert_lobby.sql"),
                     params![
                         &lobby_state.era.to_i32(),
-                        &(lobby_state.owner.0 as i64),
+                        &(lobby_state.owner.get() as i64),
                         &lobby_state.player_count,
                         &lobby_state.description,
                     ],
@@ -113,7 +113,7 @@ impl DbConnection {
                     params![
                         &game_server.alias,
                         &lobby_state.era.to_i32(),
-                        &(lobby_state.owner.0 as i64),
+                        &(lobby_state.owner.get() as i64),
                         &lobby_state.player_count,
                     ],
                 )?;
@@ -137,14 +137,14 @@ impl DbConnection {
                 let tx = conn.transaction()?;
                 tx.execute(
                     include_str!("db/sql/insert_player.sql"),
-                    params![&(lobby_state.owner.0 as i64), &true],
+                    params![&(lobby_state.owner.get() as i64), &true],
                 )?;
 
                 tx.execute(
                     include_str!("db/sql/insert_lobby.sql"),
                     params![
                         &lobby_state.era.to_i32(),
-                        &(lobby_state.owner.0 as i64),
+                        &(lobby_state.owner.get() as i64),
                         &lobby_state.player_count,
                         &lobby_state.description,
                     ],
@@ -154,7 +154,7 @@ impl DbConnection {
                     params![
                         &game_server.alias,
                         &lobby_state.era.to_i32(),
-                        &(lobby_state.owner.0 as i64),
+                        &(lobby_state.owner.get() as i64),
                         &lobby_state.player_count,
                     ],
                 )?;
@@ -196,7 +196,7 @@ impl DbConnection {
         tx.execute(
             include_str!("db/sql/insert_player.sql"),
             params![
-                &(player.discord_user_id.0 as i64),
+                &(player.discord_user_id.get() as i64),
                 &player.turn_notifications,
             ],
         )?;
@@ -205,7 +205,7 @@ impl DbConnection {
             params![
                 &nation_id,
                 &custom_nation_name,
-                &(player.discord_user_id.0 as i64),
+                &(player.discord_user_id.get() as i64),
                 &server_alias
             ],
         )?;
@@ -251,10 +251,10 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_players_nations.sql"))?;
         let vec = stmt
-            .query_map(&[&game_alias], |row| {
+            .query_map([&game_alias], |row| {
                 let discord_user_id: i64 = row.get(0).unwrap();
                 let player = Player {
-                    discord_user_id: UserId(discord_user_id as u64),
+                    discord_user_id: UserId::new(discord_user_id as u64),
                     turn_notifications: row.get(3).unwrap(),
                 };
                 let nation_id_i32: Option<i32> = row.get(1).unwrap();
@@ -274,7 +274,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_game_server_for_alias.sql"))?;
         let vec = stmt
-            .query_map(&[&game_alias], |row| {
+            .query_map([&game_alias], |row| {
                 let maybe_address: Option<String> = row.get(0).unwrap();
                 let maybe_last_seen_turn: Option<i32> = row.get(1).unwrap();
                 let maybe_owner: Option<i64> = row.get(2).unwrap();
@@ -323,7 +323,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         Ok(conn.execute(
             include_str!("db/sql/delete_player_from_game.sql"),
-            params![&game_alias, &(user.0 as i64)],
+            params![&game_alias, &(user.get() as i64)],
         )?)
     }
 
@@ -357,7 +357,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let mut stmt = conn.prepare(include_str!("db/sql/select_servers_for_player.sql"))?;
 
-        let rows = stmt.query_map(&[&(user_id.0 as i64)], |row| {
+        let rows = stmt.query_map([&(user_id.get() as i64)], |row| {
             let alias: String = row.get(1).unwrap();
             let maybe_address: Option<String> = row.get(0).unwrap();
             let maybe_last_seen_turn: Option<i32> = row.get(2).unwrap();
@@ -418,7 +418,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         conn.execute(
             include_str!("db/sql/update_turn_notifications.sql"),
-            params![&(player.0 as i64), &desired_turn_notifications],
+            params![&(player.get() as i64), &desired_turn_notifications],
         )?;
         Ok(())
     }
@@ -507,7 +507,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let rows_modified = conn.execute(
             include_str!("db/sql/update_lobby_with_description.sql"),
-            &[&alias, &description],
+            [&alias, &description],
         )?;
         if rows_modified != 0 {
             Ok(())
@@ -521,7 +521,7 @@ impl DbConnection {
         let conn = &*self.0.clone().get()?;
         let rows_modified = conn.execute(
             include_str!("db/sql/update_game_with_alias.sql"),
-            &[old_alias, new_alias],
+            [old_alias, new_alias],
         )?;
         if rows_modified != 0 {
             Ok(())
@@ -561,7 +561,7 @@ fn make_game_server(
                     last_seen_turn,
                 },
                 Some(LobbyState {
-                    owner: UserId(owner as u64),
+                    owner: UserId::new(owner as u64),
                     era: Era::from_i32(era).ok_or_else(|| anyhow!("unknown era"))?,
                     player_count,
                     description,
@@ -570,7 +570,7 @@ fn make_game_server(
         }
         (None, None, Some(owner), Some(player_count), Some(era)) => {
             GameServerState::Lobby(LobbyState {
-                owner: UserId(owner as u64),
+                owner: UserId::new(owner as u64),
                 era: Era::from_i32(era).ok_or_else(|| anyhow!("unknown era"))?,
                 player_count,
                 description,

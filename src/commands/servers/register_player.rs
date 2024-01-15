@@ -210,7 +210,7 @@ fn get_nation_for_lobby(
                         .map(GameNationIdentifier::from_id)
                 }
                 Ordering::Equal => Ok(GameNationIdentifier::Existing(
-                    *nations.get(0).ok_or_else(|| anyhow!("nation vec empty"))?,
+                    *nations.first().ok_or_else(|| anyhow!("nation vec empty"))?,
                 )),
             }
         }

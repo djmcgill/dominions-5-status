@@ -1,11 +1,10 @@
-use crate::model::game_data::GameData;
-use crate::model::game_server::{LobbyState, StartedState};
 use crate::{
     commands::servers::{details::started_details_from_server, discord_date_format},
     db::*,
     model::{
         enums::*,
-        game_server::GameServerState,
+        game_data::GameData,
+        game_server::{GameServerState, LobbyState, StartedState},
         game_state::{
             CacheEntry, GameDetails, NationDetails, PlayerDetails, PlayingState, PotentialPlayer,
             StartedDetails, StartedStateDetails,
@@ -20,13 +19,17 @@ use anyhow::{anyhow, Context};
 use chrono::{DateTime, Duration, Utc};
 use futures::future;
 use log::*;
-use serenity::{http::CacheHttp, model::id::UserId, CacheAndHttp};
+use serenity::{
+    cache::Cache,
+    http::{CacheHttp, Http},
+    model::id::UserId,
+};
 use std::sync::Arc;
 
 pub async fn update_details_cache_loop(
     db_conn: DbConnection,
     write_handle_mutex: DetailsCacheHandle,
-    cache_and_http: Arc<CacheAndHttp>,
+    cache_and_http: (Arc<Cache>, Arc<Http>),
 ) {
     loop {
         info!("Checking for new turns!");
@@ -45,11 +48,12 @@ pub async fn update_details_cache_loop(
 
 async fn notify_all_players_for_new_turn(
     new_turn_nations: Vec<NewTurnNation>,
-    cache_and_http: Arc<CacheAndHttp>,
+    cache_and_http: (Arc<Cache>, Arc<Http>),
 ) {
     future::join_all(new_turn_nations.into_iter().map(|new_turn_nation| async {
         let user_id = new_turn_nation.user_id;
-        if let Err(e) = notify_player_for_new_turn(new_turn_nation, cache_and_http.clone()).await {
+        let cache_http = (&cache_and_http.0.clone(), cache_and_http.1.as_ref());
+        if let Err(e) = notify_player_for_new_turn(new_turn_nation, cache_http).await {
             // we just swallow (log) errors, since we don't want one to disrupt all other messages
             error!(
                 "Failed to notify new turn for user {:?} with error: {:#?}",

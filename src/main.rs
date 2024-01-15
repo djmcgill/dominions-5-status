@@ -11,10 +11,10 @@ use crate::{
 use anyhow::{anyhow, Context as _};
 use chrono::{DateTime, Utc};
 use log::*;
-use serenity::{
-    async_trait, framework::standard::StandardFramework, http::CacheHttp,
-    model::interactions::Interaction, prelude::*,
-};
+use serenity::all::standard::BucketBuilder;
+use serenity::all::{ApplicationId, Interaction};
+use serenity::framework::standard::Configuration;
+use serenity::{async_trait, framework::standard::StandardFramework, prelude::*};
 use simplelog::{Config, LevelFilter, SimpleLogger};
 use std::time::Duration;
 use std::{env, fs::File, io::Read as _, path::Path, str::FromStr, sync::Arc};
@@ -101,7 +101,7 @@ fn read_token() -> anyhow::Result<String> {
     Ok(token_str.to_owned())
 }
 
-fn read_application_id() -> anyhow::Result<Option<u64>> {
+fn read_application_id() -> anyhow::Result<Option<ApplicationId>> {
     let application_path = Path::new("resources/application");
     if !application_path.exists() {
         return Ok(None);
@@ -113,7 +113,13 @@ fn read_application_id() -> anyhow::Result<Option<u64>> {
         .context("Reading contents of file")?;
     let token_str = temp_token.trim();
     info!("Read discord application id");
-    Ok(Some(u64::from_str(token_str).context("u64::from_str")?))
+
+    let uint = u64::from_str(token_str).context("u64::from_str")?;
+    if uint == 0 {
+        Err(anyhow!("Invalid UserId of 0"))
+    } else {
+        Ok(Some(ApplicationId::from(uint)))
+    }
 }
 
 async fn create_discord_client() -> anyhow::Result<Client> {
@@ -127,8 +133,7 @@ async fn create_discord_client() -> anyhow::Result<Client> {
     info!("Opened database connection");
 
     let framework = StandardFramework::new()
-        .configure(|c| c.prefix("!"))
-        .bucket("simple", |b| b.delay(1))
+        .bucket("simple", BucketBuilder::default().delay(1))
         .await
         .help(&crate::commands::help::HELP)
         .before(|_, msg, _| {
@@ -149,6 +154,7 @@ async fn create_discord_client() -> anyhow::Result<Client> {
         })
         .group(&crate::commands::servers::SERVER_GROUP)
         .group(&crate::commands::search::SEARCH_GROUP);
+    framework.configure(Configuration::new().prefix("!"));
 
     let cache_loop_db_conn = db_conn.clone();
 
@@ -172,14 +178,15 @@ async fn create_discord_client() -> anyhow::Result<Client> {
     info!("Created discord client");
 
     let write_handle_mutex = DetailsCacheHandle(Arc::clone(&discord_client.data));
-    let cache_and_http = Arc::clone(&discord_client.cache_and_http);
+    let cache = Arc::clone(&discord_client.cache);
+    let http = Arc::clone(&discord_client.http);
 
     tokio::spawn(async move {
-        update_details_cache_loop(cache_loop_db_conn, write_handle_mutex, cache_and_http).await;
+        update_details_cache_loop(cache_loop_db_conn, write_handle_mutex, (cache, http)).await;
     });
 
     if option_application_id.is_some() {
-        slash_commands::create_guild_commands(discord_client.cache_and_http.clone().http())
+        slash_commands::create_guild_commands(discord_client.http.as_ref())
             .await
             .context("create_guild_commands")?;
     }

@@ -25,7 +25,7 @@ pub async fn lobbies(
         CommandResponse::Reply("No available lobbies".to_owned())
     } else {
         let embed = lobbies_helper(lobbies_and_player_count)?;
-        CommandResponse::Embed(embed)
+        CommandResponse::Embed(Box::new(embed))
     };
     Ok(response)
 }
@@ -45,11 +45,8 @@ fn lobbies_helper(
         }
     }
 
-    let mut embed = CreateEmbed::default();
-    embed
+    Ok(CreateEmbed::default()
         .title("Lobbies")
         .field("Alias", aliases, true)
-        .field("Players", player_counts, true);
-
-    Ok(embed)
+        .field("Players", player_counts, true))
 }

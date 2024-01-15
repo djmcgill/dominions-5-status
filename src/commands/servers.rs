@@ -16,6 +16,7 @@ pub mod unregister_player;
 pub mod unstart;
 
 use chrono::{DateTime, Utc};
+use serenity::all::CreateMessage;
 use serenity::builder::CreateEmbed;
 use serenity::framework::standard::CommandError;
 use serenity::model::id::{ChannelId, UserId};
@@ -152,7 +153,7 @@ async fn server_kick(ctx: &Context, msg: &Message, args: Args) -> CommandResult 
 }
 
 pub enum CommandResponse {
-    Embed(CreateEmbed),
+    Embed(Box<CreateEmbed>),
     Reply(String),
 }
 
@@ -168,8 +169,9 @@ async fn alias_from_arg_or_channel_name(
             .to_channel((&ctx.cache, ctx.http.as_ref()))
             .await?
             .id()
-            .name(&ctx.cache)
+            .name((&ctx.cache, ctx.http.as_ref()))
             .await
+            .ok()
     };
     result_alias
         .clone()
@@ -177,7 +179,7 @@ async fn alias_from_arg_or_channel_name(
         .and_then(|s| if !s.is_empty() { Some(s) } else { None })
         .ok_or_else(|| {
             CommandError::from(format!(
-                "Could not game alias from command argument or channel name \"{}\"",
+                "Could not get game alias from command argument or channel name \"{}\"",
                 result_alias.unwrap_or_default()
             ))
         })
@@ -206,7 +208,7 @@ where
         CommandResponse::Embed(embed) => {
             message
                 .channel_id
-                .send_message(&context.http, |m| m.set_embed(embed))
+                .send_message(&context.http, CreateMessage::default().embed(*embed))
                 .await?;
         }
     }

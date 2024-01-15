@@ -10,9 +10,7 @@ fn list_servers_helper(db_conn: DbConnection) -> Result<CreateEmbed, CommandErro
     let server_list = db_conn.retrieve_all_servers().map_err(CommandError::from)?;
 
     if server_list.is_empty() {
-        let mut embed = CreateEmbed::default();
-        embed.title("NO SERVERS");
-        Ok(embed)
+        Ok(CreateEmbed::default().title("NO SERVERS"))
     } else {
         let embed_title = "Servers:";
         let mut server_aliases = String::new();
@@ -31,13 +29,10 @@ fn list_servers_helper(db_conn: DbConnection) -> Result<CreateEmbed, CommandErro
             }
         }
 
-        let mut embed = CreateEmbed::default();
-        embed
+        Ok(CreateEmbed::default()
             .title(embed_title)
             .field("Alias", server_aliases, true)
-            .field("Address", server_addresses, true);
-
-        Ok(embed)
+            .field("Address", server_addresses, true))
     }
 }
 
@@ -54,5 +49,5 @@ pub async fn list_servers(
             .clone()
     };
     let embed = list_servers_helper(db_conn)?;
-    Ok(CommandResponse::Embed(embed))
+    Ok(CommandResponse::Embed(Box::new(embed)))
 }
