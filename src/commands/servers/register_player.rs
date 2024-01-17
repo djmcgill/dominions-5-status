@@ -21,8 +21,7 @@ use serenity::{
     model::id::UserId,
     prelude::Context,
 };
-use std::cmp::Ordering;
-use std::{str::FromStr, sync::Arc};
+use std::{borrow::Cow, cmp::Ordering, str::FromStr, sync::Arc};
 
 // Find an uploaded/playing nation
 fn get_nation_for_started_server(
@@ -30,10 +29,11 @@ fn get_nation_for_started_server(
     started_state_details: &StartedStateDetails,
     era: Option<Era>,
     option_snek_state: Option<&SnekGameStatus>,
+    dom_version: u8,
 ) -> Result<GameNationIdentifier, CommandError> {
     match arg_nation {
         Either::Left(arg_nation_name) => {
-            let sanitised_name = arg_nation_name.to_lowercase().replace(['\'', ' '], "");
+            let sanitised_name = sanitise_text(Cow::Owned(arg_nation_name.to_lowercase()));
 
             match started_state_details {
                 StartedStateDetails::Playing(playing_state) => {
@@ -44,8 +44,8 @@ fn get_nation_for_started_server(
                         let nation_name = potential_player.nation_name(option_snek_state);
 
                         let sanitised_nation_name =
-                            nation_name.to_lowercase().replace(['\'', ' '], "");
-                        if sanitised_nation_name.starts_with(&sanitised_name) {
+                            sanitise_text(Cow::Owned(nation_name.to_lowercase()));
+                        if sanitised_nation_name.starts_with(sanitised_name.as_ref()) {
                             possible_ingame_nations.push(potential_player);
                         }
                     }
@@ -99,11 +99,12 @@ fn get_nation_for_started_server(
                     let mut possible_ingame_nations: Vec<&PotentialPlayer> = vec![];
                     for uploading_player in &uploading_state.uploading_players {
                         let potential_player = &uploading_player.potential_player;
-                        let sanitised_nation_name = potential_player
-                            .nation_name(option_snek_state)
-                            .to_lowercase()
-                            .replace(['\'', ' '], "");
-                        if sanitised_nation_name.starts_with(&sanitised_name) {
+                        let sanitised_nation_name = sanitise_text(Cow::Owned(
+                            potential_player
+                                .nation_name(option_snek_state)
+                                .to_lowercase(),
+                        ));
+                        if sanitised_nation_name.starts_with(sanitised_name.as_ref()) {
                             possible_ingame_nations.push(potential_player);
                         }
                     }
@@ -111,7 +112,11 @@ fn get_nation_for_started_server(
                     match possible_ingame_nations.len() {
                         // Could not find nation. Try again with base nations.
                         0 => {
-                            let possible_base_nations = Nations::from_name_prefix(arg_nation_name, era);
+                            let possible_base_nations = match dom_version {
+                                5 => Nations::from_name_prefix(arg_nation_name, era),
+                                6 => Nations::from_name_prefix_6(arg_nation_name, era),
+                                _ => return Err(CommandError::from(format!("Dom {} lol", dom_version))),
+                            };
                             match possible_base_nations.len() {
                                 0 => Err(CommandError::from(format!("Could not find nation starting with \"{}\"", arg_nation_name))),
                                 1 => Ok(GameNationIdentifier::Existing(possible_base_nations[0])),
@@ -144,7 +149,11 @@ fn get_nation_for_started_server(
         }
         Either::Right(arg_nation_id) => match started_state_details {
             StartedStateDetails::Uploading(uploading_state) => {
-                let potential_nation = GameNationIdentifier::from_id(arg_nation_id);
+                let potential_nation = match dom_version {
+                    5 => GameNationIdentifier::from_id(arg_nation_id),
+                    6 => GameNationIdentifier::from_id_6(arg_nation_id),
+                    _ => return Err(CommandError::from(format!("Dom {} lol", dom_version))),
+                };
 
                 let already_registered =
                     uploading_state
@@ -191,10 +200,15 @@ fn get_nation_for_started_server(
 fn get_nation_for_lobby(
     arg_nation: Either<&str, u32>,
     era: Era,
+    dom_version: u8,
 ) -> Result<GameNationIdentifier, CommandError> {
     match arg_nation {
         Either::Left(arg_nation_name) => {
-            let nations = Nations::from_name_prefix(arg_nation_name, Some(era));
+            let nations = match dom_version {
+                5 => Nations::from_name_prefix(arg_nation_name, Some(era)),
+                6 => Nations::from_name_prefix_6(arg_nation_name, Some(era)),
+                _ => return Err(CommandError::from(format!("Dom {} lol", dom_version))),
+            };
             match nations.len().cmp(&1) {
                 Ordering::Greater => Err(CommandError::from(format!(
                     "ambiguous nation name: {}",
@@ -207,14 +221,22 @@ fn get_nation_for_lobby(
                     };
                     u32::from_str(arg_nation_name)
                         .map_err(|_| mk_err())
-                        .map(GameNationIdentifier::from_id)
+                        .and_then(|id| match dom_version {
+                            5 => Ok(GameNationIdentifier::from_id(id)),
+                            6 => Ok(GameNationIdentifier::from_id_6(id)),
+                            _ => Err(CommandError::from(format!("Dom {} lol", dom_version))),
+                        })
                 }
                 Ordering::Equal => Ok(GameNationIdentifier::Existing(
                     *nations.first().ok_or_else(|| anyhow!("nation vec empty"))?,
                 )),
             }
         }
-        Either::Right(arg_nation_id) => Ok(GameNationIdentifier::from_id(arg_nation_id)),
+        Either::Right(arg_nation_id) => Ok(match dom_version {
+            5 => GameNationIdentifier::from_id(arg_nation_id),
+            6 => GameNationIdentifier::from_id_6(arg_nation_id),
+            _ => return Err(CommandError::from(format!("Dom {} lol", dom_version))),
+        }),
     }
 }
 
@@ -298,7 +320,7 @@ async fn register_player_helper(
                 ));
             }
 
-            let nation = get_nation_for_lobby(arg_nation, lobby_state.era)?;
+            let nation = get_nation_for_lobby(arg_nation, lobby_state.era, server.dom_version)?;
 
             if players_nations.iter().any(|(_, player_nation_id)| {
                 let nation_id: BotNationIdentifier = nation.clone().into();
@@ -359,6 +381,7 @@ async fn register_player_helper(
                 &started_details,
                 option_era,
                 option_snek_state.as_ref(),
+                server.dom_version,
             )?;
             let player = Player {
                 discord_user_id: user_id,

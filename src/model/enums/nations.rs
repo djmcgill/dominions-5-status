@@ -104,7 +104,7 @@ fn extract_possible_nation_prefix(lowercase_name_prefix: Cow<str>) -> (Cow<str>,
     }
 }
 
-fn sanitise_text(mut lowercase_text: Cow<str>) -> Cow<str> {
+pub fn sanitise_text(mut lowercase_text: Cow<str>) -> Cow<str> {
     lowercase_text = cow_r_c(lowercase_text, '\'', "");
     lowercase_text = cow_r_c(lowercase_text, ',', "");
     lowercase_text = cow_r_c(lowercase_text, 'è', "e");
@@ -121,12 +121,12 @@ fn cow_r_c<'a>(x: Cow<'a, str>, from: char, to: &str) -> Cow<'a, str> {
         Cow::Borrowed(borrowed) => borrowed.cow_replace(from, to),
     }
 }
-fn cow_r_s<'a>(x: Cow<'a, str>, from: &str, to: &str) -> Cow<'a, str> {
-    match x {
-        Cow::Owned(owned) => Cow::Owned(owned.replace(from, to)),
-        Cow::Borrowed(borrowed) => borrowed.cow_replace(from, to),
-    }
-}
+// fn cow_r_s<'a>(x: Cow<'a, str>, from: &str, to: &str) -> Cow<'a, str> {
+//     match x {
+//         Cow::Owned(owned) => Cow::Owned(owned.replace(from, to)),
+//         Cow::Borrowed(borrowed) => borrowed.cow_replace(from, to),
+//     }
+// }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct StaticNation {
