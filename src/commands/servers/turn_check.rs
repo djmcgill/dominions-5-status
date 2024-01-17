@@ -10,6 +10,7 @@ use crate::{
             StartedDetails, StartedStateDetails,
         },
         nation::Nation,
+        player::Player,
     },
     server::get_game_data_async,
     snek::{snek_details_async, SnekGameStatus},
@@ -276,11 +277,11 @@ pub fn create_messages_for_new_turn(
                 match potential_player {
                     PotentialPlayer::GameOnly(_) => None, // Don't know who they are, can't message them
                     PotentialPlayer::RegisteredOnly(_, _) => None, // Looks like they got left out, too bad
-                    PotentialPlayer::RegisteredAndGame(user_id, details) => create_playing_message(
+                    PotentialPlayer::RegisteredAndGame(player, details) => create_playing_message(
                         alias,
                         new_playing_details,
                         option_snek_state,
-                        user_id,
+                        player,
                         details,
                         possible_stales,
                         defeated_this_turn,
@@ -290,9 +291,9 @@ pub fn create_messages_for_new_turn(
         }
         StartedStateDetails::Uploading(ref new_uploading_details) => {
             new_uploading_details.uploading_players.iter().flat_map(|player| {
-                player.option_player_id().filter(|_| !player.uploaded).map(|user_id|  {
+                player.option_player_id().filter(|_| !player.uploaded).map(|discord_player|  {
                         NewTurnNation {
-                                user_id: *user_id,
+                                user_id: discord_player.discord_user_id,
                                 message: format!(
                                     "Uploading has started in {}! You registered as {}. Server address is '{}'.",
                                     alias, player.nation_name(option_snek_state), new_started_details.address
@@ -308,15 +309,15 @@ fn create_playing_message(
     alias: &str,
     new_playing_details: &PlayingState,
     option_snek_state: Option<&SnekGameStatus>,
-    user_id: &UserId,
+    player: &Player,
     details: &PlayerDetails,
     possible_stales: &[Nation],
     defeated_this_turn: &[&Nation],
 ) -> Option<NewTurnNation> {
     // Only message them if they haven't submitted yet
     if let SubmissionStatus::NotSubmitted = details.submitted {
-        // and if they're actually playing
-        if details.player_status.is_human() {
+        // and if they're actually playing and haven't turned notifications off
+        if details.player_status.is_human() && player.turn_notifications {
             let deadline = discord_date_format(new_playing_details.turn_deadline);
 
             let possible_stale_message = if let Some(first_player) = possible_stales.first() {
@@ -344,7 +345,7 @@ fn create_playing_message(
             };
 
             return Some(NewTurnNation {
-                user_id: *user_id,
+                user_id: player.discord_user_id,
                 message: format!(
                     "Turn {} in {}! You are {} and timer is in {}{}{}",
                     new_playing_details.turn,

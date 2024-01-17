@@ -106,12 +106,12 @@ fn turns_for_uploading_state(
         match &uploading_player.potential_player {
             // This isn't them - it's somebody not registered
             PotentialPlayer::GameOnly(_) => (),
-            PotentialPlayer::RegisteredAndGame(registered_user_id, player_details) =>
+            PotentialPlayer::RegisteredAndGame(registered_player, player_details) =>
             // is this them?
             {
                 // FIXME: there used to be a nation_id check on here. What is this for?
                 //        does it fail only when people are registered multiple times?
-                if *registered_user_id == user_id {
+                if registered_player.discord_user_id == user_id {
                     let turn_str = format!(
                         "{} uploading: {} (uploaded: {}, {}/{})\n",
                         alias,
@@ -124,10 +124,10 @@ fn turns_for_uploading_state(
                 }
             }
             // If this is them, they haven't uploaded
-            PotentialPlayer::RegisteredOnly(registered_user_id, registered_nation_identifier) => {
+            PotentialPlayer::RegisteredOnly(registered_player, registered_nation_identifier) => {
                 // FIXME: there used to be a nation_id check on here. What is this for?
                 //        does it fail only when people are registered multiple times?
-                if *registered_user_id == user_id {
+                if registered_player.discord_user_id == user_id {
                     let turn_str = format!(
                         "{} uploading: {} (uploaded: {}, {}/{})\n",
                         alias,
@@ -157,13 +157,10 @@ fn turns_for_playing_state(
         match playing_player {
             PotentialPlayer::RegisteredOnly(_, _) => (),
             PotentialPlayer::GameOnly(_) => (),
-            PotentialPlayer::RegisteredAndGame(
-                potential_player_user_id,
-                potential_player_details,
-            ) => {
+            PotentialPlayer::RegisteredAndGame(potential_player, potential_player_details) => {
                 // FIXME: there used to be a nation_id check on here. What is this for?
                 //        does it fail only when people are registered multiple times?
-                if *potential_player_user_id == user_id
+                if potential_player.discord_user_id == user_id
                     && potential_player_details.player_status.is_human()
                 {
                     let deadline = discord_date_format(playing_state.turn_deadline);

@@ -1,6 +1,7 @@
 use crate::model::enums::{Era, NationStatus, SubmissionStatus};
 use crate::model::game_data::GameData;
 use crate::model::nation::{BotNationIdentifier, GameNationIdentifier};
+use crate::model::player::Player;
 use crate::snek::SnekGameStatus;
 use chrono::{DateTime, Utc};
 use serenity::model::id::UserId;
@@ -41,35 +42,35 @@ pub enum StartedStateDetails {
     Uploading(UploadingState),
 }
 impl StartedStateDetails {
-    pub fn uploaded_players(&self) -> impl Iterator<Item = &UserId> {
+    pub fn uploaded_players(&self) -> impl Iterator<Item = UserId> + '_ {
         match self {
             StartedStateDetails::Playing(playing_state) => {
                 Box::new(playing_state.players.iter().filter_map(|potential_player| {
-                    if let PotentialPlayer::RegisteredAndGame(registered_user_id, _)
-                    | PotentialPlayer::RegisteredOnly(registered_user_id, _) = potential_player
+                    if let PotentialPlayer::RegisteredAndGame(registered_player, _)
+                    | PotentialPlayer::RegisteredOnly(registered_player, _) = potential_player
                     {
-                        Some(registered_user_id)
+                        Some(registered_player.discord_user_id)
                     } else {
                         None
                     }
-                })) as Box<dyn Iterator<Item = &UserId>>
+                })) as Box<dyn Iterator<Item = UserId>>
             }
             StartedStateDetails::Uploading(uploading_state) => Box::new(
                 uploading_state
                     .uploading_players
                     .iter()
                     .filter_map(|uploading_player| {
-                        if let PotentialPlayer::RegisteredAndGame(registered_user_id, _)
-                        | PotentialPlayer::RegisteredOnly(registered_user_id, _) =
+                        if let PotentialPlayer::RegisteredAndGame(registered_player, _)
+                        | PotentialPlayer::RegisteredOnly(registered_player, _) =
                             &uploading_player.potential_player
                         {
-                            Some(registered_user_id)
+                            Some(registered_player.discord_user_id)
                         } else {
                             None
                         }
                     }),
             )
-                as Box<dyn Iterator<Item = &UserId>>,
+                as Box<dyn Iterator<Item = UserId>>,
         }
     }
 }
@@ -85,8 +86,8 @@ pub struct PlayingState {
 }
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PotentialPlayer {
-    RegisteredOnly(UserId, BotNationIdentifier),
-    RegisteredAndGame(UserId, PlayerDetails),
+    RegisteredOnly(Player, BotNationIdentifier),
+    RegisteredAndGame(Player, PlayerDetails),
     GameOnly(PlayerDetails),
 }
 impl PotentialPlayer {
@@ -141,7 +142,7 @@ impl UploadingPlayer {
             }
         }
     }
-    pub fn option_player_id(&self) -> Option<&UserId> {
+    pub fn option_player_id(&self) -> Option<&Player> {
         match &self.potential_player {
             PotentialPlayer::RegisteredOnly(user, _) => Some(user),
             PotentialPlayer::RegisteredAndGame(user, _) => Some(user),

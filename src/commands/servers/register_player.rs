@@ -344,7 +344,7 @@ async fn register_player_helper(
 
             if started_details
                 .uploaded_players()
-                .any(|registered_user_id| *registered_user_id == user_id)
+                .any(|registered_user_id| registered_user_id == user_id)
             {
                 return Err(CommandError::from(
                     "you are already registered for this game",

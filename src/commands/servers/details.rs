@@ -193,7 +193,7 @@ fn join_players_with_nations(
         } else {
             // The nation_identifier has no ID so it's a custom name so it's bot only
             potential_players.push(PotentialPlayer::RegisteredOnly(
-                player.discord_user_id,
+                player.clone(),
                 nation_identifier.clone(),
             ));
         }
@@ -208,7 +208,7 @@ fn join_players_with_nations(
                     player_status: nation.status,
                 };
                 potential_players.push(PotentialPlayer::RegisteredAndGame(
-                    player.discord_user_id,
+                    player.clone(),
                     player_details,
                 ))
             }
@@ -223,7 +223,7 @@ fn join_players_with_nations(
     // Lobby only RegisteredOnly(UserId, BotNationIdentifier),
     for (_, (player, bot_nation_identifier)) in players_by_nation_id {
         potential_players.push(PotentialPlayer::RegisteredOnly(
-            player.discord_user_id,
+            player.clone(),
             bot_nation_identifier.clone(),
         ));
     }
@@ -335,9 +335,10 @@ async fn details_to_embed(
                         let player_name = if !anon_game {
                             if let NationStatus::Human = player_details.player_status {
                                 match option_user_id {
-                                    Some(user_id) => Some(Cow::Owned(format!(
+                                    Some(player) => Some(Cow::Owned(format!(
                                         "**{}**",
-                                        user_id
+                                        player
+                                            .discord_user_id
                                             .to_user((&context.cache, context.http.as_ref()))
                                             .await?
                                     ))),
@@ -400,9 +401,10 @@ async fn details_to_embed(
                         uploading_state.uploading_players.iter().enumerate()
                     {
                         let player_name = match uploading_player.option_player_id() {
-                            Some(user_id) if !anon_game => Cow::Owned(format!(
+                            Some(player) if !anon_game => Cow::Owned(format!(
                                 "**{}**",
-                                user_id
+                                player
+                                    .discord_user_id
                                     .to_user((&context.cache, context.http.as_ref()))
                                     .await?
                             )),

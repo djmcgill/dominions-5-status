@@ -51,11 +51,11 @@ async fn start_helper(
             if let NationDetails::Started(started_details) = started_details.nations {
                 if let StartedStateDetails::Uploading(uploading_details) = started_details.state {
                     for player in uploading_details.uploading_players {
-                        if let PotentialPlayer::RegisteredOnly(user_id, nation_id) =
+                        if let PotentialPlayer::RegisteredOnly(player, nation_id) =
                             player.potential_player
                         {
                             let message = NewTurnNation {
-                                    user_id,
+                                    user_id: player.discord_user_id,
                                     message: format!(
                                         "Uploading has started in {}! You registered as {}. Server address is '{}'.",
                                         alias, nation_id.name(option_snek_state.as_ref()), started_details.address
