@@ -75,11 +75,11 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                         "The start (or all) of a nation name e.g. `tien`, `eatie`, `\"T'ien Ch'i\"`, or `\"EA T'ien Ch'i\""
                     ).required(true))
                     .add_option(game_name_option()),
-                CreateCommand::new("register_id")
+                CreateCommand::new("register-id")
                     .description("Register yourself as a nation using the ID in a game or lobby")
                     .add_option(CreateCommandOption::new(CommandOptionType::Integer, "nation_id", "The ID of the nation, e.g. `10` for EA TC"))
                     .add_option(game_name_option()),
-                CreateCommand::new("register_custom")
+                CreateCommand::new("register-custom")
                     .description("Register yourself as some text in a mod game or lobby. You must reregister after uploading.")
                     .add_option(CreateCommandOption::new(CommandOptionType::String, "nation_text", "Some text to represent your chosen nation").required(true))
                     .add_option(game_name_option()),
