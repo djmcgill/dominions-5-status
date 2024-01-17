@@ -62,7 +62,7 @@ n.b. server alias is optional, defaults to channel name.
     - list available lobbies
 - `!{item, spell, unit, site, merc, event} <text>`:
     - get dom5inspector search url
-- `!start <address:port> [<alias>]`:
+- `!start <address:port> [<alias>]` OR `!start <url for status page.html> [<alias>]`:
     - register a started server for a lobby game
 - `!describe "text" [<alias>]`:
     - add a description to a lobby. Quotes required to avoid issues with spaces.

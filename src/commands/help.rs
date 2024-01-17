@@ -27,6 +27,7 @@ pub async fn help(ctx: &Context, msg: &Message) -> Result<(), CommandError> {
          - /lobby {EA/MA/LA} <num_players> <alias>: create a lobby with no server\n\
          - /lobbies: list available lobbies\n\
          - /start <address:port> <alias>: register a started server for a lobby game\n\
+         - /start <url for status page.html> <alias>: register a started server for a lobby game\n\
          - /{item, spell, unit, site, merc, event} <text>: get dom5inspector search url\n\
          - /help: display this text\n\
          - /describe \"text\" <alias>: add a description to a lobby. Quotes required.\n\
