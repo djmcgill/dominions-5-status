@@ -54,7 +54,6 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                     .add_option(game_name_option()),
                 CreateCommand::new("add")
                     .description("Add a running game to the bot")
-                    .add_option(game_name_option())
                     .add_option(
                         CreateCommandOption::new(
                             CommandOptionType::String,
@@ -62,7 +61,8 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                             "The address and port, separated by a colon, to connect to the game",
                         )
                         .required(true),
-                    ),
+                    )
+                    .add_option(game_name_option()),
                 CreateCommand::new("list").description("List all games and lobbies"),
                 CreateCommand::new("delete")
                     .description("Remove a game or lobby from the bot")
@@ -80,7 +80,7 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                     .add_option(CreateCommandOption::new(CommandOptionType::Integer, "nation_id", "The ID of the nation, e.g. `10` for EA TC"))
                     .add_option(game_name_option()),
                 CreateCommand::new("register_custom")
-                    .description("Register yourself as some text in a game or lobby. Used for mod games. You must reregister after uploading.")
+                    .description("Register yourself as some text in a mod game or lobby. You must reregister after uploading.")
                     .add_option(CreateCommandOption::new(CommandOptionType::String, "nation_text", "Some text to represent your chosen nation").required(true))
                     .add_option(game_name_option()),
                 CreateCommand::new("unregister")
@@ -105,7 +105,7 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                     .description("List available lobbies"),
                 CreateCommand::new("start")
                     .description("Start a lobby with an address, after starting it on the server")
-                    .add_option(CreateCommandOption::new(CommandOptionType::String, "address:port", "The address and port, separated by a colon, of the started game").required(true))
+                    .add_option(CreateCommandOption::new(CommandOptionType::String, "address_colon_port", "The address and port, separated by a colon, of the started game").required(true))
                     .add_option(game_name_option()),
             CreateCommand::new("describe")
                     .description("Add a description to a lobby. Quotemarks required.")
@@ -161,7 +161,8 @@ async fn interaction_create_result(ctx: Context, interaction: Interaction) -> an
 
         // This is quite cumbersome, it would be better to integrate with the serenity framework
         let command_response_result = match data.name.as_str() {
-            "add" => add_server(&ctx, channel_id, user_id, args)
+            // all new servers are for dom6
+            "add" => add_server(&ctx, channel_id, user_id, 6, args)
                 .await
                 .map_err(|e| anyhow!("ddd_server slash command failed with: {}", e)),
             "describe" => describe(&ctx, channel_id, user_id, args)

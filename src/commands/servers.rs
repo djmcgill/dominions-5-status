@@ -53,7 +53,11 @@ struct Server;
 #[command]
 #[aliases("add")]
 async fn server_add(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
-    bang_command_wrap(ctx, msg, args, add_server::add_server).await
+    // okay this is a bit more awkward than I thought. But all new servers with the `add` command are for dom6
+    bang_command_wrap(ctx, msg, args, |c, ch, u, a| {
+        add_server::add_server(c, ch, u, 6, a)
+    })
+    .await
 }
 
 #[command]

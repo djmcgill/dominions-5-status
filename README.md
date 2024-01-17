@@ -1,7 +1,7 @@
 [![CircleCI](https://circleci.com/gh/djmcgill/dominions-5-status/tree/master.svg?style=svg)](https://circleci.com/gh/djmcgill/dominions-5-status/tree/master)
 
-# Dominions 5 Discord Bot
-A discord bot containing utilities for dominions 5
+# Dominions Discord Bot
+A discord bot containing utilities for dominions 5+6
 
 Thanks to https://github.com/culka/dom4status and http://www.cs.helsinki.fi/u/aitakang/dom3_serverformat_notes
 
@@ -18,6 +18,10 @@ To run in docker:
 - Make a folder on the host called "resources" containing the `token` file as before. This is also where the db file will be created.
 - Run the command: `docker run -it -d --restart unless-stopped -v /home/dmcgill9071/dom-5-bot/resources:/usr/src/myapp/resources --log-opt max-size=10m --log-opt max-file=5 eu.gcr.io/dom-5-status/dom-5-status` except replace `/home/dmcgill9071/dom-5-bot/resources` with the location of your resource folder.
 
+## Dominions 6:
+The bot now supports dominions 6 games. Both via direct connect and also via the new html status page. All new games are assumed to be dominions 6.
+Old dominions 5 games are still supported via a new db column in the game_servers table, but there is currently no way to create a dom5 game until I (or a different contributor) adds in some kind of !add5 command.
+
 ## Slash commands:
 Note that this bot now supports discord's [slash commands](https://discord.com/developers/docs/interactions/slash-commands) which look like:
 ![image](https://user-images.githubusercontent.com/1290757/120073845-9bb03100-c089-11eb-9604-880ca37670ee.png)
@@ -30,8 +34,8 @@ If your game alias ends with "_anon" then the bot will refuse to show usernames 
 ## Commands:
 n.b. server alias is optional, defaults to channel name.
 `<>` means an argument, `[]` means optional
-- `!add <address:port> [<alias>]`:
-    - save the dom5 server address
+- `!add <address:port> [<alias>]` OR `!add <url for status page.html> [<alias>]`:
+    - save the dom6 server address
 - `!alias <old alias> [<new alias>]`
     - change the alias for a game server. Note, uses the discord channel name for the _new_ alias
 - `!banish <user_id> [<alias>]`:
@@ -73,6 +77,7 @@ n.b. server alias is optional, defaults to channel name.
 * more embed responses
 * db queries contain named arguments
 * BUG: possibly crash happens when turns and details happen at the same time? https://i.imgur.com/FioCpvD.png
+* dom 6 inspector? or just rip that out
 
 ##MAYBE:
 * easier nation selection - acronyms, nicknames, fuzzy search, etc

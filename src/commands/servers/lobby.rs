@@ -14,8 +14,10 @@ fn lobby_helper(
     player_count: i32,
     alias: &str,
     author_id: UserId,
+    dom_version: u8,
 ) -> Result<(), CommandError> {
     db_conn.insert_game_server(&GameServer {
+        dom_version,
         alias: alias.to_owned(),
         state: GameServerState::Lobby(LobbyState {
             era,
@@ -44,7 +46,8 @@ pub async fn lobby(
             .clone()
     };
 
-    lobby_helper(db_connection, era, player_count, &alias, user_id)?;
+    // all new lobbies are for dom6
+    lobby_helper(db_connection, era, player_count, &alias, user_id, 6)?;
     Ok(CommandResponse::Reply(format!(
         "Created game lobby with name {}",
         alias

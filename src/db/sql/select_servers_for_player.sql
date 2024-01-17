@@ -7,7 +7,8 @@ SELECT
     l.owner_id,
     l.era,
     l.player_count,
-    l.description
+    l.description,
+    g.dom_version
 FROM players p
 JOIN server_players sp on sp.player_id = p.id
 JOIN game_servers g on g.id = sp.server_id

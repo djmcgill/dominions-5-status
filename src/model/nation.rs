@@ -1,5 +1,6 @@
 use crate::model::enums::{NationStatus, Nations, StaticNation, SubmissionStatus};
 use crate::snek::SnekGameStatus;
+use anyhow::anyhow;
 use std::borrow::Cow;
 
 /// We always get an ID when talking to the game
@@ -30,6 +31,23 @@ impl GameNationIdentifier {
             GameNationIdentifier::CustomId(id)
         }
     }
+
+    pub fn from_name_6(name: &str) -> anyhow::Result<Self> {
+        let nations = Nations::from_name_prefix_6(name, None);
+        match nations[..] {
+            [] => Err(anyhow!("No matching nations found")),
+            [nation] => Ok(GameNationIdentifier::Existing(nation)),
+            _ => Err(anyhow!("Ambiguous nation name")),
+        }
+    }
+
+    pub fn from_id_6(id: u32) -> Self {
+        if let Some(static_nation) = Nations::from_id_6(id) {
+            GameNationIdentifier::Existing(static_nation)
+        } else {
+            GameNationIdentifier::CustomId(id)
+        }
+    }
 }
 impl From<GameNationIdentifier> for BotNationIdentifier {
     fn from(other: GameNationIdentifier) -> Self {
@@ -53,13 +71,21 @@ impl BotNationIdentifier {
     pub fn from_id(id: u32) -> Self {
         GameNationIdentifier::from_id(id).into()
     }
+    pub fn from_id_6(id: u32) -> Self {
+        GameNationIdentifier::from_id_6(id).into()
+    }
     pub fn from_name(name: String) -> Self {
         BotNationIdentifier::CustomName(name)
     }
-    pub fn from_id_and_name(option_id: Option<u32>, option_name: Option<String>) -> Option<Self> {
-        match (option_id, option_name) {
-            (Some(id), None) => Some(BotNationIdentifier::from_id(id)),
-            (None, Some(name)) => Some(BotNationIdentifier::from_name(name)),
+    pub fn from_id_and_name(
+        option_id: Option<u32>,
+        option_name: Option<String>,
+        dom_version: u8,
+    ) -> Option<Self> {
+        match (option_id, option_name, dom_version) {
+            (Some(id), None, 5) => Some(BotNationIdentifier::from_id(id)),
+            (Some(id), None, 6) => Some(BotNationIdentifier::from_id_6(id)),
+            (None, Some(name), _) => Some(BotNationIdentifier::from_name(name)),
             _ => None,
         }
     }

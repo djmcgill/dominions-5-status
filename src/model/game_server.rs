@@ -5,6 +5,7 @@ use serenity::model::id::UserId;
 pub struct GameServer {
     pub alias: String,
     pub state: GameServerState,
+    pub dom_version: u8,
 }
 
 #[derive(Debug, Clone, PartialEq)]

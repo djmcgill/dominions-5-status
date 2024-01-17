@@ -22,7 +22,7 @@ impl TypeMapKey for DbConnectionKey {
 }
 
 lazy_static! {
-    static ref MIGRATIONS: [EmbeddedMigration; 3] = {
+    static ref MIGRATIONS: [EmbeddedMigration; 4] = {
         let mut m1 = EmbeddedMigration::with_tag("001-baseline");
         m1.up(include_str!("db/sql/migrations/001_baseline.sql"));
 
@@ -32,7 +32,10 @@ lazy_static! {
         let mut m3 = EmbeddedMigration::with_tag("003-register-custom");
         m3.up(include_str!("db/sql/migrations/003_register_custom.sql"));
 
-        [m1, m2, m3]
+        let mut m4 = EmbeddedMigration::with_tag("004-dom-version");
+        m4.up(include_str!("db/sql/migrations/004_dom_game.sql"));
+
+        [m1, m2, m3, m4]
     };
 }
 
@@ -112,6 +115,7 @@ impl DbConnection {
                     include_str!("db/sql/insert_game_server_from_lobby.sql"),
                     params![
                         &game_server.alias,
+                        &(game_server.dom_version as i32),
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.get() as i64),
                         &lobby_state.player_count,
@@ -128,7 +132,11 @@ impl DbConnection {
                 )?;
                 tx.execute(
                     include_str!("db/sql/insert_started_game_server.sql"),
-                    params![&game_server.alias, &started_state.address],
+                    params![
+                        &game_server.alias,
+                        &(game_server.dom_version as i32),
+                        &started_state.address
+                    ],
                 )?;
                 tx.commit()?;
                 Ok(())
@@ -153,6 +161,7 @@ impl DbConnection {
                     include_str!("db/sql/insert_game_server_from_lobby.sql"),
                     params![
                         &game_server.alias,
+                        &(game_server.dom_version as i32),
                         &lobby_state.era.to_i32(),
                         &(lobby_state.owner.get() as i64),
                         &lobby_state.player_count,
@@ -226,6 +235,7 @@ impl DbConnection {
                 let lobby_era: Option<i32> = row.get(4)?;
                 let maybe_player_count: Option<i32> = row.get(5)?;
                 let description: Option<String> = row.get(6)?;
+                let dom_version: Option<i32> = row.get(7)?;
 
                 let game_server = make_game_server(
                     alias,
@@ -235,6 +245,7 @@ impl DbConnection {
                     lobby_era,
                     maybe_player_count,
                     description,
+                    dom_version,
                 )?;
 
                 Ok(game_server)
@@ -260,9 +271,13 @@ impl DbConnection {
                 let nation_id_i32: Option<i32> = row.get(1).unwrap();
                 let nation_id_u32 = nation_id_i32.map(|id| id as u32);
                 let custom_nation_name: Option<String> = row.get(2).unwrap();
-                let nation_identifier =
-                    BotNationIdentifier::from_id_and_name(nation_id_u32, custom_nation_name)
-                        .unwrap();
+                let dom_version = row.get::<_, i32>(4).map(|v| v as u8).unwrap();
+                let nation_identifier = BotNationIdentifier::from_id_and_name(
+                    nation_id_u32,
+                    custom_nation_name,
+                    dom_version,
+                )
+                .unwrap();
                 Ok((player, nation_identifier))
             })?
             .collect::<Result<Vec<_>, _>>()?;
@@ -281,6 +296,7 @@ impl DbConnection {
                 let maybe_lobby_era: Option<i32> = row.get(3).unwrap();
                 let maybe_player_count: Option<i32> = row.get(4).unwrap();
                 let description: Option<String> = row.get(5).unwrap();
+                let dom_version: Option<i32> = row.get(6).unwrap();
                 Ok(make_game_server(
                     game_alias.to_owned(),
                     maybe_address,
@@ -289,6 +305,7 @@ impl DbConnection {
                     maybe_lobby_era,
                     maybe_player_count,
                     description,
+                    dom_version,
                 )
                 .unwrap())
             })?
@@ -365,6 +382,7 @@ impl DbConnection {
             let maybe_lobby_era: Option<i32> = row.get(6).unwrap();
             let maybe_player_count: Option<i32> = row.get(7).unwrap();
             let description: Option<String> = row.get(8).unwrap();
+            let dom_version: Option<i32> = row.get(9).unwrap();
             let server = make_game_server(
                 alias,
                 maybe_address,
@@ -373,6 +391,7 @@ impl DbConnection {
                 maybe_lobby_era,
                 maybe_player_count,
                 description,
+                dom_version,
             )
             .unwrap();
 
@@ -482,6 +501,7 @@ impl DbConnection {
                 let maybe_player_count: Option<i32> = row.get(3).unwrap();
                 let registered_player_count: i32 = row.get(4).unwrap();
                 let description: Option<String> = row.get(5).unwrap();
+                let dom_version = row.get(6).unwrap();
                 let server = make_game_server(
                     alias,
                     None,
@@ -490,6 +510,7 @@ impl DbConnection {
                     maybe_lobby_era,
                     maybe_player_count,
                     description,
+                    dom_version,
                 )
                 .unwrap();
                 Ok((server, registered_player_count))
@@ -530,7 +551,7 @@ impl DbConnection {
         }
     }
 }
-
+#[allow(clippy::too_many_arguments)] // fuck off clippy
 fn make_game_server(
     alias: String,
     maybe_address: Option<String>,
@@ -539,7 +560,10 @@ fn make_game_server(
     maybe_era: Option<i32>,
     maybe_player_count: Option<i32>,
     description: Option<String>,
+    dominions_version: Option<i32>,
 ) -> anyhow::Result<GameServer> {
+    let dom_version = dominions_version.unwrap_or(6) as u8;
+
     let state = match (
         maybe_address,
         maybe_last_seen_turn,
@@ -579,6 +603,10 @@ fn make_game_server(
         _ => return Err(anyhow!("invalid db state for {}", alias)),
     };
 
-    let server = GameServer { alias, state };
+    let server = GameServer {
+        dom_version,
+        alias,
+        state,
+    };
     Ok(server)
 }

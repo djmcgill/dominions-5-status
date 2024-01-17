@@ -94,7 +94,8 @@ async fn fetch_new_state_and_update_details_cache_for_game(
     let messages = if let GameServerState::StartedState(started_state, option_lobby_state) =
         &details.state
     {
-        let new_game_data = get_game_data_async(&started_state.address).await?;
+        let new_game_data =
+            get_game_data_async(&started_state.address, details.dom_version).await?;
         let option_new_snek_data = snek_details_async(&started_state.address).await?;
 
         let is_new_turn = db_conn.update_game_with_possibly_new_turn(alias, new_game_data.turn)?;

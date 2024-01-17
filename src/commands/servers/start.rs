@@ -33,7 +33,7 @@ async fn start_helper(
             return Err(CommandError::from("game already started"))
         }
         GameServerState::Lobby(lobby_state) => {
-            let game_data = get_game_data_async(address).await?;
+            let game_data = get_game_data_async(address, server.dom_version).await?;
             if game_data.nations.len() as i32 > lobby_state.player_count {
                 return Err(CommandError::from("game has more players than the lobby"));
             }

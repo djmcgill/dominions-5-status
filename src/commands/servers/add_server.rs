@@ -22,12 +22,14 @@ use std::sync::Arc;
 async fn add_server_helper(
     server_address: &str,
     game_alias: &str,
+    dom_version: u8,
     db_connection: DbConnection,
     write_handle_mutex: DetailsCacheHandle,
 ) -> Result<(), CommandError> {
-    let game_data = get_game_data_async(server_address).await?;
+    let game_data = get_game_data_async(server_address, dom_version).await?;
     let option_snek_state = snek_details_async(server_address).await?;
     let server = GameServer {
+        dom_version,
         alias: game_alias.to_string(),
         state: GameServerState::StartedState(
             StartedState {
@@ -75,6 +77,7 @@ pub async fn add_server(
     context: &Context,
     channel_id: ChannelId,
     user_id: UserId,
+    dom_version: u8,
     mut args: Args,
 ) -> Result<CommandResponse, CommandError> {
     info!("Adding server for {} with args {:?}", user_id, args);
@@ -95,7 +98,14 @@ pub async fn add_server(
             .ok_or("No DbConnection was created on startup. This is a bug.")?
             .clone()
     };
-    add_server_helper(&server_address, &alias, db_connection, write_handle_mutex).await?;
+    add_server_helper(
+        &server_address,
+        &alias,
+        dom_version,
+        db_connection,
+        write_handle_mutex,
+    )
+    .await?;
     let text = format!("Successfully inserted with alias {}", alias);
     Ok(CommandResponse::Reply(text))
 }

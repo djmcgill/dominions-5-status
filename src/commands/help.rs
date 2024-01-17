@@ -10,7 +10,8 @@ pub async fn help(ctx: &Context, msg: &Message) -> Result<(), CommandError> {
     let _ = msg.reply(
         (&ctx.cache, ctx.http.as_ref()),
         "Commands (server alias is optional, defaults to channel name): \n\
-         - /add <address:port> <alias>: save the dom5 server address\n\
+         - /add <address:port> <alias>: save the dom6 server address\n\
+         - /add <url for status page.html> <alias>: save the dom6 server address\n\
          - /alias <old alias> <new alias>: set a new alias for a server\n\
          - /banish <user_id> <alias>: kick a player from a game, as if they had used !unregister \n\
          - /list: return a list of the saved server addresses and aliases\n\

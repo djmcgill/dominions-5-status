@@ -58,7 +58,14 @@ pub async fn get_details_for_alias(
     let details = match server.state {
         GameServerState::Lobby(ref lobby_state) => lobby_details(db_conn, lobby_state, alias)?,
         GameServerState::StartedState(ref started_state, ref option_lobby_state) => {
-            started_details(db_conn, started_state, option_lobby_state.as_ref(), alias).await?
+            started_details(
+                db_conn,
+                started_state,
+                option_lobby_state.as_ref(),
+                alias,
+                server.dom_version,
+            )
+            .await?
         }
     };
 
@@ -70,10 +77,15 @@ async fn started_details(
     started_state: &StartedState,
     option_lobby_state: Option<&LobbyState>,
     alias: &str,
+    dom_version: u8,
 ) -> Result<GameDetails, CommandError> {
     let server_address = &started_state.address;
-    let game_data = get_game_data_async(server_address).await?;
-    let option_snek_details = snek_details_async(server_address).await?;
+    let game_data = get_game_data_async(server_address, dom_version).await?;
+    let option_snek_details = if dom_version == 5 {
+        snek_details_async(server_address).await?
+    } else {
+        None
+    };
 
     started_details_from_server(
         db_conn,

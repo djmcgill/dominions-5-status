@@ -9,24 +9,185 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use chrono::Utc;
 use flate2::read::ZlibDecoder;
 use log::*;
+use scraper::{Html, Selector};
 use std::{
     io::{BufRead, Cursor, Read},
+    str::FromStr,
     time::Duration,
 };
 use tokio::{io::AsyncWriteExt, time};
 
-pub async fn get_game_data_async(server_address: &str) -> anyhow::Result<GameData> {
-    let raw_data = time::timeout(
-        Duration::from_secs(5),
-        get_raw_game_data_async(server_address),
-    )
-    .await
-    .context("retrieving info from the server timed out")?
-    .context("cannot retrieve info from the server")?;
-    let game_data = interpret_raw_data(raw_data)?;
-    Ok(game_data)
+pub async fn get_game_data_async(
+    server_address: &str,
+    dom_version: u8,
+) -> anyhow::Result<GameData> {
+    let option_url = url::Url::parse(server_address).ok();
+    let is_html_page = option_url
+        .as_ref()
+        .and_then(|url| url.path().split('.').last().map(|s| s.to_owned()))
+        .is_some_and(|x| x == "html");
+    if is_html_page {
+        // assume html pages are dom 6 only
+        let response = time::timeout(
+            Duration::from_secs(5),
+            reqwest::get(option_url.expect("we already checked this")),
+        )
+        .await
+        .context("retrieving html page from the server timed out")?
+        .context("cannot get html page from the server")?;
+        let text = response
+            .text()
+            .await
+            .context("failed to decode html response body")?;
+        parse_status_html(Html::parse_document(&text))
+    } else {
+        // assume it's direct connect
+        let raw_data = time::timeout(
+            Duration::from_secs(5),
+            get_raw_game_data_async(server_address),
+        )
+        .await
+        .context("retrieving info from the server timed out")?
+        .context("cannot retrieve info from the server")?;
+        let game_data = interpret_raw_data(raw_data, dom_version)?;
+        Ok(game_data)
+    }
 }
-fn interpret_raw_data(raw_data: RawGameData) -> anyhow::Result<GameData> {
+
+fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
+    let table_selector = Selector::parse("table").unwrap();
+    let tr_selector = Selector::parse("tr").unwrap();
+    let td_selector = Selector::parse("td").unwrap();
+
+    let table = page
+        .select(&table_selector)
+        .next()
+        .ok_or_else(|| anyhow!("No <table> found"))?;
+    let mut rows = table.select(&tr_selector);
+    let header_row = rows.next().ok_or_else(|| anyhow!("No header <tr> found"))?;
+    let header_element = header_row
+        .select(&td_selector)
+        .next()
+        .ok_or_else(|| anyhow!("No header <td> found"))?
+        .inner_html();
+
+    // samog, turn 41 (finished)
+    // samog, turn 41 (time left: 1 days and 1 hours)
+    let mut header_sections = header_element.split(',');
+    let game_name = header_sections
+        .next()
+        .ok_or_else(|| anyhow!("No game_name section in the header found"))?
+        .to_owned();
+    let remaining_header = header_sections
+        .next()
+        .ok_or_else(|| anyhow!("No remaining_header found"))?;
+    // skip " turn "
+    let mut remaining_header = remaining_header.chars().skip(6);
+    let digits = (&mut remaining_header)
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>();
+    let turn = i32::from_str(&digits).context("parse turn")?;
+
+    // skip " (time left: "
+    let remaining_header = remaining_header.skip(13).collect::<String>();
+
+    // 1 days and 1 hours
+    // okay I'm a bit worried we might see "1 days" or "1 day" or "1 hour" or "1 hours"
+    // depending on if there's e.g. exactly 24 hours or <24 hours remaining
+    let mut words = remaining_header.split(' ');
+    let (finished, turn_deadline) = if let Some(first_count) = words.next() {
+        let mut seconds = 0;
+
+        if !first_count.is_empty() {
+            let first_unit = words.next().ok_or_else(|| anyhow!("first_unit"))?;
+            let first_count = i32::from_str(first_count).context("first_count i32 parse")?;
+            match first_unit {
+                "week" | "weeks" => seconds += first_count * 7 * 24 * 60 * 60,
+                "days" | "day" => seconds += first_count * 24 * 60 * 60,
+                "hours" | "hour" => seconds += first_count * 60 * 60,
+                "minute" | "minutes" => seconds += first_count * 60,
+                "second" | "seconds" => seconds += first_count,
+                _ => return Err(anyhow!("Unknown first_unit: '{}'", first_unit)),
+            }
+            // skip 'and'
+            let _ = words.next();
+            let second_unit = words.next();
+            let second_count = words.next();
+            match (second_unit, second_count) {
+                (Some(second_unit), Some(second_count)) => {
+                    let second_count =
+                        i32::from_str(second_count).context("second_count i32 parse");
+                    match second_unit {
+                        "days)" | "day)" => seconds += second_count? * 24 * 60 * 60,
+                        "hours)" | "hour)" => seconds += second_count? * 60 * 60,
+                        "minute)" | "minutes)" => seconds += second_count? * 60,
+                        "second)" | "seconds)" => seconds += second_count?,
+                        _ => return Err(anyhow!("Unknown first_unit: '{}'", first_unit)),
+                    }
+                }
+                _ => {
+                    return Err(anyhow!(
+                        "Okay I really don't know what's going on at this point"
+                    ))
+                }
+            }
+            if let Some(remaining) = words.next() {
+                return Err(anyhow!("Extra time text remaining: '{}'", remaining));
+            }
+        }
+        // yes this does not cover leap seconds or
+        // daylight savings properly however: I do not give a shit
+        (false, Utc::now() + Duration::from_secs(seconds as u64))
+    } else {
+        // finished
+        (true, Utc::now())
+    };
+
+    let nations = rows
+        .map(|row| {
+            let mut cells = row.select(&td_selector);
+            let name = cells
+                .next()
+                .ok_or_else(|| anyhow!("No name <td> found for row"))?
+                .inner_html();
+            let identifier = GameNationIdentifier::from_name_6(&name)
+                .with_context(|| format!("parse nation name: '{}'", &name))?;
+
+            let status = cells
+                .next()
+                .ok_or_else(|| anyhow!("No status <td> found for row"))?
+                .inner_html();
+            let (submitted, status) = if finished {
+                (SubmissionStatus::Submitted, NationStatus::DefeatedThisTurn)
+            } else {
+                match status.as_ref() {
+                    "Turn played" => (SubmissionStatus::Submitted, NationStatus::Human),
+                    "Turn unfinished" => {
+                        (SubmissionStatus::PartiallySubmitted, NationStatus::Human)
+                    }
+                    "-" => (SubmissionStatus::NotSubmitted, NationStatus::Human),
+                    "Eliminated" => (SubmissionStatus::Submitted, NationStatus::Defeated),
+                    _ => return Err(anyhow!("Unknown player status: '{}'", status)),
+                }
+            };
+            Ok(Nation {
+                identifier,
+                submitted,
+                status,
+                connected: false,
+            })
+        })
+        .collect::<anyhow::Result<Vec<_>>>()?;
+
+    Ok(GameData {
+        game_name,
+        nations,
+        turn,
+        turn_deadline,
+    })
+}
+
+fn interpret_raw_data(raw_data: RawGameData, dom_version: u8) -> anyhow::Result<GameData> {
     let turn_deadline = Utc::now()
         .checked_add_signed(chrono::Duration::milliseconds(raw_data.d.into()))
         .ok_or_else(|| anyhow!("invalid duration remaining in turn"))?;
@@ -43,8 +204,13 @@ fn interpret_raw_data(raw_data: RawGameData) -> anyhow::Result<GameData> {
             let submitted = raw_data.f[i + 250];
             let connected = raw_data.f[i + 500];
             let nation_id = (i - 1) as u32; // why -1? No fucking idea
+            let identifier = match dom_version {
+                5 => GameNationIdentifier::from_id(nation_id),
+                6 => GameNationIdentifier::from_id_6(nation_id),
+                _ => return Err(anyhow!("Dom {} lol", dom_version)),
+            };
             let nation = Nation {
-                identifier: GameNationIdentifier::from_id(nation_id),
+                identifier,
                 status: NationStatus::from_int(status_num)
                     .ok_or_else(|| anyhow!("Unknown nation status {}", status_num))?,
                 submitted: SubmissionStatus::from_int(submitted),
