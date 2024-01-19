@@ -71,77 +71,8 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
         .ok_or_else(|| anyhow!("No header <td> found"))?
         .inner_html();
 
-    // samog, turn 41 (finished)
-    // samog, turn 41 (time left: 1 days and 1 hours)
-    let mut header_sections = header_element.split(',');
-    let game_name = header_sections
-        .next()
-        .ok_or_else(|| anyhow!("No game_name section in the header found"))?
-        .to_owned();
-    let remaining_header = header_sections
-        .next()
-        .ok_or_else(|| anyhow!("No remaining_header found"))?;
-    // skip " turn "
-    let mut remaining_header = remaining_header.chars().skip(6);
-    let digits = (&mut remaining_header)
-        .take_while(|c| c.is_ascii_digit())
-        .collect::<String>();
-    let turn = i32::from_str(&digits).context("parse turn")?;
-
-    // skip " (time left: "
-    let remaining_header = remaining_header.skip(13).collect::<String>();
-
-    // 1 days and 1 hours
-    // okay I'm a bit worried we might see "1 days" or "1 day" or "1 hour" or "1 hours"
-    // depending on if there's e.g. exactly 24 hours or <24 hours remaining
-    let mut words = remaining_header.split(' ');
-    let (finished, turn_deadline) = if let Some(first_count) = words.next() {
-        let mut seconds = 0;
-
-        if !first_count.is_empty() {
-            let first_unit = words.next().ok_or_else(|| anyhow!("first_unit"))?;
-            let first_count = i32::from_str(first_count).context("first_count i32 parse")?;
-            match first_unit {
-                "week" | "weeks" => seconds += first_count * 7 * 24 * 60 * 60,
-                "days" | "day" => seconds += first_count * 24 * 60 * 60,
-                "hours" | "hour" => seconds += first_count * 60 * 60,
-                "minute" | "minutes" => seconds += first_count * 60,
-                "second" | "seconds" => seconds += first_count,
-                _ => return Err(anyhow!("Unknown first_unit: '{}'", first_unit)),
-            }
-            // skip 'and'
-            let _ = words.next();
-            let second_unit = words.next();
-            let second_count = words.next();
-            match (second_unit, second_count) {
-                (Some(second_unit), Some(second_count)) => {
-                    let second_count =
-                        i32::from_str(second_count).context("second_count i32 parse");
-                    match second_unit {
-                        "days)" | "day)" => seconds += second_count? * 24 * 60 * 60,
-                        "hours)" | "hour)" => seconds += second_count? * 60 * 60,
-                        "minute)" | "minutes)" => seconds += second_count? * 60,
-                        "second)" | "seconds)" => seconds += second_count?,
-                        _ => return Err(anyhow!("Unknown first_unit: '{}'", first_unit)),
-                    }
-                }
-                _ => {
-                    return Err(anyhow!(
-                        "Okay I really don't know what's going on at this point"
-                    ))
-                }
-            }
-            if let Some(remaining) = words.next() {
-                return Err(anyhow!("Extra time text remaining: '{}'", remaining));
-            }
-        }
-        // yes this does not cover leap seconds or
-        // daylight savings properly however: I do not give a shit
-        (false, Utc::now() + Duration::from_secs(seconds as u64))
-    } else {
-        // finished
-        (true, Utc::now())
-    };
+    let (game_name, turn, option_time_remaining, finished) =
+        parse_header(&header_element).context("parse_header")?;
 
     let nations = rows
         .map(|row| {
@@ -179,12 +110,96 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
+    let turn_deadline = todo!();
+
     Ok(GameData {
         game_name,
         nations,
         turn,
         turn_deadline,
     })
+}
+
+fn parse_header(header_element: &str) -> anyhow::Result<(String, i32, Option<Duration>, bool)> {
+    // samog, turn 41 (finished)
+    // samog, turn 41 (time left: 1 days and 1 hours)
+    let mut header_sections = header_element.split(',');
+    let game_name = header_sections
+        .next()
+        .ok_or_else(|| anyhow!("No game_name section in the header found"))?
+        .to_owned();
+    let remaining_header = header_sections
+        .next()
+        .ok_or_else(|| anyhow!("No remaining_header found"))?;
+    // skip " turn "
+    let mut remaining_header = remaining_header.chars().skip(6);
+    let digits = (&mut remaining_header)
+        .take_while(|c| c.is_ascii_digit())
+        .collect::<String>();
+    let turn = i32::from_str(&digits).context("parse turn")?;
+
+    // skip " (time left: "
+    let remaining_header = remaining_header.collect::<String>();
+    let remaining_header = if remaining_header.contains(':') {
+        remaining_header
+            .split(':')
+            .skip(1)
+            .next()
+            .expect("we just tested it had a ':' in it")
+    } else {
+        &remaining_header
+    };
+
+    // 1 days and 1 hours
+    // okay I'm a bit worried we might see "1 days" or "1 day" or "1 hour" or "1 hours"
+    // depending on if there's e.g. exactly 24 hours or <24 hours remaining
+    let mut words = remaining_header
+        .split(' ')
+        .filter(|x| !x.is_empty())
+        .collect::<Vec<_>>();
+
+    let (finished, option_time_remaining) = if words.len() == 1 && words[0].contains("finished") {
+        (true, None)
+    } else if words.len() == 0 {
+        (false, None)
+    } else {
+        let number_unit_pairs = if words.len() == 2 {
+            vec![(words[0], words[1])]
+        } else if words.len() == 5 && words[2] == "and" {
+            vec![(words[0], words[1]), (words[3], words[4])]
+        } else {
+            return Err(anyhow!("Unknown duration: {}", remaining_header));
+        };
+        let seconds: i32 = number_unit_pairs
+            .into_iter()
+            .map(|(count, unit)| text_to_seconds(count, unit))
+            .collect::<anyhow::Result<Vec<_>>>()
+            .context("parse duration text")?
+            .into_iter()
+            .sum();
+        (false, Some(Duration::from_secs(seconds as u64)))
+    };
+
+    Ok((game_name, turn, option_time_remaining, finished))
+}
+
+fn text_to_seconds(count: &str, unit: &str) -> anyhow::Result<i32> {
+    let mult = if unit.contains("week") {
+        7 * 24 * 60 * 60
+    } else if unit.contains("day") {
+        24 * 60 * 60
+    } else if unit.contains("hour") {
+        60 * 60
+    } else if unit.contains("minute") {
+        60
+    } else if unit.contains("second") {
+        1
+    } else {
+        return Err(anyhow!("Unknown time unit: '{}'", unit));
+    };
+
+    let count = i32::from_str(count).context("parse duration as number")?;
+    Ok(mult * count)
 }
 
 fn interpret_raw_data(raw_data: RawGameData, dom_version: u8) -> anyhow::Result<GameData> {
@@ -376,4 +391,59 @@ fn parse_data(data: &[u8]) -> anyhow::Result<RawGameData> {
         i,
         j,
     })
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    // samog, turn 41 (finished)
+    // samog, turn 41
+    // samog, turn 41 (time left: 1 days and 1 hours)
+    // curtains, turn 1 (time left: 21 hours and 3 minutes)
+
+    #[test]
+    fn header_parse_no_timer() {
+        let (game_name, turn, option_time_remaining, finished) =
+            parse_header("samog, turn 41").unwrap();
+        assert_eq!("samog", game_name);
+        assert_eq!(41, turn);
+        assert!(option_time_remaining.is_none());
+        assert!(!finished);
+    }
+
+    #[test]
+    fn header_parse_finished() {
+        let (game_name, turn, option_time_remaining, finished) =
+            parse_header("samog, turn 41 (finished)").unwrap();
+        assert_eq!("samog", game_name);
+        assert_eq!(41, turn);
+        assert!(option_time_remaining.is_none());
+        assert!(finished);
+    }
+
+    #[test]
+    fn header_parse_timer_1() {
+        let (game_name, turn, option_time_remaining, finished) =
+            parse_header("samog, turn 41 (time left: 1 days and 1 hours)").unwrap();
+        assert_eq!("samog", game_name);
+        assert_eq!(41, turn);
+        assert_eq!(
+            Duration::from_secs(25 * 60 * 60),
+            option_time_remaining.unwrap()
+        );
+        assert!(!finished);
+    }
+
+    #[test]
+    fn header_parse_timer_2() {
+        let (game_name, turn, option_time_remaining, finished) =
+            parse_header("curtains, turn 1 (time left: 21 hours and 3 minutes)").unwrap();
+        assert_eq!("curtains", game_name);
+        assert_eq!(1, turn);
+        assert_eq!(
+            Duration::from_secs(21 * 60 * 60 + 3 * 60),
+            option_time_remaining.unwrap()
+        );
+        assert!(!finished);
+    }
 }
