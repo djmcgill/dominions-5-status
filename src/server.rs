@@ -70,6 +70,16 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
         .next()
         .ok_or_else(|| anyhow!("No header <td> found"))?
         .inner_html();
+    let header_element = header_element.trim();
+
+    if header_element == "Game is being setup" {
+        return Ok(GameData {
+            game_name: "".to_owned(),
+            turn: -1, // TODO: this is a horrible hack to contort the dom6 data back into the dom5 form
+            turn_deadline: Utc::now(),
+            nations: vec![],
+        });
+    }
 
     let (game_name, turn, option_time_remaining, finished) =
         parse_header(&header_element).context("parse_header")?;
@@ -110,7 +120,7 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
         })
         .collect::<anyhow::Result<Vec<_>>>()?;
 
-    let turn_deadline = todo!();
+    let turn_deadline = Utc::now() + option_time_remaining.unwrap_or_default();
 
     Ok(GameData {
         game_name,

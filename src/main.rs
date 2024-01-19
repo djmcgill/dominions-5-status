@@ -146,7 +146,7 @@ async fn create_discord_client() -> anyhow::Result<Client> {
             Box::pin(async move {
                 if let Err(err) = result {
                     let err = anyhow!(err);
-                    let text = format!("ERROR: {}", err);
+                    let text = format!("ERROR: {:?}", err);
                     info!("command error: replying with '{}'", text);
                     let _ = msg.reply((&ctx.cache, ctx.http.as_ref()), &text).await;
                 }
