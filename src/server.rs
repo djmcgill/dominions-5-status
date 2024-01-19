@@ -82,7 +82,7 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
     }
 
     let (game_name, turn, option_time_remaining, finished) =
-        parse_header(&header_element).context("parse_header")?;
+        parse_header(header_element).context("parse_header")?;
 
     let nations = rows
         .map(|row| {
@@ -153,8 +153,7 @@ fn parse_header(header_element: &str) -> anyhow::Result<(String, i32, Option<Dur
     let remaining_header = if remaining_header.contains(':') {
         remaining_header
             .split(':')
-            .skip(1)
-            .next()
+            .nth(1)
             .expect("we just tested it had a ':' in it")
     } else {
         &remaining_header
@@ -163,14 +162,14 @@ fn parse_header(header_element: &str) -> anyhow::Result<(String, i32, Option<Dur
     // 1 days and 1 hours
     // okay I'm a bit worried we might see "1 days" or "1 day" or "1 hour" or "1 hours"
     // depending on if there's e.g. exactly 24 hours or <24 hours remaining
-    let mut words = remaining_header
+    let words = remaining_header
         .split(' ')
         .filter(|x| !x.is_empty())
         .collect::<Vec<_>>();
 
     let (finished, option_time_remaining) = if words.len() == 1 && words[0].contains("finished") {
         (true, None)
-    } else if words.len() == 0 {
+    } else if words.is_empty() {
         (false, None)
     } else {
         let number_unit_pairs = if words.len() == 2 {

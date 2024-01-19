@@ -360,7 +360,7 @@ lazy_static! {
         "ctis desert tombs" => ("C'tis, Desert Tombs", 113),
         "midgard age of men" => ("Midgård, Age of Men", 115),
         "bogarus age of heroes" => ("Bogarus, Age of Heroes", 116),
-        "utgrd well of urd" => ("Utgård, Well of Urd", 117),
+        "utgard well of urd" => ("Utgård, Well of Urd", 117),
         "vaettiheim wolf kin jarldom" => ("Vaettiheim, Wolf Kin Jarldom", 118),
         "feminie sagequeens" => ("Feminie, Sage-Queens", 119),
         "piconye legacy of the prester king" => ("Piconye, Legacy of the Prester King", 120),
