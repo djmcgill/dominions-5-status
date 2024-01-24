@@ -79,19 +79,19 @@ async fn server_details(ctx: &Context, msg: &Message, args: Args) -> CommandResu
 }
 
 #[command]
-#[aliases("register")]
+#[aliases("register", "join")]
 async fn server_register(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     bang_command_wrap(ctx, msg, args, register_player::register_player).await
 }
 
 #[command]
-#[aliases("register-id")]
+#[aliases("register-id", "join-id")]
 async fn server_register_id(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     bang_command_wrap(ctx, msg, args, register_player::register_player_id).await
 }
 
 #[command]
-#[aliases("register-custom")]
+#[aliases("register-custom", "join-custom")]
 async fn server_register_custom(ctx: &Context, msg: &Message, args: Args) -> CommandResult {
     bang_command_wrap(ctx, msg, args, register_player::register_player_custom).await
 }

@@ -46,10 +46,8 @@ n.b. server alias is optional, defaults to channel name.
     - remove the server address from the list
 - `!details [<alias>]`:
     - return a list of the nations and their statuses in the game
-- `!register nation_prefix [<alias>]`:
-    - register yourself as a nation in a game. Tries to ignore case, punctuation etc.
-- `!register-id nation_id [<alias>]`:
-    - register yourself as a nation in a game using the id
+- `!join/join-id/join-custom <nation> [<alias>]`:
+    - join a game. Can use the name (tries to ignore case, punctuation etc), the ID, or some "totally custom text" in quotes.
 - `!unregister [<alias>]`:
     - unregister yourself in a game
 - `!turns`:
@@ -60,8 +58,6 @@ n.b. server alias is optional, defaults to channel name.
     - create a lobby with no server
 - `!lobbies`:
     - list available lobbies
-- `!{item, spell, unit, site, merc, event} <text>`:
-    - get dom5inspector search url
 - `!start <address:port> [<alias>]` OR `!start <url for status page.html> [<alias>]`:
     - register a started server for a lobby game
 - `!describe "text" [<alias>]`:

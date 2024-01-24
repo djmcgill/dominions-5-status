@@ -83,6 +83,22 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                     .description("Register yourself as some text in a mod game or lobby. You must reregister after uploading.")
                     .add_option(CreateCommandOption::new(CommandOptionType::String, "nation_text", "Some text to represent your chosen nation").required(true))
                     .add_option(game_name_option()),
+                CreateCommand::new("join")
+                    .description("Join a game or lobby")
+                    .add_option(CreateCommandOption::new(
+                        CommandOptionType::String,
+                        "nation_name_prefix",
+                        "The start (or all) of a nation name e.g. `tien`, `eatie`, `\"T'ien Ch'i\"`, or `\"EA T'ien Ch'i\""
+                    ).required(true))
+                    .add_option(game_name_option()),
+                CreateCommand::new("join-id")
+                    .description("Join a game or lobby using a nation ID")
+                    .add_option(CreateCommandOption::new(CommandOptionType::Integer, "nation_id", "The ID of the nation, e.g. `10` for EA TC"))
+                    .add_option(game_name_option()),
+                CreateCommand::new("Join-custom")
+                    .description("Join a mod game or lobby. You must reregister after uploading.")
+                    .add_option(CreateCommandOption::new(CommandOptionType::String, "nation_text", "Some text to represent your chosen nation.").required(true))
+                    .add_option(game_name_option()),
                 CreateCommand::new("unregister")
                     .description("Unregister yourself from all nations in a game or lobby")
                     .add_option(game_name_option()),
@@ -105,7 +121,7 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                     .description("List available lobbies"),
                 CreateCommand::new("start")
                     .description("Start a lobby with an address, after starting it on the server")
-                    .add_option(CreateCommandOption::new(CommandOptionType::String, "address_colon_port", "The address and port, separated by a colon, of the started game").required(true))
+                    .add_option(CreateCommandOption::new(CommandOptionType::String, "address", "Either \"web.site:1234\" or \"www.illwinter.com/mygame.html\"").required(true))
                     .add_option(game_name_option()),
             CreateCommand::new("describe")
                     .description("Add a description to a lobby. Quotemarks required.")

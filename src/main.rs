@@ -152,8 +152,7 @@ async fn create_discord_client() -> anyhow::Result<Client> {
                 }
             })
         })
-        .group(&crate::commands::servers::SERVER_GROUP)
-        .group(&crate::commands::search::SEARCH_GROUP);
+        .group(&crate::commands::servers::SERVER_GROUP);
     framework.configure(Configuration::new().prefix("!"));
 
     let cache_loop_db_conn = db_conn.clone();
