@@ -253,6 +253,7 @@ lazy_static! {
         "ermornewfaith" => ("Ermor, New Faith", 8),
         "sauromatiaamazonqueens" => ("Sauromatia, Amazon Queens", 9),
         "fomoriathecursedones" => ("Fomoria, The Cursed Ones", 10),
+        "tirnanoglandoftheeveryoung" => ("Tir na n'Og, Land of the Ever Young", 11),
         "tnnlandoftheeveryoung" => ("Tir na n'Og, Land of the Ever Young", 11),
         "marvernitimeofdruids" => ("Marverni, Time of Druids", 12),
         "ulmenigmaofsteel" => ("Ulm, Enigma of Steel", 13),
