@@ -95,7 +95,7 @@ pub async fn create_guild_commands(http: &Http) -> anyhow::Result<()> {
                     .description("Join a game or lobby using a nation ID")
                     .add_option(CreateCommandOption::new(CommandOptionType::Integer, "nation_id", "The ID of the nation, e.g. `10` for EA TC"))
                     .add_option(game_name_option()),
-                CreateCommand::new("Join-custom")
+                CreateCommand::new("join-custom")
                     .description("Join a mod game or lobby. You must reregister after uploading.")
                     .add_option(CreateCommandOption::new(CommandOptionType::String, "nation_text", "Some text to represent your chosen nation.").required(true))
                     .add_option(game_name_option()),

@@ -80,7 +80,7 @@ impl EventHandler for Handler {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    SimpleLogger::init(LevelFilter::Info, Config::default())?;
+    SimpleLogger::init(LevelFilter::Warn, Config::default())?;
     info!("Logger initialised");
 
     let mut discord_client = create_discord_client().await?;
