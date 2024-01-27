@@ -358,7 +358,7 @@ async fn details_to_embed(
                             SubmissionStatus::Submitted.show()
                         };
 
-                        if ix % 20 == 0 {
+                        if ix % 15 == 0 {
                             embed_texts.push(String::new());
                         }
 
@@ -417,7 +417,7 @@ async fn details_to_embed(
                             SubmissionStatus::NotSubmitted.show()
                         };
 
-                        if ix % 20 == 0 {
+                        if ix % 15 == 0 {
                             embed_texts.push(String::new());
                         }
                         let new_len = embed_texts.len();
@@ -465,7 +465,7 @@ async fn details_to_embed(
                     } else {
                         "Human".to_string()
                     };
-                    if ix % 20 == 0 {
+                    if ix % 15 == 0 {
                         embed_texts.push(String::new());
                     }
                     let new_len = embed_texts.len();
