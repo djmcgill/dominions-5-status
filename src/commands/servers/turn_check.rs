@@ -315,7 +315,9 @@ fn create_playing_message(
     defeated_this_turn: &[&Nation],
 ) -> Option<NewTurnNation> {
     // Only message them if they haven't submitted yet
-    if let SubmissionStatus::NotSubmitted = details.submitted {
+    // n.b. Illwinter's dom6 server status has a bug where players can show as partialed on a new turn
+    if let SubmissionStatus::NotSubmitted | SubmissionStatus::PartiallySubmitted = details.submitted
+    {
         // and if they're actually playing and haven't turned notifications off
         if details.player_status.is_human() && player.turn_notifications {
             let deadline = discord_date_format(new_playing_details.turn_deadline);
