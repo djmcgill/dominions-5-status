@@ -371,6 +371,7 @@ lazy_static! {
         "feminiesagequeens" => ("Feminie, Sage-Queens", 119),
         "piconyelegacyofthepresterking" => ("Piconye, Legacy of the Prester King", 120),
         "andramaniadogrepublic" => ("Andramania, Dog Republic", 121),
+        "pyrenecambionkings" => ("Pyrène, Cambion Kings", 123),
         "erytheiakingdomoftwoworlds" => ("Erytheia, Kingdom of Two Worlds", 125),
         "atlantisfrozensea" => ("Atlantis, Frozen Sea", 126),
         "rlyehdreamlands" => ("R'lyeh, Dreamlands", 127),
