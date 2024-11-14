@@ -37,10 +37,17 @@ fn lobbies_helper(
     let mut player_counts = String::new();
 
     for (lobby, registered_count) in lobbies_and_player_count {
-        aliases.push_str(&format!("{}\n", lobby.alias));
-        if let GameServerState::Lobby(state) = lobby.state {
-            player_counts.push_str(&format!("{}/{}\n", registered_count, state.player_count));
+        if let GameServerState::Lobby(state) = &lobby.state {
+            let has_hidden_description = state
+                .description
+                .as_ref()
+                .is_some_and(|x| x.starts_with("#hidden"));
+            if !has_hidden_description {
+                aliases.push_str(&format!("{}\n", lobby.alias));
+                player_counts.push_str(&format!("{}/{}\n", registered_count, state.player_count));
+            }
         } else {
+            aliases.push_str(&format!("{}\n", lobby.alias));
             player_counts.push_str("ERROR");
         }
     }
