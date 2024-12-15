@@ -1,3 +1,6 @@
+// warning: use of deprecated associated function `serenity::framework::standard::*`:
+// The standard framework is deprecated, and will be removed in 0.13. Please migrate to `poise` for command handling
+#![allow(deprecated)]
 mod commands;
 mod db;
 mod model;

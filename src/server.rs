@@ -9,7 +9,7 @@ use byteorder::{LittleEndian, ReadBytesExt};
 use chrono::Utc;
 use flate2::read::ZlibDecoder;
 use log::*;
-use scraper::{Html, Selector};
+use scraper::{ElementRef, Html, Selector};
 use std::{
     io::{BufRead, Cursor, Read},
     str::FromStr,
@@ -85,40 +85,8 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
         parse_header(header_element).context("parse_header")?;
 
     let nations = rows
-        .map(|row| {
-            let mut cells = row.select(&td_selector);
-            let name = cells
-                .next()
-                .ok_or_else(|| anyhow!("No name <td> found for row"))?
-                .inner_html();
-            let identifier = GameNationIdentifier::from_name_6(&name)
-                .with_context(|| format!("parse nation name: '{}'", &name))?;
-
-            let status = cells
-                .next()
-                .ok_or_else(|| anyhow!("No status <td> found for row"))?
-                .inner_html();
-            let (submitted, status) = if finished {
-                (SubmissionStatus::Submitted, NationStatus::DefeatedThisTurn)
-            } else {
-                match status.as_ref() {
-                    "Turn played" => (SubmissionStatus::Submitted, NationStatus::Human),
-                    "Turn unfinished" => {
-                        (SubmissionStatus::PartiallySubmitted, NationStatus::Human)
-                    }
-                    "-" => (SubmissionStatus::NotSubmitted, NationStatus::Human),
-                    "Eliminated" => (SubmissionStatus::Submitted, NationStatus::Defeated),
-                    _ => return Err(anyhow!("Unknown player status: '{}'", status)),
-                }
-            };
-            Ok(Nation {
-                identifier,
-                submitted,
-                status,
-                connected: false,
-            })
-        })
-        .collect::<anyhow::Result<Vec<_>>>()?;
+        .map(|row| parse_nation_row(&td_selector, finished, row))
+        .collect::<Vec<_>>();
 
     let turn_deadline = Utc::now() + option_time_remaining.unwrap_or_default();
 
@@ -127,6 +95,32 @@ fn parse_status_html(page: Html) -> anyhow::Result<GameData> {
         nations,
         turn,
         turn_deadline,
+    })
+}
+
+// instead of failing if we can't parse a nation, instead assume it's a modded nation
+fn parse_nation_row(td_selector: &Selector, finished: bool, row: ElementRef) -> Option<Nation> {
+    let mut cells = row.select(td_selector);
+    let name = cells.next()?.inner_html();
+    let identifier = GameNationIdentifier::from_name_6(&name).ok()?;
+
+    let status = cells.next()?.inner_html();
+    let (submitted, status) = if finished {
+        (SubmissionStatus::Submitted, NationStatus::DefeatedThisTurn)
+    } else {
+        match status.as_ref() {
+            "Turn played" => (SubmissionStatus::Submitted, NationStatus::Human),
+            "Turn unfinished" => (SubmissionStatus::PartiallySubmitted, NationStatus::Human),
+            "-" => (SubmissionStatus::NotSubmitted, NationStatus::Human),
+            "Eliminated" => (SubmissionStatus::Submitted, NationStatus::Defeated),
+            _ => return None,
+        }
+    };
+    Some(Nation {
+        identifier,
+        submitted,
+        status,
+        connected: false,
     })
 }
 
@@ -240,7 +234,7 @@ fn interpret_raw_data(raw_data: RawGameData, dom_version: u8) -> anyhow::Result<
                 submitted: SubmissionStatus::from_int(submitted),
                 connected: connected == 1,
             };
-            game_data.nations.push(nation);
+            game_data.nations.push(Some(nation));
         }
     }
     Ok(game_data)

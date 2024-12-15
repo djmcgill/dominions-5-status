@@ -83,6 +83,7 @@ pub struct PlayingState {
     pub players: Vec<PotentialPlayer>,
     pub turn: u32,
     pub turn_deadline: DateTime<Utc>,
+    pub modded_nations: bool,
 }
 #[derive(PartialEq, Eq, Clone, Debug)]
 pub enum PotentialPlayer {

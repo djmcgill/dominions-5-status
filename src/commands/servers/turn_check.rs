@@ -168,6 +168,7 @@ async fn process_game_data(
         let defeated_this_turn = new_game_data
             .nations
             .iter()
+            .filter_map(|x| x.as_ref())
             .filter(|nation| nation.status == NationStatus::DefeatedThisTurn)
             .collect::<Vec<_>>();
 
@@ -202,6 +203,7 @@ async fn possible_stales_from_old_cache(
                 .game_data
                 .nations
                 .iter()
+                .filter_map(|x| x.as_ref())
                 .filter(|old_nation| {
                     old_nation.submitted == SubmissionStatus::NotSubmitted
                         && old_nation.status == NationStatus::Human

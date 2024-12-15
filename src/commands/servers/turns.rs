@@ -157,8 +157,25 @@ fn turns_for_playing_state(
 
     for playing_player in &playing_state.players {
         match playing_player {
-            PotentialPlayer::RegisteredOnly(_, _) => (),
-            PotentialPlayer::GameOnly(_) => (),
+            // if they're registered, and there's bot nations, notify them anyway
+            PotentialPlayer::RegisteredOnly(potential_player, bot_nation)
+                if playing_state.modded_nations =>
+            {
+                if potential_player.discord_user_id == user_id {
+                    let deadline = discord_date_format(playing_state.turn_deadline);
+                    let turn_str = format!(
+                        "{} turn {} ({}): {} (submitted: {}, {}/{})",
+                        alias,
+                        playing_state.turn,
+                        deadline,
+                        bot_nation.name(option_snek_state),
+                        SubmissionStatus::NotSubmitted.show(),
+                        submitted_players,
+                        playing_players,
+                    );
+                    texts.push(turn_str);
+                }
+            }
             PotentialPlayer::RegisteredAndGame(potential_player, potential_player_details) => {
                 // FIXME: there used to be a nation_id check on here. What is this for?
                 //        does it fail only when people are registered multiple times?
@@ -182,6 +199,7 @@ fn turns_for_playing_state(
                     texts.push(turn_str);
                 }
             }
+            _ => (),
         }
     }
     texts

@@ -252,13 +252,14 @@ async fn register_custom_helper(
     );
 
     if arg_custom_nation.len() >= 100 {
-        return Err("Come now, let's not be silly. Please use a shorter nation name.".into());
+        return Err("Come now, let's not be silly. Use a shorter nation name.".into());
     }
 
     let server = db_conn.game_for_alias(&alias).map_err(CommandError::from)?;
 
     match server.state {
-        GameServerState::Lobby(lobby_state) => {
+        GameServerState::Lobby(lobby_state)
+        | GameServerState::StartedState(_, Some(lobby_state)) => {
             let players_nations = db_conn.players_with_nations_for_game_alias(&alias)?;
             if players_nations.len() as i32 >= lobby_state.player_count {
                 return Err(CommandError::from("lobby already full"));
@@ -273,7 +274,7 @@ async fn register_custom_helper(
             }
 
             let register_message = format!(
-                "Registered {}. You will have to reregister after uploading.",
+                "Registered {}. Until Illwinter fix modded nation status, you will always show up as having not submitted and will still get pings when you go AI unless you unregister.",
                 arg_custom_nation,
             );
             let nation = BotNationIdentifier::CustomName(arg_custom_nation);
@@ -286,8 +287,8 @@ async fn register_custom_helper(
                 .map_err(CommandError::from)?;
             Ok(register_message)
         }
-        GameServerState::StartedState(_, _) => {
-            Err("You cannot use \"register-custom\" during after uploads have started!".into())
+        GameServerState::StartedState(_, None) => {
+            Err("You cannot use \"register-custom\" during after uploads have started unless the game was a lobby".into())
         }
     }
 }

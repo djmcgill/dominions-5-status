@@ -179,7 +179,7 @@ pub fn lobby_details(
 /// 3) who is NOT in the game but is in the bot
 fn join_players_with_nations(
     // from game
-    nations: &[Nation],
+    nations: &[Option<Nation>],
     // from db
     players_nations: &[(Player, BotNationIdentifier)],
 ) -> Result<Vec<PotentialPlayer>, CommandError> {
@@ -198,26 +198,28 @@ fn join_players_with_nations(
             ));
         }
     }
-    for nation in nations {
-        match players_by_nation_id.remove(&nation.identifier.id()) {
-            // Lobby and game
-            Some((player, _)) => {
-                let player_details = PlayerDetails {
+    for maybe_nation in nations {
+        if let Some(nation) = maybe_nation {
+            match players_by_nation_id.remove(&nation.identifier.id()) {
+                // Lobby and game
+                Some((player, _)) => {
+                    let player_details = PlayerDetails {
+                        nation_identifier: nation.identifier.clone(),
+                        submitted: nation.submitted,
+                        player_status: nation.status,
+                    };
+                    potential_players.push(PotentialPlayer::RegisteredAndGame(
+                        player.clone(),
+                        player_details,
+                    ))
+                }
+                // Game only
+                None => potential_players.push(PotentialPlayer::GameOnly(PlayerDetails {
                     nation_identifier: nation.identifier.clone(),
                     submitted: nation.submitted,
                     player_status: nation.status,
-                };
-                potential_players.push(PotentialPlayer::RegisteredAndGame(
-                    player.clone(),
-                    player_details,
-                ))
+                })),
             }
-            // Game only
-            None => potential_players.push(PotentialPlayer::GameOnly(PlayerDetails {
-                nation_identifier: nation.identifier.clone(),
-                submitted: nation.submitted,
-                player_status: nation.status,
-            })),
         }
     }
     // Lobby only RegisteredOnly(UserId, BotNationIdentifier),
@@ -276,6 +278,8 @@ pub fn started_details_from_server(
             players: player_details,
             turn_deadline: game_data.turn_deadline,
             turn: game_data.turn as u32, // game_data >= 0 checked above
+            // any nation we can't parse here?
+            modded_nations: game_data.nations.iter().any(|x| x.is_none()),
         })
     };
 
@@ -323,17 +327,40 @@ async fn details_to_embed(
                     // we can't have too many players per embed it's real annoying
                     let mut embed_texts = vec![];
                     for (ix, potential_player) in playing_state.players.iter().enumerate() {
-                        let (option_user_id, player_details) = match potential_player {
-                            // If the game has started and they're not in it, too bad
-                            PotentialPlayer::RegisteredOnly(_, _) => continue,
-                            PotentialPlayer::RegisteredAndGame(user_id, player_details) => {
-                                (Some(user_id), player_details)
-                            }
-                            PotentialPlayer::GameOnly(player_details) => (None, player_details),
-                        };
+                        let (option_user_id, option_player_details, option_bot_nation) =
+                            match potential_player {
+                                // If the game has started and they're not in it,
+                                // maybe they're playing a modded nation
+                                PotentialPlayer::RegisteredOnly(user_id, bot_nation) => {
+                                    (Some(user_id), None, Some(bot_nation))
+                                }
+                                PotentialPlayer::RegisteredAndGame(user_id, player_details) => {
+                                    (Some(user_id), Some(player_details), None)
+                                }
+                                PotentialPlayer::GameOnly(player_details) => {
+                                    (None, Some(player_details), None)
+                                }
+                            };
 
                         let player_name = if !anon_game {
-                            if let NationStatus::Human = player_details.player_status {
+                            if let Some(player_details) = option_player_details {
+                                if let NationStatus::Human = player_details.player_status {
+                                    match option_user_id {
+                                        Some(player) => Some(Cow::Owned(format!(
+                                            "**{}**",
+                                            player
+                                                .discord_user_id
+                                                .to_user((&context.cache, context.http.as_ref()))
+                                                .await?
+                                        ))),
+                                        None => None,
+                                    }
+                                } else {
+                                    None
+                                }
+                            } else {
+                                // if they're playing a modded nation we can't get status and so have to assume
+                                // they're still playing
                                 match option_user_id {
                                     Some(player) => Some(Cow::Owned(format!(
                                         "**{}**",
@@ -344,18 +371,27 @@ async fn details_to_embed(
                                     ))),
                                     None => None,
                                 }
-                            } else {
-                                None
                             }
                         } else {
                             None
                         }
-                        .unwrap_or_else(|| Cow::Borrowed(player_details.player_status.show()));
+                        .unwrap_or_else(|| {
+                            Cow::Borrowed(
+                                option_player_details
+                                    .map(|player_details| player_details.player_status.show())
+                                    .unwrap_or("UNKNOWN"),
+                            )
+                        });
 
-                        let submission_symbol = if player_details.player_status.is_human() {
-                            player_details.submitted.show()
+                        let submission_symbol = if let Some(player_details) = option_player_details
+                        {
+                            if player_details.player_status.is_human() {
+                                player_details.submitted.show()
+                            } else {
+                                SubmissionStatus::Submitted.show()
+                            }
                         } else {
-                            SubmissionStatus::Submitted.show()
+                            SubmissionStatus::NotSubmitted.show()
                         };
 
                         if ix % 15 == 0 {
@@ -368,13 +404,21 @@ async fn details_to_embed(
                                 "Somehow produced an embed with 0 elements when iterating potential players. this is a bug."
                                     .to_string()));
                         } else {
-                            embed_texts[new_len - 1].push_str(&format!(
-                                "`{}` {}: {}\n",
-                                submission_symbol,
+                            let nation_name = if let Some(player_details) = option_player_details {
                                 player_details
                                     .nation_identifier
-                                    .name(option_snek_state.as_ref()),
-                                player_name,
+                                    .name(option_snek_state.as_ref())
+                            } else {
+                                if let Some(bot_nation) = option_bot_nation {
+                                    bot_nation.name(option_snek_state.as_ref())
+                                } else {
+                                    Cow::Borrowed("UNKNOWN") // should never happen
+                                }
+                            };
+
+                            embed_texts[new_len - 1].push_str(&format!(
+                                "`{}` {}: {}\n",
+                                submission_symbol, nation_name, player_name,
                             ));
                         }
                     }
