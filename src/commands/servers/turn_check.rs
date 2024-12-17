@@ -9,7 +9,7 @@ use crate::{
             CacheEntry, GameDetails, NationDetails, PlayerDetails, PlayingState, PotentialPlayer,
             StartedDetails, StartedStateDetails,
         },
-        nation::Nation,
+        nation::{BotNationIdentifier, Nation},
         player::Player,
     },
     server::get_game_data_async,
@@ -278,7 +278,9 @@ pub fn create_messages_for_new_turn(
             new_playing_details.players.iter().flat_map(|potential_player| {
                 match potential_player {
                     PotentialPlayer::GameOnly(_) => None, // Don't know who they are, can't message them
-                    PotentialPlayer::RegisteredOnly(_, _) => None, // Looks like they got left out, too bad
+                    PotentialPlayer::RegisteredOnly(player, mod_nation) => if new_playing_details.modded_nations {
+                        create_playing_message_for_mod_player(alias, new_playing_details, option_snek_state, player, mod_nation, possible_stales, defeated_this_turn)
+                    } else {None}, // Looks like they got left out, too bad
                     PotentialPlayer::RegisteredAndGame(player, details) => create_playing_message(
                         alias,
                         new_playing_details,
@@ -307,6 +309,72 @@ pub fn create_messages_for_new_turn(
     }
 }
 
+fn mk_possible_stale_message(
+    possible_stales: &[Nation],
+    option_snek_state: Option<&SnekGameStatus>,
+) -> String {
+    if let Some(first_player) = possible_stales.first() {
+        let mut msg = ".\nPossible stales: ".to_owned();
+        msg.push_str(first_player.identifier.name(option_snek_state).as_ref());
+        for player in &possible_stales[1..] {
+            msg.push_str(", ");
+            msg.push_str(player.identifier.name(option_snek_state).as_ref());
+        }
+        msg
+    } else {
+        String::new()
+    }
+}
+
+fn mk_possible_dead_message(
+    defeated_this_turn: &[&Nation],
+    option_snek_state: Option<&SnekGameStatus>,
+) -> String {
+    if let Some(first_player) = defeated_this_turn.first() {
+        let mut msg = ".\nDefeated this turn (rip): ".to_owned();
+        msg.push_str(first_player.identifier.name(option_snek_state).as_ref());
+        for player in &defeated_this_turn[1..] {
+            msg.push_str(", ");
+            msg.push_str(player.identifier.name(option_snek_state).as_ref());
+        }
+        msg
+    } else {
+        String::new()
+    }
+}
+
+fn create_playing_message_for_mod_player(
+    alias: &str,
+    new_playing_details: &PlayingState,
+    option_snek_state: Option<&SnekGameStatus>,
+    player: &Player,
+    mod_nation: &BotNationIdentifier,
+    possible_stales: &[Nation],
+    defeated_this_turn: &[&Nation],
+) -> Option<NewTurnNation> {
+    if player.turn_notifications {
+        let deadline = discord_date_format(new_playing_details.turn_deadline);
+
+        let possible_stale_message = mk_possible_stale_message(possible_stales, option_snek_state);
+        let possible_dead_message = mk_possible_dead_message(defeated_this_turn, option_snek_state);
+
+        return Some(NewTurnNation {
+            user_id: player.discord_user_id,
+            message: format!(
+                "Turn {} in {}! You are \"{}\" and timer is in {}{}{}",
+                new_playing_details.turn,
+                alias,
+                mod_nation.name(option_snek_state),
+                deadline,
+                possible_stale_message,
+                possible_dead_message,
+            ),
+        });
+    } else {
+        None
+    }
+}
+
 fn create_playing_message(
     alias: &str,
     new_playing_details: &PlayingState,
@@ -324,29 +392,10 @@ fn create_playing_message(
         if details.player_status.is_human() && player.turn_notifications {
             let deadline = discord_date_format(new_playing_details.turn_deadline);
 
-            let possible_stale_message = if let Some(first_player) = possible_stales.first() {
-                let mut msg = ".\nPossible stales: ".to_owned();
-                msg.push_str(first_player.identifier.name(option_snek_state).as_ref());
-                for player in &possible_stales[1..] {
-                    msg.push_str(", ");
-                    msg.push_str(player.identifier.name(option_snek_state).as_ref());
-                }
-                msg
-            } else {
-                String::new()
-            };
-
-            let possible_dead_message = if let Some(first_player) = defeated_this_turn.first() {
-                let mut msg = ".\nDefeated this turn (rip): ".to_owned();
-                msg.push_str(first_player.identifier.name(option_snek_state).as_ref());
-                for player in &defeated_this_turn[1..] {
-                    msg.push_str(", ");
-                    msg.push_str(player.identifier.name(option_snek_state).as_ref());
-                }
-                msg
-            } else {
-                String::new()
-            };
+            let possible_stale_message =
+                mk_possible_stale_message(possible_stales, option_snek_state);
+            let possible_dead_message =
+                mk_possible_dead_message(defeated_this_turn, option_snek_state);
 
             return Some(NewTurnNation {
                 user_id: player.discord_user_id,
